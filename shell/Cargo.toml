@@ -41,3 +41,10 @@ anyhow = { workspace = true }
 
 # CLI
 rustyline = "14"
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "router_benchmarks"
+harness = false

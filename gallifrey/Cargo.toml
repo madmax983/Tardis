@@ -37,6 +37,11 @@ anyhow = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+criterion = { workspace = true }
+
+[[bench]]
+name = "store_benchmarks"
+harness = false
 
 [features]
 default = []
