@@ -1,0 +1,44 @@
+# Tardis OS - Rust Formatting Configuration
+#
+# We use rustfmt with mostly default settings, with a few adjustments
+# for readability in kernel/systems code.
+#
+# Run: cargo fmt --check (CI) or cargo fmt (apply)
+
+# Stable settings (work with stable Rust)
+edition = "2024"
+max_width = 100
+tab_spaces = 4
+newline_style = "Auto"
+use_small_heuristics = "Default"
+
+# Import organization
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+reorder_modules = true
+
+# Comments
+normalize_comments = false
+wrap_comments = false
+comment_width = 100
+
+# Formatting behavior
+format_code_in_doc_comments = true
+format_macro_matchers = true
+format_strings = false
+
+# Keep attributes on their own line for readability
+# fn_single_line = false (default)
+
+# Nightly-only settings (uncomment when using nightly rustfmt)
+# These are documented here for future reference
+
+# unstable_features = true
+# format_macro_bodies = true
+# imports_layout = "HorizontalVertical"
+# overflow_delimited_expr = true
+# trailing_semicolon = true
+
+# Kernel-specific: Allow longer lines in inline assembly
+# ignore = ["kernel/src/asm/**"]

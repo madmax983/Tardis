@@ -1,0 +1,31 @@
+[package]
+name = "tardis-common"
+description = "Shared types and utilities for Tardis OS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Identifiers
+uuid = { workspace = true }
+
+# Async support
+async-trait = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

@@ -1,0 +1,41 @@
+[package]
+name = "tardis-chronos"
+description = "Tardis RAG Orchestration Engine - Retrieval-Augmented Generation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Internal
+tardis-common = { path = "../common" }
+tardis-vortex = { path = "../vortex" }
+tardis-gallifrey = { path = "../gallifrey" }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Identifiers
+uuid = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

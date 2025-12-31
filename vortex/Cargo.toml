@@ -1,0 +1,52 @@
+[package]
+name = "tardis-vortex"
+description = "Tardis LLM Inference Engine - Candle-based model serving"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Internal
+tardis-common = { path = "../common" }
+
+# ML Framework
+candle-core = { workspace = true }
+candle-nn = { workspace = true }
+candle-transformers = { workspace = true }
+
+# Tokenization
+tokenizers = { workspace = true }
+
+# Model formats
+safetensors = { workspace = true }
+half = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[features]
+default = []
+# Enable CUDA GPU support
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+# Enable Metal GPU support (macOS)
+metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]

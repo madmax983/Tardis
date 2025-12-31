@@ -1,0 +1,50 @@
+[package]
+name = "tardis-kernel"
+description = "Tardis OS Kernel - AI-native operating system core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Kernel has different lint requirements (no_std, unsafe allowed)
+[lints.rust]
+unsafe_code = "allow"  # Kernel requires unsafe
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+similar_names = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+# Kernel-specific relaxations
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+
+[dependencies]
+# UEFI boot
+uefi = { workspace = true }
+
+# x86_64 CPU support
+x86_64 = { workspace = true }
+
+# Spinlocks for no_std
+spin = { workspace = true }
+
+# Kernel heap allocator
+linked_list_allocator = { workspace = true }
+
+# Logging (no_std compatible)
+log = { workspace = true }
+
+[features]
+default = []
+# Enable QEMU-specific features for testing
+qemu = []
+# Enable serial console output
+serial = []
+
+# Build as a UEFI application
+[[bin]]
+name = "tardis-kernel"
+path = "src/main.rs"

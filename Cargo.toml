@@ -1,0 +1,156 @@
+[workspace]
+resolver = "2"
+members = [
+    "kernel",
+    "vortex",
+    "gallifrey",
+    "chronos",
+    "shell",
+    "common",
+]
+
+# Kernel requires nightly Rust - exclude from default build
+default-members = [
+    "common",
+    "vortex",
+    "gallifrey",
+    "chronos",
+    "shell",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Tardis Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/madmax983/tardis"
+rust-version = "1.85"
+
+# ============================================================================
+# WORKSPACE DEPENDENCIES
+# ============================================================================
+# Shared dependencies across all crates. Use `workspace = true` in member crates.
+
+[workspace.dependencies]
+# Kernel (no_std)
+uefi = "0.33"
+uefi-services = "0.30"
+x86_64 = "0.15"
+spin = "0.9"
+linked_list_allocator = "0.10"
+log = "0.4"
+
+# LLM (Vortex)
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+cudarc = "0.12"
+tokenizers = "0.20"
+safetensors = "0.4"
+half = "2.4"
+
+# Database (Gallifrey)
+# gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
+
+# Common
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+async-trait = "0.1"
+
+# Testing
+proptest = "1"
+criterion = "0.5"
+
+# ============================================================================
+# WORKSPACE LINTS
+# ============================================================================
+# Clippy pedantic with minimal exceptions. See ADR-007 for rationale.
+
+[workspace.lints.rust]
+# Enforce documentation and safety
+missing_docs = "warn"
+unsafe_code = "warn"
+# Rust 2024 edition lints
+rust_2024_compatibility = "warn"
+# Additional safety
+missing_debug_implementations = "warn"
+# Disallow deprecated features
+deprecated = "deny"
+
+[workspace.lints.clippy]
+# Enable pedantic lint group (strict but valuable)
+pedantic = { level = "warn", priority = -1 }
+
+# ---- Allowed exceptions (with justification) ----
+
+# We use `FooConfig` in `foo` module - repetition is acceptable for clarity
+module_name_repetitions = "allow"
+
+# Variables like `kv_cache` and `kv_store` are semantically distinct
+similar_names = "allow"
+
+# Kernel code has many u64/usize casts that are architecture-appropriate
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+
+# Some iterator chains are clearer than for loops
+needless_collect = "allow"
+
+# ---- Additional strict lints (beyond pedantic) ----
+
+# Prefer explicit error handling over panics in library code
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+# Enforce explicit return types and lifetimes
+missing_const_for_fn = "warn"
+
+# Catch potential bugs
+enum_glob_use = "warn"
+if_then_some_else_none = "warn"
+or_fun_call = "warn"
+redundant_else = "warn"
+match_same_arms = "warn"
+
+# Security-relevant
+# (These are from restriction group, enabled selectively)
+# mem_forget = "warn"  # Enable when kernel stabilizes
+
+# ============================================================================
+# PROFILES
+# ============================================================================
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+lto = false
+
+[profile.release]
+opt-level = 3
+debug = false
+overflow-checks = false
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+strip = false
+
+# Optimized for kernel size
+[profile.kernel]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+panic = "abort"

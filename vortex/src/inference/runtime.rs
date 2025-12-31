@@ -1,0 +1,281 @@
+//! Main Vortex inference runtime.
+
+use crate::config::{InferenceParams, ModelLoadConfig};
+use crate::error::{VortexError, VortexResult};
+use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
+use crate::tokenizer::TokenizerService;
+use async_trait::async_trait;
+use std::path::Path;
+use std::sync::Arc;
+use tardis_common::traits::{InferenceParams as TraitParams, ModelInfo as TraitInfo, VortexService};
+use tracing::{info, instrument};
+
+/// The main Vortex inference engine.
+pub struct Vortex {
+    /// Model registry.
+    registry: Arc<ModelRegistry>,
+    /// Tokenizer service.
+    tokenizers: Arc<TokenizerService>,
+}
+
+impl Vortex {
+    /// Create a new Vortex instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if initialization fails.
+    pub fn new() -> VortexResult<Self> {
+        info!("Initializing Vortex inference engine");
+
+        Ok(Self {
+            registry: Arc::new(ModelRegistry::new()),
+            tokenizers: Arc::new(TokenizerService::new()),
+        })
+    }
+
+    /// Load a model from disk.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model cannot be loaded.
+    #[instrument(skip(self, config))]
+    pub async fn load_model(&self, path: &str, config: ModelLoadConfig) -> VortexResult<ModelHandle> {
+        let path_buf = std::path::PathBuf::from(path);
+
+        if !path_buf.exists() {
+            return Err(VortexError::ModelNotFound {
+                path: path.to_string(),
+            });
+        }
+
+        info!("Loading model from {}", path);
+
+        // TODO: Actually load the model with Candle
+        // For now, just register it in the registry
+
+        let info = self.probe_model(&path_buf)?;
+        self.registry.register(path_buf.clone(), info)?;
+
+        // Simulate memory usage based on parameters
+        let memory = 14_000_000_000_u64; // Placeholder
+
+        let handle = self.registry.mark_loaded(&path_buf, memory)?;
+
+        info!("Model loaded successfully: {}", handle);
+
+        Ok(handle)
+    }
+
+    /// Unload a model.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model cannot be unloaded.
+    pub async fn unload_model(&self, handle: ModelHandle) -> VortexResult<()> {
+        if !self.registry.is_valid(handle) {
+            return Err(VortexError::InvalidHandle(handle.raw()));
+        }
+
+        info!("Unloading model {}", handle);
+
+        self.tokenizers.unload(handle)?;
+        self.registry.mark_unloaded(handle)?;
+
+        Ok(())
+    }
+
+    /// Run inference on a model.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inference fails.
+    #[instrument(skip(self, params))]
+    pub async fn infer(
+        &self,
+        handle: ModelHandle,
+        prompt: &str,
+        params: InferenceParams,
+    ) -> VortexResult<String> {
+        if !self.registry.is_valid(handle) {
+            return Err(VortexError::InvalidHandle(handle.raw()));
+        }
+
+        info!(
+            "Running inference: {} tokens max, temp={}",
+            params.max_tokens, params.temperature
+        );
+
+        // TODO: Implement actual inference with Candle
+        // For now, return a placeholder
+
+        Ok(format!(
+            "[Vortex] Inference placeholder for prompt: {}...",
+            &prompt[..prompt.len().min(50)]
+        ))
+    }
+
+    /// Generate embeddings for text.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if embedding generation fails.
+    pub async fn embed(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<f32>> {
+        if !self.registry.is_valid(handle) {
+            return Err(VortexError::InvalidHandle(handle.raw()));
+        }
+
+        // TODO: Implement actual embedding with Candle
+        // For now, return a placeholder vector
+
+        let _tokens = self.tokenizers.encode(handle, text)?;
+
+        Ok(vec![0.0; 4096]) // Placeholder
+    }
+
+    /// List available models.
+    pub fn list_models(&self) -> Vec<ModelInfo> {
+        self.registry.list()
+    }
+
+    /// Get information about a specific model.
+    pub fn model_info(&self, handle: ModelHandle) -> Option<ModelInfo> {
+        let path = self.registry.get_path(handle)?;
+        self.registry.get_info(&path)
+    }
+
+    /// Probe a model file to extract metadata.
+    fn probe_model(&self, path: &Path) -> VortexResult<ModelInfo> {
+        // TODO: Actually read config.json from the model directory
+        // For now, return placeholder info
+
+        Ok(ModelInfo {
+            name: path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            path: path.to_path_buf(),
+            architecture: crate::model::Architecture::Llama,
+            parameters: 7_000_000_000,
+            context_length: 4096,
+            quantization: crate::model::Quantization::F16,
+            loaded: false,
+            memory_bytes: None,
+            num_layers: 32,
+            hidden_size: 4096,
+            num_heads: 32,
+            vocab_size: 32000,
+        })
+    }
+}
+
+/// Implement the VortexService trait for integration with other subsystems.
+#[async_trait]
+impl VortexService for Vortex {
+    async fn load_model(
+        &self,
+        path: &str,
+        config: tardis_common::traits::ModelLoadConfig,
+    ) -> tardis_common::Result<tardis_common::ModelHandle> {
+        let local_config = ModelLoadConfig {
+            device: config.device.unwrap_or_else(|| "cpu".to_string()),
+            quantization: config.quantization,
+            max_context_length: config.max_context_length,
+            use_mmap: config.use_mmap,
+            tensor_parallel: 1,
+        };
+
+        let handle = self.load_model(path, local_config).await.map_err(|e| {
+            tardis_common::Error::ModelLoadFailed {
+                name: path.to_string(),
+                reason: e.to_string(),
+            }
+        })?;
+
+        Ok(tardis_common::ModelHandle::new(handle.raw()))
+    }
+
+    async fn unload_model(&self, handle: tardis_common::ModelHandle) -> tardis_common::Result<()> {
+        let local_handle = ModelHandle::new(handle.raw());
+        self.unload_model(local_handle)
+            .await
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    async fn infer(
+        &self,
+        handle: tardis_common::ModelHandle,
+        prompt: &str,
+        params: TraitParams,
+    ) -> tardis_common::Result<String> {
+        let local_handle = ModelHandle::new(handle.raw());
+        let local_params = InferenceParams {
+            temperature: params.temperature,
+            top_p: params.top_p,
+            top_k: params.top_k,
+            max_tokens: params.max_tokens,
+            stop_sequences: params.stop_sequences,
+            repetition_penalty: 1.1,
+            seed: None,
+        };
+
+        self.infer(local_handle, prompt, local_params)
+            .await
+            .map_err(|e| tardis_common::Error::InferenceFailed {
+                reason: e.to_string(),
+            })
+    }
+
+    async fn embed(
+        &self,
+        handle: tardis_common::ModelHandle,
+        text: &str,
+    ) -> tardis_common::Result<Vec<f32>> {
+        let local_handle = ModelHandle::new(handle.raw());
+        self.embed(local_handle, text)
+            .await
+            .map_err(|e| tardis_common::Error::InferenceFailed {
+                reason: e.to_string(),
+            })
+    }
+
+    async fn list_models(&self) -> tardis_common::Result<Vec<TraitInfo>> {
+        Ok(self
+            .list_models()
+            .into_iter()
+            .map(|m| TraitInfo {
+                name: m.name,
+                architecture: m.architecture.to_string(),
+                parameters: m.parameters,
+                context_length: m.context_length,
+                loaded: m.loaded,
+                memory_bytes: m.memory_bytes,
+            })
+            .collect())
+    }
+
+    async fn model_info(&self, handle: tardis_common::ModelHandle) -> tardis_common::Result<TraitInfo> {
+        let local_handle = ModelHandle::new(handle.raw());
+        self.model_info(local_handle)
+            .map(|m| TraitInfo {
+                name: m.name,
+                architecture: m.architecture.to_string(),
+                parameters: m.parameters,
+                context_length: m.context_length,
+                loaded: m.loaded,
+                memory_bytes: m.memory_bytes,
+            })
+            .ok_or_else(|| tardis_common::Error::InvalidModelHandle(handle.raw()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_vortex_creation() {
+        let vortex = Vortex::new();
+        assert!(vortex.is_ok());
+    }
+}

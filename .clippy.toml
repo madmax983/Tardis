@@ -1,0 +1,94 @@
+# Tardis OS - Clippy Configuration
+#
+# This file configures Clippy behavior beyond what's in Cargo.toml.
+# Most lint configuration is in Cargo.toml [workspace.lints.clippy].
+# This file is for Clippy-specific thresholds and settings.
+#
+# See: https://doc.rust-lang.org/clippy/configuration.html
+
+# ============================================================================
+# COMPLEXITY THRESHOLDS
+# ============================================================================
+
+# Maximum cognitive complexity before warning
+# Default is 25, we're slightly stricter for maintainability
+cognitive-complexity-threshold = 20
+
+# Maximum number of lines in a function
+# Keep functions focused and testable
+too-many-lines-threshold = 100
+
+# Maximum number of arguments for a function
+too-many-arguments-threshold = 7
+
+# ============================================================================
+# TYPE COMPLEXITY
+# ============================================================================
+
+# Maximum allowed nesting of types
+type-complexity-threshold = 250
+
+# Single character binding names to allow (loop indices, etc.)
+single-char-binding-names-threshold = 4
+
+# ============================================================================
+# DOCUMENTATION
+# ============================================================================
+
+# Minimum length for doc comment before triggering lint
+trivial-copy-size-limit = 8
+
+# ============================================================================
+# NUMERIC LITERALS
+# ============================================================================
+
+# Minimum number of digits for literal_digit_grouping lint
+literal-digit-group-threshold = 4
+
+# ============================================================================
+# PROJECT-SPECIFIC SETTINGS
+# ============================================================================
+
+# Known MSRV - enables/disables lints based on minimum Rust version
+msrv = "1.83"
+
+# Paths to consider as standard library (for path lints)
+# Adding our common crate so `common::Error` is treated like std types
+# standard-macro-braces = []
+
+# ============================================================================
+# ALLOWED NAMES
+# ============================================================================
+
+# Variable names that are allowed despite being "too short"
+# (Common in kernel/OS code)
+allowed-idents-below-min-chars = [
+    "x", "y", "z",      # Coordinates
+    "i", "j", "k",      # Loop indices
+    "n", "m",           # Counts
+    "id",               # Identifier
+    "fd",               # File descriptor
+    "kv",               # Key-value
+]
+
+# Allowed prefixes for unsafe functions (to skip naming lints)
+# allowed-prefixes-for-unsafe-fn = ["unsafe_"]
+
+# ============================================================================
+# DISALLOWED PATTERNS
+# ============================================================================
+
+# Disallowed methods - will warn when used
+# disallowed-methods = [
+#     { path = "std::env::var", reason = "Use config module instead" },
+# ]
+
+# Disallowed types - will warn when used
+# disallowed-types = [
+#     { path = "std::sync::Mutex", reason = "Use parking_lot::Mutex for better performance" },
+# ]
+
+# Disallowed macros - will warn when used
+# disallowed-macros = [
+#     { path = "println", reason = "Use tracing macros instead" },
+# ]

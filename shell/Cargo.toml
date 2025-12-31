@@ -1,0 +1,43 @@
+[package]
+name = "tardis-shell"
+description = "Tardis AI Shell - Natural language interface with time-travel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "tardis"
+path = "src/main.rs"
+
+[dependencies]
+# Internal
+tardis-common = { path = "../common" }
+tardis-vortex = { path = "../vortex" }
+tardis-gallifrey = { path = "../gallifrey" }
+tardis-chronos = { path = "../chronos" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# CLI
+rustyline = "14"

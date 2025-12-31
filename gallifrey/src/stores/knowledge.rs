@@ -1,0 +1,212 @@
+//! Knowledge graph store.
+//!
+//! Stores entities, relationships, and facts with:
+//! - Embedding vectors for semantic search
+//! - Bi-temporal versioning
+//! - Source provenance tracking
+
+use crate::error::{GallifreyError, GallifreyResult};
+use crate::temporal::BiTemporalInterval;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::RwLock;
+use tardis_common::EntityId;
+
+/// A node in the knowledge graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Entity {
+    /// Unique identifier.
+    pub id: EntityId,
+    /// Entity type (e.g., "Concept", "Person", "Project").
+    pub entity_type: String,
+    /// Entity name.
+    pub name: String,
+    /// Properties as key-value pairs.
+    pub properties: HashMap<String, serde_json::Value>,
+    /// Embedding vector for semantic search.
+    pub embedding: Option<Vec<f32>>,
+    /// Temporal metadata.
+    pub temporal: BiTemporalInterval,
+    /// Source of this knowledge.
+    pub source: Option<String>,
+}
+
+/// A relationship between entities.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Relationship {
+    /// Unique identifier.
+    pub id: EntityId,
+    /// Relationship type (e.g., "KNOWS", "CONTAINS", "DEPENDS_ON").
+    pub relationship_type: String,
+    /// Source entity ID.
+    pub source: EntityId,
+    /// Target entity ID.
+    pub target: EntityId,
+    /// Relationship properties.
+    pub properties: HashMap<String, serde_json::Value>,
+    /// Temporal metadata.
+    pub temporal: BiTemporalInterval,
+}
+
+/// The knowledge graph store.
+pub struct KnowledgeStore {
+    /// Entities indexed by ID.
+    entities: RwLock<HashMap<EntityId, Vec<Entity>>>,
+    /// Relationships indexed by ID.
+    relationships: RwLock<HashMap<EntityId, Vec<Relationship>>>,
+}
+
+impl KnowledgeStore {
+    /// Create a new knowledge store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            entities: RwLock::new(HashMap::new()),
+            relationships: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Insert an entity.
+    pub fn insert_entity(&self, entity: Entity) -> GallifreyResult<EntityId> {
+        let id = entity.id;
+
+        let mut entities = self
+            .entities
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        entities.entry(id).or_default().push(entity);
+
+        Ok(id)
+    }
+
+    /// Get the current version of an entity.
+    pub fn get_entity(&self, id: EntityId) -> GallifreyResult<Option<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities
+            .get(&id)
+            .and_then(|versions| versions.iter().find(|e| e.temporal.is_current()))
+            .cloned())
+    }
+
+    /// Get entity at a specific point in time.
+    pub fn get_entity_at(
+        &self,
+        id: EntityId,
+        valid_time: DateTime<Utc>,
+        transaction_time: DateTime<Utc>,
+    ) -> GallifreyResult<Option<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities.get(&id).and_then(|versions| {
+            versions
+                .iter()
+                .find(|e| e.temporal.active_at(valid_time, transaction_time))
+                .cloned()
+        }))
+    }
+
+    /// Get all versions of an entity (history).
+    pub fn get_entity_history(&self, id: EntityId) -> GallifreyResult<Vec<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities.get(&id).cloned().unwrap_or_default())
+    }
+
+    /// Update an entity (creates new version).
+    pub fn update_entity(&self, id: EntityId, updates: HashMap<String, serde_json::Value>) -> GallifreyResult<()> {
+        let mut entities = self
+            .entities
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        let versions = entities
+            .get_mut(&id)
+            .ok_or_else(|| GallifreyError::EntityNotFound(id.to_string()))?;
+
+        // Find current version and supersede it
+        let current = versions
+            .iter_mut()
+            .find(|e| e.temporal.is_current())
+            .ok_or_else(|| GallifreyError::EntityNotFound(id.to_string()))?;
+
+        // Create new version with updates
+        let mut new_version = current.clone();
+        new_version.temporal = current.temporal.supersede();
+        for (key, value) in updates {
+            new_version.properties.insert(key, value);
+        }
+        new_version.temporal = BiTemporalInterval::now();
+
+        // Supersede old version
+        current.temporal = current.temporal.supersede();
+
+        // Add new version
+        versions.push(new_version);
+
+        Ok(())
+    }
+
+    /// Insert a relationship.
+    pub fn insert_relationship(&self, relationship: Relationship) -> GallifreyResult<EntityId> {
+        let id = relationship.id;
+
+        let mut relationships = self
+            .relationships
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        relationships.entry(id).or_default().push(relationship);
+
+        Ok(id)
+    }
+
+    /// Find entities by type.
+    pub fn find_by_type(&self, entity_type: &str) -> GallifreyResult<Vec<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities
+            .values()
+            .flat_map(|versions| versions.iter())
+            .filter(|e| e.temporal.is_current() && e.entity_type == entity_type)
+            .cloned()
+            .collect())
+    }
+
+    /// Find entities by semantic similarity (placeholder for vector search).
+    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Entity>> {
+        // TODO: Implement actual vector similarity search
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities
+            .values()
+            .flat_map(|versions| versions.iter())
+            .filter(|e| e.temporal.is_current() && e.embedding.is_some())
+            .take(limit)
+            .cloned()
+            .collect())
+    }
+}
+
+impl Default for KnowledgeStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
