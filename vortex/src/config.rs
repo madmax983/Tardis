@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct ModelLoadConfig {
     /// Device to load on ("cpu", "cuda:0", "metal").
     pub device: String,
-    /// Quantization type (none, q4_0, q4_k, q8_0, f16).
+    /// Quantization type (none, `q4_0`, `q4_k`, `q8_0`, f16).
     pub quantization: Option<String>,
     /// Maximum context length (overrides model default).
     pub max_context_length: Option<usize>,

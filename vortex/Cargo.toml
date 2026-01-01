@@ -26,6 +26,9 @@ tokenizers = { workspace = true }
 safetensors = { workspace = true }
 half = { workspace = true }
 
+# HuggingFace Hub for model downloads
+hf-hub = { workspace = true }
+
 # Async runtime
 tokio = { workspace = true }
 async-trait = { workspace = true }

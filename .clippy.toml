@@ -42,8 +42,8 @@ trivial-copy-size-limit = 8
 # NUMERIC LITERALS
 # ============================================================================
 
-# Minimum number of digits for literal_digit_grouping lint
-literal-digit-group-threshold = 4
+# Minimum number of digits for literal_representation lint
+const-literal-digits-threshold = 4
 
 # ============================================================================
 # PROJECT-SPECIFIC SETTINGS

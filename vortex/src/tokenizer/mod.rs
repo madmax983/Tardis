@@ -13,6 +13,19 @@ pub struct TokenizerService {
     tokenizers: RwLock<HashMap<ModelHandle, Tokenizer>>,
 }
 
+impl std::fmt::Debug for TokenizerService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let count = self
+            .tokenizers
+            .read()
+            .map(|t| t.len())
+            .unwrap_or(0);
+        f.debug_struct("TokenizerService")
+            .field("loaded_count", &count)
+            .finish()
+    }
+}
+
 impl TokenizerService {
     /// Create a new tokenizer service.
     #[must_use]
