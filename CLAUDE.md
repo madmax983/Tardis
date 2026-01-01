@@ -85,23 +85,25 @@ Key decisions:
 
 We use git worktrees to enable multiple Claude agents to work on different features simultaneously. Each feature gets its own worktree in `../tardis-worktrees/`.
 
-```bash
+```powershell
 # Create a new feature worktree
-./scripts/worktree-new.sh feature/my-feature
+.\scripts\worktree-new.ps1 feature/my-feature
 
 # List active worktrees
-./scripts/worktree-list.sh
+.\scripts\worktree-list.ps1
 
 # Clean up after PR merge
-./scripts/worktree-cleanup.sh feature/my-feature
+.\scripts\worktree-cleanup.ps1 feature/my-feature
 ```
 
 **Workflow:**
-1. Create worktree: `./scripts/worktree-new.sh feature/add-metrics`
-2. Work in worktree: `cd ../tardis-worktrees/feature-add-metrics`
+1. Create worktree: `.\scripts\worktree-new.ps1 feature/add-metrics`
+2. Work in worktree: `cd ..\tardis-worktrees\feature-add-metrics`
 3. Commit and push: `git push -u origin feature/add-metrics`
 4. Create PR: `gh pr create --base trunk`
-5. After merge, cleanup: `./scripts/worktree-cleanup.sh feature/add-metrics`
+5. After merge, cleanup: `.\scripts\worktree-cleanup.ps1 feature/add-metrics`
+
+> **Note:** Bash scripts (`.sh`) are also available for Unix/WSL environments.
 
 **Directory Structure:**
 ```
@@ -141,10 +143,10 @@ tardis/
 ├── CLAUDE.md              # This file
 ├── Cargo.toml             # Workspace root
 ├── rustfmt.toml           # Formatting config
-├── scripts/               # Development scripts
-│   ├── worktree-new.sh    # Create feature worktree
-│   ├── worktree-list.sh   # List active worktrees
-│   └── worktree-cleanup.sh # Clean up merged worktree
+├── scripts/               # Development scripts (PowerShell + Bash)
+│   ├── worktree-new.ps1   # Create feature worktree
+│   ├── worktree-list.ps1  # List active worktrees
+│   └── worktree-cleanup.ps1 # Clean up merged worktree
 ├── docs/
 │   ├── architecture/      # Design documents
 │   └── adr/               # Architecture Decision Records
