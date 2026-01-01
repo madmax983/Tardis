@@ -35,20 +35,20 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 # Kernel (no_std)
-uefi = "0.33"
+uefi = "0.36"
 uefi-services = "0.30"
 x86_64 = "0.15"
-spin = "0.9"
+spin = "0.10"
 linked_list_allocator = "0.10"
 log = "0.4"
 
 # LLM (Vortex)
-candle-core = "0.8"
-candle-nn = "0.8"
-candle-transformers = "0.8"
+candle-core = "0.9"
+candle-nn = "0.9"
+candle-transformers = "0.9"
 cudarc = "0.12"
-tokenizers = "0.20"
-safetensors = "0.4"
+tokenizers = "0.22"
+safetensors = "0.7"
 half = "2.4"
 
 # Database (Gallifrey)
@@ -68,13 +68,13 @@ async-trait = "0.1"
 
 # Telemetry
 parking_lot = "0.12"
-opentelemetry = "0.27"
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic"] }
+opentelemetry = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"] }
 
 # Testing
 proptest = "1"
-criterion = "0.5"
+criterion = "0.8"
 
 # ============================================================================
 # WORKSPACE LINTS
