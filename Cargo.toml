@@ -7,6 +7,7 @@ members = [
     "chronos",
     "shell",
     "common",
+    "telemetry",
 ]
 
 # Kernel requires nightly Rust - exclude from default build
@@ -16,6 +17,7 @@ default-members = [
     "gallifrey",
     "chronos",
     "shell",
+    "telemetry",
 ]
 
 [workspace.package]
@@ -57,12 +59,18 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 async-trait = "0.1"
+
+# Telemetry
+parking_lot = "0.12"
+opentelemetry = "0.27"
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic"] }
 
 # Testing
 proptest = "1"
