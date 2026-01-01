@@ -3,8 +3,8 @@
 use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
 use crate::loader::{
-    download_preset, parse_model_config, load_model_weights, DeviceSpec, LoadedModel,
-    ModelConfig, ModelPreset,
+    download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
+    LoadedModel, ModelConfig, ModelPreset,
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
@@ -74,8 +74,8 @@ impl Vortex {
 
         info!("Loading model from {}", path);
 
-        // Parse model configuration
-        let model_config = parse_model_config(&path_buf)?;
+        // Parse model configuration (async)
+        let model_config = parse_model_config(&path_buf).await?;
 
         // Create device specification
         let device_spec = DeviceSpec::parse(&config.device);
@@ -114,12 +114,8 @@ impl Vortex {
             configs.insert(handle, model_config);
         }
 
-        // Load tokenizer
-        let tokenizer_path = if path_buf.is_dir() {
-            path_buf.join("tokenizer.json")
-        } else {
-            path_buf.parent().map_or_else(|| path_buf.with_file_name("tokenizer.json"), |p| p.join("tokenizer.json"))
-        };
+        // Load tokenizer using shared helper
+        let tokenizer_path = find_model_file(&path_buf, "tokenizer.json");
 
         if tokenizer_path.exists() {
             self.tokenizers.load(handle, &tokenizer_path)?;

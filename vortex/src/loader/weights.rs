@@ -70,11 +70,11 @@ impl LoadedModel {
     pub fn memory_bytes(&self) -> u64 {
         match self {
             Self::Llama { config, dtype, .. } => {
-                let params = estimate_llama_params(config);
+                let params = estimate_params_from_runtime_config(config);
                 let bytes_per_param = match dtype {
                     DType::F32 => 4,
-                    DType::F16 | DType::BF16 => 2,
-                    _ => 2, // Default to 2 for quantized
+                    // All other types (F16, BF16, quantized) use 2 bytes
+                    _ => 2,
                 };
                 params * bytes_per_param
             }
@@ -82,16 +82,26 @@ impl LoadedModel {
     }
 }
 
-/// Estimate Llama parameter count.
-const fn estimate_llama_params(config: &LlamaRuntimeConfig) -> u64 {
+/// Estimate parameter count from a Llama runtime config.
+///
+/// This uses the same formula as `ModelConfig::estimate_parameters` but works
+/// with the Candle runtime config type.
+fn estimate_params_from_runtime_config(config: &LlamaRuntimeConfig) -> u64 {
     let hidden = config.hidden_size as u64;
     let layers = config.num_hidden_layers as u64;
     let vocab = config.vocab_size as u64;
     let intermediate = config.intermediate_size as u64;
 
-    // Embedding + layers + output
+    // Embedding: vocab_size * hidden_size
     let embedding = vocab * hidden;
+
+    // Per layer:
+    // - Attention: 4 * hidden_size^2 (Q, K, V, O projections)
+    // - FFN: 3 * hidden_size * intermediate (gate, up, down)
+    // - Norms: 2 * hidden_size
     let per_layer = 4 * hidden * hidden + 3 * hidden * intermediate + 2 * hidden;
+
+    // Output: hidden_size * vocab_size (often tied with embedding)
     let output = hidden * vocab;
 
     embedding + layers * per_layer + output
@@ -104,7 +114,7 @@ const fn estimate_llama_params(config: &LlamaRuntimeConfig) -> u64 {
 /// * `model_path` - Path to model directory or weight file
 /// * `config` - Parsed model configuration
 /// * `device_spec` - Device to load on
-/// * `use_mmap` - Whether to memory-map weights (faster loading)
+/// * `_use_mmap` - Ignored; memory mapping is always used for performance
 ///
 /// # Errors
 ///
@@ -114,7 +124,7 @@ pub fn load_model_weights(
     model_path: &Path,
     config: &ModelConfig,
     device_spec: &DeviceSpec,
-    use_mmap: bool,
+    _use_mmap: bool,
 ) -> VortexResult<LoadedModel> {
     // Create the device
     let device = super::device::create_device(device_spec)?;
@@ -131,10 +141,9 @@ pub fn load_model_weights(
     );
 
     match config.architecture {
-        Architecture::Llama => load_llama(model_path, config, &device, dtype, use_mmap),
-        Architecture::Mistral => {
+        Architecture::Llama | Architecture::Mistral => {
             // Mistral uses same architecture as Llama in candle
-            load_llama(model_path, config, &device, dtype, use_mmap)
+            load_llama(model_path, config, &device, dtype)
         }
         arch => Err(VortexError::UnsupportedArchitecture(arch.to_string())),
     }
@@ -146,9 +155,9 @@ fn load_llama(
     config: &ModelConfig,
     device: &Device,
     dtype: DType,
-    use_mmap: bool,
 ) -> VortexResult<LoadedModel> {
     // Build LlamaConfig that matches candle-transformers' expected format
+    #[allow(clippy::cast_possible_truncation)]
     let llama_config = LlamaConfig {
         hidden_size: config.hidden_size,
         intermediate_size: config.intermediate_size.unwrap_or(config.hidden_size * 4),
@@ -177,17 +186,10 @@ fn load_llama(
     let weight_files = find_weight_files(model_path)?;
     info!("Found {} weight file(s)", weight_files.len());
 
-    // Create VarBuilder from weight files
-    // Note: We always use mmap for now as the non-mmap API changed
-    let vb = if use_mmap || weight_files.len() == 1 {
-        info!("Loading weights with memory mapping");
-        // Safety: The files are read-only and we don't modify them
-        unsafe { VarBuilder::from_mmaped_safetensors(&weight_files, dtype, device)? }
-    } else {
-        // For multiple files without mmap, we still use mmap as the safer option
-        info!("Loading weights with memory mapping (multiple files)");
-        unsafe { VarBuilder::from_mmaped_safetensors(&weight_files, dtype, device)? }
-    };
+    // Create VarBuilder from weight files using memory mapping for performance
+    info!("Loading weights with memory mapping");
+    // Safety: The files are read-only and we don't modify them
+    let vb = unsafe { VarBuilder::from_mmaped_safetensors(&weight_files, dtype, device)? };
 
     // Build the model
     info!("Building Llama model...");
@@ -263,7 +265,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_estimate_llama_params() {
+    fn test_estimate_params_from_runtime_config() {
         let config = LlamaRuntimeConfig {
             hidden_size: 4096,
             intermediate_size: 11008,
@@ -281,7 +283,7 @@ mod tests {
             tie_word_embeddings: false,
         };
 
-        let params = estimate_llama_params(&config);
+        let params = estimate_params_from_runtime_config(&config);
         // Should be around 7B
         assert!(params > 6_000_000_000);
         assert!(params < 8_000_000_000);

@@ -6,6 +6,7 @@ use crate::error::{VortexError, VortexResult};
 use crate::model::Architecture;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use tokio::task;
 
 /// Parsed model configuration from config.json.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,15 +98,9 @@ impl ModelConfig {
 /// # Errors
 ///
 /// Returns an error if config.json cannot be read or parsed.
-pub fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> {
-    // Find config.json - could be in the path itself or alongside model files
-    let config_path = if model_path.is_dir() {
-        model_path.join("config.json")
-    } else {
-        // Model path is a file, look for config.json in same directory
-        model_path
-            .parent().map_or_else(|| model_path.with_file_name("config.json"), |p| p.join("config.json"))
-    };
+pub async fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> {
+    // Find config.json using shared helper
+    let config_path = super::find_model_file(model_path, "config.json");
 
     if !config_path.exists() {
         return Err(VortexError::ConfigError(format!(
@@ -114,15 +109,26 @@ pub fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> {
         )));
     }
 
-    let config_str = std::fs::read_to_string(&config_path)?;
-    let raw_config: serde_json::Value = serde_json::from_str(&config_str)?;
+    // Read file asynchronously
+    let config_str = tokio::fs::read_to_string(&config_path).await.map_err(|e| {
+        VortexError::ConfigError(format!("Failed to read config.json: {e}"))
+    })?;
 
-    // Detect architecture from raw config
-    let architecture = Architecture::detect(&raw_config);
+    // Parse JSON in a blocking task to avoid stalling the executor
+    let config = task::spawn_blocking(move || -> VortexResult<ModelConfig> {
+        let raw_config: serde_json::Value = serde_json::from_str(&config_str)?;
 
-    // Parse the rest of the config
-    let mut config: ModelConfig = serde_json::from_value(raw_config)?;
-    config.architecture = architecture;
+        // Detect architecture from raw config
+        let architecture = Architecture::detect(&raw_config);
+
+        // Parse the rest of the config
+        let mut config: ModelConfig = serde_json::from_value(raw_config)?;
+        config.architecture = architecture;
+
+        Ok(config)
+    })
+    .await
+    .map_err(|e| VortexError::ConfigError(format!("Config parsing task failed: {e}")))??;
 
     tracing::info!(
         "Parsed model config: {} layers, {} hidden, {} heads, {} vocab",
