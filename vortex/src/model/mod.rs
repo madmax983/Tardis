@@ -145,7 +145,7 @@ impl Quantization {
     /// Estimate memory usage for a given parameter count.
     #[must_use]
     pub fn memory_bytes(&self, parameters: u64) -> u64 {
-        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation, clippy::cast_precision_loss)]
         let bytes = (parameters as f64 * f64::from(self.bits_per_weight()) / 8.0) as u64;
         bytes
     }

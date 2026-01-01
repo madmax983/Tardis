@@ -37,6 +37,10 @@ impl std::fmt::Debug for Vortex {
                 "loaded_models_count",
                 &self.loaded_models.read().map(|m| m.len()).unwrap_or(0),
             )
+            .field(
+                "model_configs_count",
+                &self.model_configs.read().map(|c| c.len()).unwrap_or(0),
+            )
             .finish()
     }
 }
@@ -95,7 +99,7 @@ impl Vortex {
         let memory = loaded_model.memory_bytes();
 
         // Create model info for registry
-        let info = self.create_model_info(&path_buf, &model_config);
+        let info = Self::create_model_info(&path_buf, &model_config);
         self.registry.register(path_buf.clone(), info)?;
 
         // Mark as loaded and get handle
@@ -183,7 +187,7 @@ impl Vortex {
     }
 
     /// Create model info from config.
-    fn create_model_info(&self, path: &Path, config: &ModelConfig) -> ModelInfo {
+    fn create_model_info(path: &Path, config: &ModelConfig) -> ModelInfo {
         ModelInfo {
             name: path
                 .file_stem()
@@ -209,6 +213,7 @@ impl Vortex {
     /// # Errors
     ///
     /// Returns an error if the model cannot be unloaded.
+    #[allow(clippy::unused_async)] // Will use async when cleanup is truly async
     pub async fn unload_model(&self, handle: ModelHandle) -> VortexResult<()> {
         if !self.registry.is_valid(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
@@ -275,6 +280,7 @@ impl Vortex {
     /// # Errors
     ///
     /// Returns an error if embedding generation fails.
+    #[allow(clippy::unused_async)] // Will use async when embedding is truly async
     pub async fn embed(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<f32>> {
         if !self.registry.is_valid(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));

@@ -114,6 +114,10 @@ impl ModelRegistry {
     }
 
     /// Mark a model as loaded and return a handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry lock is poisoned.
     pub fn mark_loaded(&self, path: &PathBuf, memory_bytes: u64) -> VortexResult<ModelHandle> {
         let handle = ModelHandle(self.next_handle.fetch_add(1, Ordering::SeqCst));
 
@@ -142,6 +146,10 @@ impl ModelRegistry {
     }
 
     /// Mark a model as unloaded.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry lock is poisoned.
     pub fn mark_unloaded(&self, handle: ModelHandle) -> VortexResult<()> {
         let path = {
             let mut loaded = self.loaded.write().map_err(|_| {
@@ -188,14 +196,12 @@ impl ModelRegistry {
 
     /// List loaded models.
     pub fn list_loaded(&self) -> Vec<(ModelHandle, ModelInfo)> {
-        let loaded = match self.loaded.read() {
-            Ok(l) => l,
-            Err(_) => return Vec::new(),
+        let Ok(loaded) = self.loaded.read() else {
+            return Vec::new();
         };
 
-        let models = match self.models.read() {
-            Ok(m) => m,
-            Err(_) => return Vec::new(),
+        let Ok(models) = self.models.read() else {
+            return Vec::new();
         };
 
         loaded

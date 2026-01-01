@@ -19,7 +19,7 @@ pub use device::{create_device, DeviceSpec};
 pub use hub::{
     download_model, download_preset, get_cached_model, is_preset_cached, ModelPreset,
 };
-pub use weights::{LoadedModel, load_model_weights};
+pub use weights::{LoadedModel, ModelFormat, load_model_weights};
 
 /// Resolve a sibling file path relative to a model path.
 ///
