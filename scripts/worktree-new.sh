@@ -32,6 +32,18 @@ WORKTREE_PATH="$WORKTREE_ROOT/$DIR_NAME"
 # Ensure we're in the main repo
 cd "$(git rev-parse --show-toplevel)"
 
+# Check for existing worktree or branch
+if [[ -d "$WORKTREE_PATH" ]]; then
+    echo "Error: Worktree path '$WORKTREE_PATH' already exists." >&2
+    echo "Consider running './scripts/worktree-cleanup.sh $BRANCH_NAME'" >&2
+    exit 1
+fi
+
+if git rev-parse --verify --quiet "$BRANCH_NAME" >/dev/null 2>&1; then
+    echo "Error: Branch '$BRANCH_NAME' already exists." >&2
+    exit 1
+fi
+
 # Create worktrees directory if needed
 mkdir -p "$WORKTREE_ROOT"
 
@@ -69,5 +81,4 @@ echo "  git push -u origin $BRANCH_NAME"
 echo "  gh pr create --base $BASE_BRANCH"
 echo ""
 echo "To clean up after PR is merged:"
-echo "  git worktree remove $WORKTREE_PATH"
-echo "  git branch -d $BRANCH_NAME"
+echo "  ./scripts/worktree-cleanup.sh $BRANCH_NAME"

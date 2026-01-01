@@ -37,14 +37,13 @@ try {
         Write-Host "Worktree not found at $WorktreePath" -ForegroundColor Yellow
     }
 
-    # Delete the local branch
+    # Delete the local branch (only if merged)
     $BranchExists = git show-ref --verify --quiet "refs/heads/$BranchName" 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Deleting local branch $BranchName..."
-        git branch -d $BranchName 2>$null
+        git branch -d $BranchName
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Force deleting branch..." -ForegroundColor Yellow
-            git branch -D $BranchName
+            Write-Host "Branch not fully merged. Use 'git branch -D $BranchName' to force delete." -ForegroundColor Yellow
         }
     } else {
         Write-Host "Branch $BranchName not found locally" -ForegroundColor Yellow

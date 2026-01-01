@@ -35,7 +35,7 @@ fi
 # Delete the local branch
 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
     echo "Deleting local branch $BRANCH_NAME..."
-    git branch -d "$BRANCH_NAME" || git branch -D "$BRANCH_NAME"
+    git branch -d "$BRANCH_NAME"
 else
     echo "Branch $BRANCH_NAME not found locally"
 fi

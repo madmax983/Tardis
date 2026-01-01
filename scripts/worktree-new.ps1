@@ -41,6 +41,19 @@ $MainRepo = git rev-parse --show-toplevel
 Push-Location $MainRepo
 
 try {
+    # Check for existing worktree or branch
+    if (Test-Path $WorktreePath) {
+        Write-Host "Error: Worktree path '$WorktreePath' already exists." -ForegroundColor Red
+        Write-Host "Consider running '.\scripts\worktree-cleanup.ps1 $BranchName'" -ForegroundColor Yellow
+        exit 1
+    }
+
+    $BranchCheck = git rev-parse --verify --quiet $BranchName 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Error: Branch '$BranchName' already exists." -ForegroundColor Red
+        exit 1
+    }
+
     # Create worktrees directory if needed
     if (-not (Test-Path $WorktreeRoot)) {
         New-Item -ItemType Directory -Path $WorktreeRoot | Out-Null
