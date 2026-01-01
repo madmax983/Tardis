@@ -54,6 +54,10 @@ impl TokenizerService {
     }
 
     /// Unload a tokenizer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tokenizer lock is poisoned.
     pub fn unload(&self, handle: ModelHandle) -> VortexResult<()> {
         let mut tokenizers = self.tokenizers.write().map_err(|_| {
             VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
