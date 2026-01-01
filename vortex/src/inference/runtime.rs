@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tardis_common::traits::{InferenceParams as TraitParams, ModelInfo as TraitInfo, VortexService};
+use tokio::task;
 use tracing::{info, instrument};
 
 /// The main Vortex inference engine.
@@ -80,13 +81,15 @@ impl Vortex {
         // Create device specification
         let device_spec = DeviceSpec::parse(&config.device);
 
-        // Load model weights
-        let loaded_model = load_model_weights(
-            &path_buf,
-            &model_config,
-            &device_spec,
-            config.use_mmap,
-        )?;
+        // Load model weights in blocking task to avoid stalling async runtime
+        let load_path = path_buf.clone();
+        let load_config = model_config.clone();
+        let use_mmap = config.use_mmap;
+        let loaded_model = task::spawn_blocking(move || {
+            load_model_weights(&load_path, &load_config, &device_spec, use_mmap)
+        })
+        .await
+        .map_err(|e| VortexError::LoadFailed(format!("Weight loading task failed: {e}")))??;
 
         // Get memory usage from loaded model
         let memory = loaded_model.memory_bytes();
@@ -101,7 +104,7 @@ impl Vortex {
         // Store the loaded model
         {
             let mut models = self.loaded_models.write().map_err(|_| {
-                VortexError::ConfigError("failed to acquire models lock".to_string())
+                VortexError::LockPoisoned { context: "storing loaded model" }
             })?;
             models.insert(handle, loaded_model);
         }
@@ -109,7 +112,7 @@ impl Vortex {
         // Store the config
         {
             let mut configs = self.model_configs.write().map_err(|_| {
-                VortexError::ConfigError("failed to acquire configs lock".to_string())
+                VortexError::LockPoisoned { context: "storing model config" }
             })?;
             configs.insert(handle, model_config);
         }
@@ -216,7 +219,7 @@ impl Vortex {
         // Remove loaded model
         {
             let mut models = self.loaded_models.write().map_err(|_| {
-                VortexError::ConfigError("failed to acquire models lock".to_string())
+                VortexError::LockPoisoned { context: "removing loaded model" }
             })?;
             models.remove(&handle);
         }
@@ -224,7 +227,7 @@ impl Vortex {
         // Remove config
         {
             let mut configs = self.model_configs.write().map_err(|_| {
-                VortexError::ConfigError("failed to acquire configs lock".to_string())
+                VortexError::LockPoisoned { context: "removing model config" }
             })?;
             configs.remove(&handle);
         }
@@ -302,7 +305,7 @@ impl Vortex {
     #[allow(dead_code)] // Will be used in inference implementation
     pub(crate) fn get_loaded_model(&self, _handle: ModelHandle) -> VortexResult<std::sync::RwLockReadGuard<'_, HashMap<ModelHandle, LoadedModel>>> {
         self.loaded_models.read().map_err(|_| {
-            VortexError::ConfigError("failed to acquire models lock".to_string())
+            VortexError::LockPoisoned { context: "reading loaded models" }
         })
     }
 
@@ -424,5 +427,79 @@ mod tests {
     async fn test_vortex_creation() {
         let vortex = Vortex::new();
         assert!(vortex.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_load_model_not_found() {
+        let vortex = Vortex::new().unwrap();
+        let config = ModelLoadConfig::default();
+
+        let result = vortex.load_model("/nonexistent/model/path", config).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            VortexError::ModelNotFound { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_unload_invalid_handle() {
+        let vortex = Vortex::new().unwrap();
+        let invalid_handle = ModelHandle::new(999);
+
+        let result = vortex.unload_model(invalid_handle).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            VortexError::InvalidHandle(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_infer_invalid_handle() {
+        let vortex = Vortex::new().unwrap();
+        let invalid_handle = ModelHandle::new(999);
+
+        let result = vortex
+            .infer(invalid_handle, "test", InferenceParams::default())
+            .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            VortexError::InvalidHandle(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_embed_invalid_handle() {
+        let vortex = Vortex::new().unwrap();
+        let invalid_handle = ModelHandle::new(999);
+
+        let result = vortex.embed(invalid_handle, "test").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            VortexError::InvalidHandle(_)
+        ));
+    }
+
+    #[test]
+    fn test_is_model_loaded_false_for_invalid() {
+        let vortex = Vortex::new().unwrap();
+        let invalid_handle = ModelHandle::new(999);
+
+        assert!(!vortex.is_model_loaded(invalid_handle));
+    }
+
+    #[test]
+    fn test_model_info_none_for_invalid() {
+        let vortex = Vortex::new().unwrap();
+        let invalid_handle = ModelHandle::new(999);
+
+        assert!(vortex.model_info(invalid_handle).is_none());
     }
 }

@@ -44,6 +44,13 @@ pub enum VortexError {
     #[error("configuration error: {0}")]
     ConfigError(String),
 
+    /// Lock poisoning error.
+    #[error("lock poisoned: {context}")]
+    LockPoisoned {
+        /// What operation was being performed
+        context: &'static str,
+    },
+
     /// Candle error.
     #[error("candle error: {0}")]
     Candle(#[from] candle_core::Error),

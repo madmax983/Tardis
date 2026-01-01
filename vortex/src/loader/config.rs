@@ -65,25 +65,43 @@ const fn default_rope_theta() -> f64 {
 
 impl ModelConfig {
     /// Estimate the number of parameters.
+    ///
+    /// Uses checked arithmetic to prevent overflow with malicious configs.
+    /// Returns `u64::MAX` if any calculation would overflow.
     #[must_use]
     pub fn estimate_parameters(&self) -> u64 {
-        let intermediate = self.intermediate_size.unwrap_or(self.hidden_size * 4);
+        // Convert to u64 early to avoid overflow in intermediate calculations
+        let hidden = self.hidden_size as u64;
+        let layers = self.num_layers as u64;
+        let vocab = self.vocab_size as u64;
+        let intermediate = self.intermediate_size
+            .map_or_else(|| hidden.saturating_mul(4), |i| i as u64);
 
-        // Embedding: vocab_size * hidden_size
-        let embedding = self.vocab_size * self.hidden_size;
+        // Use checked arithmetic to detect overflow
+        let result = (|| -> Option<u64> {
+            // Embedding: vocab_size * hidden_size
+            let embedding = vocab.checked_mul(hidden)?;
 
-        // Per layer:
-        // - Attention: 4 * hidden_size^2 (Q, K, V, O projections)
-        // - FFN: 3 * hidden_size * intermediate (gate, up, down)
-        // - Norms: 2 * hidden_size
-        let per_layer = 4 * self.hidden_size * self.hidden_size
-            + 3 * self.hidden_size * intermediate
-            + 2 * self.hidden_size;
+            // Per layer:
+            // - Attention: 4 * hidden_size^2 (Q, K, V, O projections)
+            let attention = 4u64.checked_mul(hidden)?.checked_mul(hidden)?;
+            // - FFN: 3 * hidden_size * intermediate (gate, up, down)
+            let ffn = 3u64.checked_mul(hidden)?.checked_mul(intermediate)?;
+            // - Norms: 2 * hidden_size
+            let norms = 2u64.checked_mul(hidden)?;
 
-        // Output: hidden_size * vocab_size (often tied with embedding)
-        let output = self.hidden_size * self.vocab_size;
+            let per_layer = attention.checked_add(ffn)?.checked_add(norms)?;
 
-        (embedding + self.num_layers * per_layer + output) as u64
+            // Output: hidden_size * vocab_size (often tied with embedding)
+            let output = hidden.checked_mul(vocab)?;
+
+            // Total
+            embedding
+                .checked_add(layers.checked_mul(per_layer)?)?
+                .checked_add(output)
+        })();
+
+        result.unwrap_or(u64::MAX)
     }
 
     /// Get effective number of KV heads (defaults to `num_heads` if not specified).
@@ -197,5 +215,39 @@ mod tests {
         // Llama 7B should be around 7 billion parameters
         assert!(params > 6_000_000_000);
         assert!(params < 8_000_000_000);
+    }
+
+    #[test]
+    fn test_estimate_parameters_overflow_protection() {
+        // Create a config with values that would overflow if not using checked arithmetic
+        let config = ModelConfig {
+            architecture: Architecture::Llama,
+            num_layers: usize::MAX,
+            hidden_size: usize::MAX,
+            intermediate_size: Some(usize::MAX),
+            num_heads: 32,
+            num_kv_heads: Some(32),
+            vocab_size: usize::MAX,
+            max_seq_len: 4096,
+            rms_norm_eps: 1e-5,
+            rope_theta: 10000.0,
+            bos_token_id: Some(1),
+            eos_token_id: Some(2),
+            model_type: Some("llama".to_string()),
+            architectures: vec![],
+        };
+
+        let params = config.estimate_parameters();
+        // Should return MAX on overflow, not panic
+        assert_eq!(params, u64::MAX);
+    }
+
+    #[tokio::test]
+    async fn test_parse_model_config_missing_file() {
+        let result = parse_model_config(Path::new("/nonexistent/path")).await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, crate::error::VortexError::ConfigError(_)));
     }
 }

@@ -188,7 +188,15 @@ fn load_llama(
 
     // Create VarBuilder from weight files using memory mapping for performance
     info!("Loading weights with memory mapping");
-    // Safety: The files are read-only and we don't modify them
+
+    // SAFETY: Memory-mapped file loading requires the following invariants:
+    // 1. Files must not be modified by other processes while mapped - the caller
+    //    is responsible for ensuring model files are stable during loading.
+    // 2. Files must remain valid for the lifetime of the VarBuilder/model - the
+    //    LoadedModel owns the mapping and keeps files valid.
+    // 3. The safetensors format includes checksums that candle validates during
+    //    loading, protecting against corruption.
+    // 4. We only read from the mapped memory, never write.
     let vb = unsafe { VarBuilder::from_mmaped_safetensors(&weight_files, dtype, device)? };
 
     // Build the model
@@ -208,6 +216,9 @@ fn load_llama(
 }
 
 /// Find `SafeTensors` weight files in a model directory.
+///
+/// This function uses blocking I/O. For async contexts, wrap the call
+/// to `load_model_weights` in `spawn_blocking`.
 fn find_weight_files(model_path: &Path) -> VortexResult<Vec<std::path::PathBuf>> {
     let mut files = Vec::new();
 
