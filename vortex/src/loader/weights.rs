@@ -174,6 +174,9 @@ impl LoadedModel {
     }
 
     /// Estimate memory usage in bytes.
+    ///
+    /// For quantized models, this includes an estimated 10% overhead for GGUF
+    /// block metadata, padding, and other file structure elements.
     #[must_use]
     pub fn memory_bytes(&self) -> u64 {
         match self {
@@ -189,8 +192,10 @@ impl LoadedModel {
             Self::QuantizedLlama { quantization, parameters, .. } => {
                 // Estimate bytes based on quantization type
                 let bits_per_weight = estimate_bits_from_quantization(quantization);
-                // Convert bits to bytes, accounting for overhead
-                parameters * u64::from(bits_per_weight) / 8
+                // Convert bits to bytes
+                let base_bytes = parameters * u64::from(bits_per_weight) / 8;
+                // Add ~10% overhead for GGUF block metadata, padding, etc.
+                base_bytes.saturating_add(base_bytes / 10)
             }
         }
     }
@@ -345,9 +350,12 @@ fn load_gguf(model_path: &Path, device: &Device) -> VortexResult<LoadedModel> {
     info!("GGUF architecture: {}, quantization: {}", arch, quant_type);
 
     // Estimate parameters from GGUF metadata
-    let parameters = estimate_params_from_gguf(&gguf_content);
+    let parameters = estimate_params_from_gguf(&gguf_content)?;
 
     // Build quantized model
+    // Note: The file handle is reused after metadata read. QuantizedLlama::from_gguf
+    // expects the file position to be after metadata and seeks internally as needed
+    // to read weight tensors.
     let model = QuantizedLlama::from_gguf(gguf_content, &mut file, device).map_err(|e| {
         VortexError::LoadFailed(format!("Failed to build quantized model: {e}"))
     })?;
@@ -363,11 +371,32 @@ fn load_gguf(model_path: &Path, device: &Device) -> VortexResult<LoadedModel> {
 }
 
 /// Extract quantization type from filename (e.g., "model-q4\_0" -> "Q4\_0").
+///
+/// Supports common quantization patterns including K-quant variants.
 fn extract_quantization_from_filename(filename: &str) -> String {
     let lower = filename.to_lowercase();
 
-    // Common quantization patterns
-    let patterns = ["q2_k", "q3_k", "q4_0", "q4_1", "q4_k", "q5_0", "q5_1", "q5_k", "q6_k", "q8_0", "f16"];
+    // Common quantization patterns in order of specificity (more specific first)
+    // Include K-quant variants like q4_k_s, q4_k_m, q5_k_s, q5_k_m, etc.
+    let patterns = [
+        // K-quant variants (check specific sizes first)
+        "q2_k_s", "q2_k_m", "q2_k_l", "q2_k",
+        "q3_k_s", "q3_k_m", "q3_k_l", "q3_k",
+        "q4_k_s", "q4_k_m", "q4_k_l", "q4_k",
+        "q5_k_s", "q5_k_m", "q5_k_l", "q5_k",
+        "q6_k_s", "q6_k_m", "q6_k_l", "q6_k",
+        // Standard quantization
+        "q4_0", "q4_1",
+        "q5_0", "q5_1",
+        "q8_0", "q8_1",
+        // Float types
+        "f16", "f32", "bf16",
+        // IQ quantization (newer formats)
+        "iq1_s", "iq1_m",
+        "iq2_xxs", "iq2_xs", "iq2_s", "iq2_m",
+        "iq3_xxs", "iq3_xs", "iq3_s", "iq3_m",
+        "iq4_xs", "iq4_nl",
+    ];
 
     for pattern in patterns {
         if lower.contains(pattern) {
@@ -375,18 +404,45 @@ fn extract_quantization_from_filename(filename: &str) -> String {
         }
     }
 
+    // Fallback: try to extract any q/f pattern dynamically
+    if let Some(quant) = extract_dynamic_quant_pattern(&lower) {
+        return quant;
+    }
+
     "unknown".to_string()
 }
 
+/// Try to extract a quantization pattern dynamically from the filename.
+fn extract_dynamic_quant_pattern(filename: &str) -> Option<String> {
+    // Look for patterns like q[0-9]_* or f[0-9]+
+    for word in filename.split(|c: char| !c.is_alphanumeric() && c != '_') {
+        if (word.starts_with('q') || word.starts_with('f') || word.starts_with("iq"))
+            && word.len() >= 2
+            && word.chars().nth(1).is_some_and(|c| c.is_ascii_digit())
+        {
+            return Some(word.to_uppercase());
+        }
+    }
+    None
+}
+
 /// Estimate parameter count from GGUF metadata.
-fn estimate_params_from_gguf(content: &gguf_file::Content) -> u64 {
-    // Try to get dimensions from metadata
+///
+/// # Errors
+///
+/// Returns an error if required metadata fields are missing from the GGUF file.
+fn estimate_params_from_gguf(content: &gguf_file::Content) -> VortexResult<u64> {
+    // Extract required dimensions from metadata
     let hidden_size = u64::from(
         content
             .metadata
             .get("llama.embedding_length")
             .and_then(|v| v.to_u32().ok())
-            .unwrap_or(4096),
+            .ok_or_else(|| {
+                VortexError::LoadFailed(
+                    "GGUF metadata missing 'llama.embedding_length'".to_string(),
+                )
+            })?,
     );
 
     let num_layers = u64::from(
@@ -394,7 +450,9 @@ fn estimate_params_from_gguf(content: &gguf_file::Content) -> u64 {
             .metadata
             .get("llama.block_count")
             .and_then(|v| v.to_u32().ok())
-            .unwrap_or(32),
+            .ok_or_else(|| {
+                VortexError::LoadFailed("GGUF metadata missing 'llama.block_count'".to_string())
+            })?,
     );
 
     let vocab_size = u64::from(
@@ -402,9 +460,12 @@ fn estimate_params_from_gguf(content: &gguf_file::Content) -> u64 {
             .metadata
             .get("llama.vocab_size")
             .and_then(|v| v.to_u32().ok())
-            .unwrap_or(32000),
+            .ok_or_else(|| {
+                VortexError::LoadFailed("GGUF metadata missing 'llama.vocab_size'".to_string())
+            })?,
     );
 
+    // intermediate_size is optional, default to 4x hidden_size
     let intermediate_size = content
         .metadata
         .get("llama.feed_forward_length")
@@ -413,13 +474,17 @@ fn estimate_params_from_gguf(content: &gguf_file::Content) -> u64 {
 
     // Same formula as estimate_params_from_runtime_config
     let embedding = vocab_size * hidden_size;
-    let per_layer = 4 * hidden_size * hidden_size + 3 * hidden_size * intermediate_size + 2 * hidden_size;
+    let per_layer =
+        4 * hidden_size * hidden_size + 3 * hidden_size * intermediate_size + 2 * hidden_size;
     let output = hidden_size * vocab_size;
 
-    embedding + num_layers * per_layer + output
+    Ok(embedding + num_layers * per_layer + output)
 }
 
 /// Find a GGUF file in the given path.
+///
+/// When a directory contains multiple GGUF files, this function sorts them
+/// alphabetically and returns the first one for deterministic behavior.
 fn find_gguf_file(model_path: &Path) -> VortexResult<std::path::PathBuf> {
     if model_path.is_file() {
         if model_path.extension().is_some_and(|ext| ext == "gguf") {
@@ -432,13 +497,24 @@ fn find_gguf_file(model_path: &Path) -> VortexResult<std::path::PathBuf> {
     }
 
     if model_path.is_dir() {
-        // Find first GGUF file in directory
-        for entry in std::fs::read_dir(model_path)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "gguf") {
-                return Ok(path);
+        // Collect all GGUF files, sort for deterministic behavior
+        let mut gguf_files: Vec<_> = std::fs::read_dir(model_path)?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "gguf"))
+            .collect();
+
+        if !gguf_files.is_empty() {
+            gguf_files.sort();
+
+            if gguf_files.len() > 1 {
+                info!(
+                    "Multiple GGUF files found, using: {}",
+                    gguf_files[0].display()
+                );
             }
+
+            return Ok(gguf_files.remove(0));
         }
     }
 
@@ -646,8 +722,14 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_quantization_from_filename_q4_k_m() {
+        // More specific pattern matching now returns the full variant
+        assert_eq!(extract_quantization_from_filename("tinyllama-q4_k_m"), "Q4_K_M");
+    }
+
+    #[test]
     fn test_extract_quantization_from_filename_q4_k() {
-        assert_eq!(extract_quantization_from_filename("tinyllama-q4_k_m"), "Q4_K");
+        assert_eq!(extract_quantization_from_filename("model-q4_k"), "Q4_K");
     }
 
     #[test]
