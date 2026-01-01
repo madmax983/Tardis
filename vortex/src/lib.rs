@@ -41,6 +41,7 @@
 pub mod config;
 pub mod error;
 pub mod inference;
+pub mod loader;
 pub mod model;
 pub mod tokenizer;
 

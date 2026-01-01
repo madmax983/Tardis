@@ -2,11 +2,13 @@
 
 use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
+use crate::loader::{parse_model_config, load_model_weights, DeviceSpec, LoadedModel, ModelConfig};
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tardis_common::traits::{InferenceParams as TraitParams, ModelInfo as TraitInfo, VortexService};
 use tracing::{info, instrument};
 
@@ -16,6 +18,10 @@ pub struct Vortex {
     registry: Arc<ModelRegistry>,
     /// Tokenizer service.
     tokenizers: Arc<TokenizerService>,
+    /// Loaded models by handle.
+    loaded_models: RwLock<HashMap<ModelHandle, LoadedModel>>,
+    /// Model configurations by handle.
+    model_configs: RwLock<HashMap<ModelHandle, ModelConfig>>,
 }
 
 impl Vortex {
@@ -30,6 +36,8 @@ impl Vortex {
         Ok(Self {
             registry: Arc::new(ModelRegistry::new()),
             tokenizers: Arc::new(TokenizerService::new()),
+            loaded_models: RwLock::new(HashMap::new()),
+            model_configs: RwLock::new(HashMap::new()),
         })
     }
 
@@ -50,20 +58,87 @@ impl Vortex {
 
         info!("Loading model from {}", path);
 
-        // TODO: Actually load the model with Candle
-        // For now, just register it in the registry
+        // Parse model configuration
+        let model_config = parse_model_config(&path_buf)?;
 
-        let info = self.probe_model(&path_buf)?;
+        // Create device specification
+        let device_spec = DeviceSpec::parse(&config.device);
+
+        // Load model weights
+        let loaded_model = load_model_weights(
+            &path_buf,
+            &model_config,
+            &device_spec,
+            config.use_mmap,
+        )?;
+
+        // Get memory usage from loaded model
+        let memory = loaded_model.memory_bytes();
+
+        // Create model info for registry
+        let info = self.create_model_info(&path_buf, &model_config);
         self.registry.register(path_buf.clone(), info)?;
 
-        // Simulate memory usage based on parameters
-        let memory = 14_000_000_000_u64; // Placeholder
-
+        // Mark as loaded and get handle
         let handle = self.registry.mark_loaded(&path_buf, memory)?;
 
-        info!("Model loaded successfully: {}", handle);
+        // Store the loaded model
+        {
+            let mut models = self.loaded_models.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire models lock".to_string())
+            })?;
+            models.insert(handle, loaded_model);
+        }
+
+        // Store the config
+        {
+            let mut configs = self.model_configs.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire configs lock".to_string())
+            })?;
+            configs.insert(handle, model_config);
+        }
+
+        // Load tokenizer
+        let tokenizer_path = if path_buf.is_dir() {
+            path_buf.join("tokenizer.json")
+        } else {
+            path_buf.parent()
+                .map(|p| p.join("tokenizer.json"))
+                .unwrap_or_else(|| path_buf.with_file_name("tokenizer.json"))
+        };
+
+        if tokenizer_path.exists() {
+            self.tokenizers.load(handle, &tokenizer_path)?;
+            info!("Tokenizer loaded from {}", tokenizer_path.display());
+        } else {
+            info!("No tokenizer.json found, tokenization will not be available");
+        }
+
+        info!("Model loaded successfully: {} ({} bytes)", handle, memory);
 
         Ok(handle)
+    }
+
+    /// Create model info from config.
+    fn create_model_info(&self, path: &Path, config: &ModelConfig) -> ModelInfo {
+        ModelInfo {
+            name: path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            path: path.to_path_buf(),
+            architecture: config.architecture,
+            parameters: config.estimate_parameters(),
+            context_length: config.max_seq_len,
+            quantization: crate::model::Quantization::F16, // TODO: detect from weights
+            loaded: false,
+            memory_bytes: None,
+            num_layers: config.num_layers,
+            hidden_size: config.hidden_size,
+            num_heads: config.num_heads,
+            vocab_size: config.vocab_size,
+        }
     }
 
     /// Unload a model.
@@ -78,8 +153,26 @@ impl Vortex {
 
         info!("Unloading model {}", handle);
 
+        // Remove loaded model
+        {
+            let mut models = self.loaded_models.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire models lock".to_string())
+            })?;
+            models.remove(&handle);
+        }
+
+        // Remove config
+        {
+            let mut configs = self.model_configs.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire configs lock".to_string())
+            })?;
+            configs.remove(&handle);
+        }
+
         self.tokenizers.unload(handle)?;
         self.registry.mark_unloaded(handle)?;
+
+        info!("Model {} unloaded successfully", handle);
 
         Ok(())
     }
@@ -143,29 +236,23 @@ impl Vortex {
         self.registry.get_info(&path)
     }
 
-    /// Probe a model file to extract metadata.
-    fn probe_model(&self, path: &Path) -> VortexResult<ModelInfo> {
-        // TODO: Actually read config.json from the model directory
-        // For now, return placeholder info
-
-        Ok(ModelInfo {
-            name: path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            path: path.to_path_buf(),
-            architecture: crate::model::Architecture::Llama,
-            parameters: 7_000_000_000,
-            context_length: 4096,
-            quantization: crate::model::Quantization::F16,
-            loaded: false,
-            memory_bytes: None,
-            num_layers: 32,
-            hidden_size: 4096,
-            num_heads: 32,
-            vocab_size: 32000,
+    /// Get a reference to a loaded model.
+    ///
+    /// This is used internally for inference operations.
+    #[allow(dead_code)] // Will be used in inference implementation
+    pub(crate) fn get_loaded_model(&self, _handle: ModelHandle) -> VortexResult<std::sync::RwLockReadGuard<'_, HashMap<ModelHandle, LoadedModel>>> {
+        self.loaded_models.read().map_err(|_| {
+            VortexError::ConfigError("failed to acquire models lock".to_string())
         })
+    }
+
+    /// Check if a model is loaded.
+    #[must_use]
+    pub fn is_model_loaded(&self, handle: ModelHandle) -> bool {
+        self.loaded_models
+            .read()
+            .map(|models| models.contains_key(&handle))
+            .unwrap_or(false)
     }
 }
 

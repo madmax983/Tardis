@@ -12,7 +12,7 @@ pub use registry::{ModelHandle, ModelInfo, ModelRegistry};
 use serde::{Deserialize, Serialize};
 
 /// Supported model architectures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Architecture {
     /// Meta's LLaMA family (1, 2, 3).
     Llama,
@@ -29,6 +29,7 @@ pub enum Architecture {
     /// Alibaba's Qwen.
     Qwen,
     /// Unknown/unsupported.
+    #[default]
     Unknown,
 }
 
@@ -104,6 +105,7 @@ impl std::fmt::Display for Architecture {
 
 /// Quantization types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum Quantization {
     /// Full 32-bit precision.
     F32,
