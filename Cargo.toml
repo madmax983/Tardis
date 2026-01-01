@@ -50,6 +50,7 @@ cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"
 half = "2.4"
+hf-hub = "0.3"
 
 # Database (Gallifrey)
 # gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
@@ -86,7 +87,7 @@ criterion = "0.8"
 missing_docs = "warn"
 unsafe_code = "warn"
 # Rust 2024 edition lints
-rust_2024_compatibility = "warn"
+rust_2024_compatibility = { level = "warn", priority = -1 }
 # Additional safety
 missing_debug_implementations = "warn"
 # Disallow deprecated features

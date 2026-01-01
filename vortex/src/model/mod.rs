@@ -14,11 +14,11 @@ use serde::{Deserialize, Serialize};
 /// Supported model architectures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Architecture {
-    /// Meta's LLaMA family (1, 2, 3).
+    /// Meta's `LLaMA` family (1, 2, 3).
     Llama,
     /// Mistral AI's Mistral.
     Mistral,
-    /// Mistral AI's Mixtral (MoE).
+    /// Mistral AI's Mixtral (`MoE`).
     Mixtral,
     /// Microsoft's Phi family.
     Phi,
@@ -106,10 +106,12 @@ impl std::fmt::Display for Architecture {
 /// Quantization types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
+#[derive(Default)]
 pub enum Quantization {
     /// Full 32-bit precision.
     F32,
     /// Half precision (16-bit float).
+    #[default]
     F16,
     /// Brain float 16.
     BF16,
@@ -149,8 +151,3 @@ impl Quantization {
     }
 }
 
-impl Default for Quantization {
-    fn default() -> Self {
-        Self::F16
-    }
-}

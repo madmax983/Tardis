@@ -2,7 +2,10 @@
 
 use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
-use crate::loader::{parse_model_config, load_model_weights, DeviceSpec, LoadedModel, ModelConfig};
+use crate::loader::{
+    download_preset, parse_model_config, load_model_weights, DeviceSpec, LoadedModel,
+    ModelConfig, ModelPreset,
+};
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
 use async_trait::async_trait;
@@ -22,6 +25,19 @@ pub struct Vortex {
     loaded_models: RwLock<HashMap<ModelHandle, LoadedModel>>,
     /// Model configurations by handle.
     model_configs: RwLock<HashMap<ModelHandle, ModelConfig>>,
+}
+
+impl std::fmt::Debug for Vortex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vortex")
+            .field("registry", &self.registry)
+            .field("tokenizers", &self.tokenizers)
+            .field(
+                "loaded_models_count",
+                &self.loaded_models.read().map(|m| m.len()).unwrap_or(0),
+            )
+            .finish()
+    }
 }
 
 impl Vortex {
@@ -102,9 +118,7 @@ impl Vortex {
         let tokenizer_path = if path_buf.is_dir() {
             path_buf.join("tokenizer.json")
         } else {
-            path_buf.parent()
-                .map(|p| p.join("tokenizer.json"))
-                .unwrap_or_else(|| path_buf.with_file_name("tokenizer.json"))
+            path_buf.parent().map_or_else(|| path_buf.with_file_name("tokenizer.json"), |p| p.join("tokenizer.json"))
         };
 
         if tokenizer_path.exists() {
@@ -117,6 +131,56 @@ impl Vortex {
         info!("Model loaded successfully: {} ({} bytes)", handle, memory);
 
         Ok(handle)
+    }
+
+    /// Load a preset model, downloading it from `HuggingFace` Hub if necessary.
+    ///
+    /// This is a convenience method that handles downloading and loading
+    /// commonly-used models in one step.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the download or load fails.
+    #[instrument(skip(self))]
+    pub async fn load_preset(
+        &self,
+        preset: ModelPreset,
+        device: Option<&str>,
+    ) -> VortexResult<ModelHandle> {
+        info!(
+            "Loading preset model: {} ({})",
+            preset.display_name(),
+            preset.repo_id()
+        );
+
+        // Download the model (or use cached version)
+        let model_path = download_preset(preset)?;
+
+        info!("Model downloaded to: {}", model_path.display());
+
+        // Load the model
+        let config = ModelLoadConfig {
+            device: device.unwrap_or("cpu").to_string(),
+            quantization: None,
+            max_context_length: None,
+            use_mmap: true,
+            tensor_parallel: 1,
+        };
+
+        self.load_model(model_path.to_string_lossy().as_ref(), config)
+            .await
+    }
+
+    /// Load the default test model (`TinyLlama`).
+    ///
+    /// This is a convenience method for testing and development.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the download or load fails.
+    pub async fn load_default_test_model(&self) -> VortexResult<ModelHandle> {
+        self.load_preset(ModelPreset::default_test_model(), None)
+            .await
     }
 
     /// Create model info from config.
@@ -256,7 +320,7 @@ impl Vortex {
     }
 }
 
-/// Implement the VortexService trait for integration with other subsystems.
+/// Implement the `VortexService` trait for integration with other subsystems.
 #[async_trait]
 impl VortexService for Vortex {
     async fn load_model(

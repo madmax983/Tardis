@@ -1,6 +1,6 @@
 //! Model weight loading.
 //!
-//! Handles loading weights from SafeTensors formats,
+//! Handles loading weights from `SafeTensors` formats,
 //! creating Candle model instances.
 
 use super::config::ModelConfig;
@@ -51,7 +51,7 @@ impl std::fmt::Debug for LoadedModel {
 impl LoadedModel {
     /// Get the device this model is loaded on.
     #[must_use]
-    pub fn device(&self) -> &Device {
+    pub const fn device(&self) -> &Device {
         match self {
             Self::Llama { device, .. } => device,
         }
@@ -59,7 +59,7 @@ impl LoadedModel {
 
     /// Get the data type used by this model.
     #[must_use]
-    pub fn dtype(&self) -> DType {
+    pub const fn dtype(&self) -> DType {
         match self {
             Self::Llama { dtype, .. } => *dtype,
         }
@@ -83,7 +83,7 @@ impl LoadedModel {
 }
 
 /// Estimate Llama parameter count.
-fn estimate_llama_params(config: &LlamaRuntimeConfig) -> u64 {
+const fn estimate_llama_params(config: &LlamaRuntimeConfig) -> u64 {
     let hidden = config.hidden_size as u64;
     let layers = config.num_hidden_layers as u64;
     let vocab = config.vocab_size as u64;
@@ -192,7 +192,7 @@ fn load_llama(
     // Build the model
     info!("Building Llama model...");
     let model = Llama::load(vb, &runtime_config).map_err(|e| {
-        VortexError::LoadFailed(format!("Failed to build Llama model: {}", e))
+        VortexError::LoadFailed(format!("Failed to build Llama model: {e}"))
     })?;
 
     info!("Llama model loaded successfully");
@@ -205,13 +205,13 @@ fn load_llama(
     })
 }
 
-/// Find SafeTensors weight files in a model directory.
+/// Find `SafeTensors` weight files in a model directory.
 fn find_weight_files(model_path: &Path) -> VortexResult<Vec<std::path::PathBuf>> {
     let mut files = Vec::new();
 
     if model_path.is_file() {
         // Single file provided
-        if model_path.extension().map_or(false, |ext| ext == "safetensors") {
+        if model_path.extension().is_some_and(|ext| ext == "safetensors") {
             files.push(model_path.to_path_buf());
         } else {
             return Err(VortexError::LoadFailed(format!(
@@ -230,7 +230,7 @@ fn find_weight_files(model_path: &Path) -> VortexResult<Vec<std::path::PathBuf>>
             for entry in std::fs::read_dir(model_path)? {
                 let entry = entry?;
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "safetensors") {
+                if path.extension().is_some_and(|ext| ext == "safetensors") {
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                     // Include sharded files or any .safetensors files
                     if name.starts_with("model") || name.contains("safetensors") {

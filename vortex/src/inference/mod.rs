@@ -45,7 +45,7 @@ impl KVCache {
     /// Current sequence length.
     #[must_use]
     pub fn seq_len(&self) -> usize {
-        self.layers.first().map(|l| l.seq_len).unwrap_or(0)
+        self.layers.first().map_or(0, |l| l.seq_len)
     }
 }
 

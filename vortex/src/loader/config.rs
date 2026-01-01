@@ -1,6 +1,6 @@
 //! Model configuration parsing.
 //!
-//! Parses config.json files from HuggingFace model directories.
+//! Parses config.json files from `HuggingFace` model directories.
 
 use crate::error::{VortexError, VortexResult};
 use crate::model::Architecture;
@@ -54,11 +54,11 @@ pub struct ModelConfig {
     pub architectures: Vec<String>,
 }
 
-fn default_rms_norm_eps() -> f64 {
+const fn default_rms_norm_eps() -> f64 {
     1e-5
 }
 
-fn default_rope_theta() -> f64 {
+const fn default_rope_theta() -> f64 {
     10000.0
 }
 
@@ -85,7 +85,7 @@ impl ModelConfig {
         (embedding + self.num_layers * per_layer + output) as u64
     }
 
-    /// Get effective number of KV heads (defaults to num_heads if not specified).
+    /// Get effective number of KV heads (defaults to `num_heads` if not specified).
     #[must_use]
     pub fn effective_kv_heads(&self) -> usize {
         self.num_kv_heads.unwrap_or(self.num_heads)
@@ -104,9 +104,7 @@ pub fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> {
     } else {
         // Model path is a file, look for config.json in same directory
         model_path
-            .parent()
-            .map(|p| p.join("config.json"))
-            .unwrap_or_else(|| model_path.with_file_name("config.json"))
+            .parent().map_or_else(|| model_path.with_file_name("config.json"), |p| p.join("config.json"))
     };
 
     if !config_path.exists() {
