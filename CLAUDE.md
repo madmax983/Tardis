@@ -2,6 +2,26 @@
 
 > A timey-wimey OS built on Rust with local LLM (Candle) and temporal knowledge management (GallifreyDB) at its core.
 
+## Claude Instructions
+
+**IMPORTANT: Use the worktree workflow for all code changes.**
+
+1. **Never commit directly to `trunk`** - Always create a feature branch via worktree
+2. **For any task requiring code changes:**
+   ```powershell
+   # Create a worktree for your feature
+   .\scripts\worktree-new.ps1 feature/descriptive-name
+
+   # Work in that directory
+   cd ..\tardis-worktrees\feature-descriptive-name
+   ```
+3. **When done:** Push and create a PR against `trunk`
+4. **After PR merge:** Clean up with `.\scripts\worktree-cleanup.ps1`
+
+This enables multiple Claude agents to work on different features in parallel without conflicts.
+
+**Exception:** Exploratory work, reading files, and answering questions don't require a worktree - only actual code/file changes do.
+
 ## Vision
 
 Tardis is a **Personal AI Computer** - a full operating system where AI reasoning and persistent temporal memory are first-class citizens, not afterthoughts. Users interact through natural language, and the system remembers everything with full time-travel capabilities.
