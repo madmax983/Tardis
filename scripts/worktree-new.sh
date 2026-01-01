@@ -43,6 +43,21 @@ git fetch origin
 echo "Creating worktree at $WORKTREE_PATH..."
 git worktree add -b "$BRANCH_NAME" "$WORKTREE_PATH" "origin/$BASE_BRANCH"
 
+# Symlink Claude settings from main repo to worktree
+# This preserves permissions granted in the main repo
+MAIN_REPO="$(pwd)"
+CLAUDE_SETTINGS="$MAIN_REPO/.claude/settings.local.json"
+
+if [[ -f "$CLAUDE_SETTINGS" ]]; then
+    echo "Symlinking Claude settings..."
+    mkdir -p "$WORKTREE_PATH/.claude"
+
+    # Create symlink (use relative path for portability)
+    # From worktree/.claude/ back to main/.claude/settings.local.json
+    ln -sf "$CLAUDE_SETTINGS" "$WORKTREE_PATH/.claude/settings.local.json"
+    echo "  Linked: $WORKTREE_PATH/.claude/settings.local.json -> $CLAUDE_SETTINGS"
+fi
+
 echo ""
 echo "Worktree created successfully!"
 echo ""
