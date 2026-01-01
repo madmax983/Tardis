@@ -2,6 +2,26 @@
 
 > A timey-wimey OS built on Rust with local LLM (Candle) and temporal knowledge management (GallifreyDB) at its core.
 
+## Claude Instructions
+
+**IMPORTANT: Use the worktree workflow for all code changes.**
+
+1. **Never commit directly to `trunk`** - Always create a feature branch via worktree
+2. **For any task requiring code changes:**
+   ```powershell
+   # Create a worktree for your feature
+   .\scripts\worktree-new.ps1 feature/descriptive-name
+
+   # Work in that directory
+   cd ..\tardis-worktrees\feature-descriptive-name
+   ```
+3. **When done:** Push and create a PR against `trunk`
+4. **After PR merge:** Clean up with `.\scripts\worktree-cleanup.ps1`
+
+This enables multiple Claude agents to work on different features in parallel without conflicts.
+
+**Exception:** Exploratory work, reading files, and answering questions don't require a worktree - only actual code/file changes do.
+
 ## Vision
 
 Tardis is a **Personal AI Computer** - a full operating system where AI reasoning and persistent temporal memory are first-class citizens, not afterthoughts. Users interact through natural language, and the system remembers everything with full time-travel capabilities.
@@ -81,6 +101,40 @@ Key decisions:
 
 ## Development Workflow
 
+### Git Worktree Workflow (Parallel Development)
+
+We use git worktrees to enable multiple Claude agents to work on different features simultaneously. Each feature gets its own worktree in `../tardis-worktrees/`.
+
+```powershell
+# Create a new feature worktree
+.\scripts\worktree-new.ps1 feature/my-feature
+
+# List active worktrees
+.\scripts\worktree-list.ps1
+
+# Clean up after PR merge
+.\scripts\worktree-cleanup.ps1 feature/my-feature
+```
+
+**Workflow:**
+1. Create worktree: `.\scripts\worktree-new.ps1 feature/add-metrics`
+2. Work in worktree: `cd ..\tardis-worktrees\feature-add-metrics`
+3. Commit and push: `git push -u origin feature/add-metrics`
+4. Create PR: `gh pr create --base trunk`
+5. After merge, cleanup: `.\scripts\worktree-cleanup.ps1 feature/add-metrics`
+
+> **Note:** Bash scripts (`.sh`) are also available for Unix/WSL environments.
+
+**Directory Structure:**
+```
+~/
+├── tardis/                    # Main repo (trunk)
+└── tardis-worktrees/          # Feature worktrees
+    ├── feature-add-metrics/
+    ├── fix-memory-leak/
+    └── refactor-vortex/
+```
+
 ### Building
 ```bash
 # Build all crates
@@ -109,6 +163,10 @@ tardis/
 ├── CLAUDE.md              # This file
 ├── Cargo.toml             # Workspace root
 ├── rustfmt.toml           # Formatting config
+├── scripts/               # Development scripts (PowerShell + Bash)
+│   ├── worktree-new.ps1   # Create feature worktree
+│   ├── worktree-list.ps1  # List active worktrees
+│   └── worktree-cleanup.ps1 # Clean up merged worktree
 ├── docs/
 │   ├── architecture/      # Design documents
 │   └── adr/               # Architecture Decision Records
@@ -117,6 +175,7 @@ tardis/
 ├── gallifrey/             # Temporal database layer
 ├── chronos/               # RAG orchestration
 ├── shell/                 # AI shell interface
+├── telemetry/             # Full-stack observability
 └── common/                # Shared types
 ```
 
