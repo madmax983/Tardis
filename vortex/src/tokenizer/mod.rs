@@ -164,7 +164,9 @@ impl TokenizerService {
         };
 
         let mut tokenizers = self.tokenizers.write().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer write lock",
+            }
         })?;
 
         tokenizers.insert(handle, loaded);
@@ -184,23 +186,18 @@ impl TokenizerService {
         })?;
 
         // Extract special token IDs
+        let get_token_id = |key| {
+            config
+                .get(key)
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|v| u32::try_from(v).ok())
+        };
+
         let special_tokens = SpecialTokens {
-            bos_token_id: config
-                .get("bos_token_id")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|v| u32::try_from(v).ok()),
-            eos_token_id: config
-                .get("eos_token_id")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|v| u32::try_from(v).ok()),
-            pad_token_id: config
-                .get("pad_token_id")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|v| u32::try_from(v).ok()),
-            unk_token_id: config
-                .get("unk_token_id")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|v| u32::try_from(v).ok()),
+            bos_token_id: get_token_id("bos_token_id"),
+            eos_token_id: get_token_id("eos_token_id"),
+            pad_token_id: get_token_id("pad_token_id"),
+            unk_token_id: get_token_id("unk_token_id"),
         };
 
         // Extract chat template
@@ -231,7 +228,9 @@ impl TokenizerService {
     /// Returns an error if the tokenizer lock is poisoned.
     pub fn unload(&self, handle: ModelHandle) -> VortexResult<()> {
         let mut tokenizers = self.tokenizers.write().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer write lock",
+            }
         })?;
 
         tokenizers.remove(&handle);
@@ -250,7 +249,9 @@ impl TokenizerService {
     /// Returns an error if encoding fails.
     pub fn encode(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<u32>> {
         let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            }
         })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
@@ -265,7 +266,14 @@ impl TokenizerService {
         Ok(encoding.get_ids().to_vec())
     }
 
-    /// Encode text with optional BOS token prepended.
+    /// Encode text, ensuring a BOS token is present at the start.
+    ///
+    /// This method calls [`encode`] and then ensures the BOS token is at the
+    /// start of the sequence. If the tokenizer already added a BOS token
+    /// (based on its configuration), no duplicate is added.
+    ///
+    /// Use this when you need to guarantee a BOS token regardless of the
+    /// tokenizer's default configuration.
     ///
     /// # Errors
     ///
@@ -274,7 +282,7 @@ impl TokenizerService {
         let mut tokens = self.encode(handle, text)?;
 
         if let Some(bos) = self.get_special_tokens(handle).and_then(|s| s.bos_token_id) {
-            // Only prepend if not already present
+            // Only prepend if not already present (tokenizer may have added it)
             if tokens.first() != Some(&bos) {
                 tokens.insert(0, bos);
             }
@@ -295,7 +303,9 @@ impl TokenizerService {
     /// Returns an error if decoding fails.
     pub fn decode(&self, handle: ModelHandle, tokens: &[u32]) -> VortexResult<String> {
         let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            }
         })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
@@ -308,14 +318,24 @@ impl TokenizerService {
             .map_err(|e| VortexError::TokenizationError(format!("decoding failed: {e}")))
     }
 
-    /// Decode tokens, skipping special tokens.
+    /// Decode tokens, including special tokens in the output.
+    ///
+    /// Unlike [`decode`], this preserves special tokens (BOS, EOS, etc.) in the
+    /// output string. Useful for debugging or when you need to see the raw
+    /// token sequence.
     ///
     /// # Errors
     ///
     /// Returns an error if decoding fails.
-    pub fn decode_skip_special(&self, handle: ModelHandle, tokens: &[u32]) -> VortexResult<String> {
+    pub fn decode_with_special_tokens(
+        &self,
+        handle: ModelHandle,
+        tokens: &[u32],
+    ) -> VortexResult<String> {
         let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            }
         })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
@@ -324,7 +344,7 @@ impl TokenizerService {
 
         loaded
             .tokenizer
-            .decode(tokens, false) // skip_special_tokens = false means DON'T clean up
+            .decode(tokens, false) // skip_special_tokens = false: include special tokens
             .map_err(|e| VortexError::TokenizationError(format!("decoding failed: {e}")))
     }
 
@@ -379,7 +399,9 @@ impl TokenizerService {
         add_generation_prompt: bool,
     ) -> VortexResult<String> {
         let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::TokenizationError("failed to acquire tokenizer lock".to_string())
+            VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            }
         })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
@@ -439,11 +461,14 @@ impl TokenizerService {
     }
 
     /// Apply Llama 2 template format.
+    ///
+    /// Note: Only the first system message is used; subsequent system messages
+    /// are ignored per Llama 2 chat format conventions.
     fn apply_llama2_template(messages: &[ChatMessage], add_generation_prompt: bool) -> String {
         let mut result = String::new();
         let mut system_msg = None;
 
-        // Extract system message if present
+        // Extract first system message if present (Llama 2 only uses one)
         for msg in messages {
             if msg.role == ChatRole::System {
                 system_msg = Some(&msg.content);
@@ -474,8 +499,9 @@ impl TokenizerService {
             }
         }
 
-        if add_generation_prompt && !result.ends_with("[/INST]") {
-            // Already ends with prompt
+        // Add space after [/INST] for assistant to generate
+        if add_generation_prompt && result.ends_with(" [/INST]") {
+            result.push(' ');
         }
 
         result
@@ -671,5 +697,43 @@ mod tests {
         // Should not error when unloading non-existent tokenizer
         let result = service.unload(ModelHandle::new(999));
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_decode_with_special_tokens_without_tokenizer() {
+        let service = TokenizerService::new();
+        let result = service.decode_with_special_tokens(ModelHandle::new(999), &[1, 2, 3]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_apply_llama2_template_with_generation_prompt() {
+        let messages = vec![
+            ChatMessage::system("You are helpful"),
+            ChatMessage::user("Hello"),
+        ];
+
+        let result = TokenizerService::apply_llama2_template(&messages, true);
+        assert!(result.contains("[INST]"));
+        assert!(result.contains("<<SYS>>"));
+        assert!(result.contains("You are helpful"));
+        assert!(result.contains("Hello"));
+        // Should end with space after [/INST] for generation
+        assert!(result.ends_with(" [/INST] "));
+    }
+
+    #[test]
+    fn test_apply_llama2_template_multi_turn() {
+        let messages = vec![
+            ChatMessage::user("Hi"),
+            ChatMessage::assistant("Hello!"),
+            ChatMessage::user("How are you?"),
+        ];
+
+        let result = TokenizerService::apply_llama2_template(&messages, true);
+        assert!(result.contains("[INST] Hi [/INST]"));
+        assert!(result.contains(" Hello! </s><s>"));
+        assert!(result.contains("[INST] How are you? [/INST]"));
+        assert!(result.ends_with(" [/INST] "));
     }
 }
