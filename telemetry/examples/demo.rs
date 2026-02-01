@@ -9,7 +9,7 @@
 //! - Querying Gallifrey for temporal data
 
 use std::time::Duration;
-use tardis_telemetry::{TelemetryConfig, counter, gauge, histogram, init};
+use tardis_telemetry::{counter, gauge, histogram, init, TelemetryConfig};
 use tracing::{info, info_span, instrument, warn};
 
 /// Simulated inference request
@@ -21,6 +21,7 @@ struct InferenceRequest {
 
 /// Simulated inference response
 #[derive(Debug)]
+#[allow(dead_code)]
 struct InferenceResponse {
     text: String,
     tokens_generated: usize,

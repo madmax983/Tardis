@@ -23,8 +23,8 @@
 use crate::types::{MetricSample, MetricValue, Subsystem};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Global metrics registry.

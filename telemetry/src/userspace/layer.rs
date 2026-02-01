@@ -11,9 +11,9 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Event, Metadata, Subscriber};
-use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::Layer;
 
 #[cfg(feature = "std")]
 use crate::gallifrey::TelemetryStore;

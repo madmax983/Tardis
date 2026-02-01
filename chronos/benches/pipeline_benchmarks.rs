@@ -1,6 +1,6 @@
 //! Benchmarks for Chronos RAG pipeline operations.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tardis_chronos::pipeline::{ContextAugmenter, QueryAnalyzer};
 
 fn bench_query_analyzer(c: &mut Criterion) {

@@ -35,4 +35,4 @@ pub mod subscriber;
 
 pub use layer::TardisLayer;
 pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
-pub use subscriber::{TelemetryConfig, TelemetryHandle, init};
+pub use subscriber::{init, TelemetryConfig, TelemetryHandle};

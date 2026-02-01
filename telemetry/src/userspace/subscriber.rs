@@ -6,9 +6,9 @@ use crate::error::{TelemetryError, TelemetryResult};
 use crate::types::Level;
 use crate::userspace::layer::{SpanData, TardisLayer, TardisLayerConfig};
 use std::sync::Arc;
-use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 #[cfg(feature = "std")]
 use crate::gallifrey::TelemetryStore;

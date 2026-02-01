@@ -18,9 +18,9 @@
 #![allow(missing_debug_implementations)]
 
 pub mod error;
+pub mod query;
 pub mod stores;
 pub mod temporal;
-pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};

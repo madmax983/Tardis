@@ -180,8 +180,8 @@ mod tests {
     use chrono::Utc;
     use std::collections::HashMap;
     use tardis_common::EntityId;
-    use tardis_gallifrey::BiTemporalInterval;
     use tardis_gallifrey::stores::{Entity, Message, Role};
+    use tardis_gallifrey::BiTemporalInterval;
 
     #[tokio::test]
     async fn test_retrieve_flow() {

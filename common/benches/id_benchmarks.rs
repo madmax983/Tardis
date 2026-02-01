@@ -1,6 +1,6 @@
 //! Benchmarks for ID generation and temporal operations.
 
-use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 use tardis_common::{EntityId, ModelHandle, SessionId, SnapshotId};
 

@@ -40,9 +40,7 @@ impl QueryExecutor {
     pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
         // TODO: Implement actual query execution
 
-        Ok(QueryResult {
-            rows: Vec::new(),
-        })
+        Ok(QueryResult { rows: Vec::new() })
     }
 }
 

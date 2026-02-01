@@ -3,8 +3,8 @@
 use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
 use crate::loader::{
-    DeviceSpec, LoadedModel, ModelConfig, ModelPreset, download_preset, find_model_file,
-    load_model_weights, parse_model_config,
+    download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
+    LoadedModel, ModelConfig, ModelPreset,
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;

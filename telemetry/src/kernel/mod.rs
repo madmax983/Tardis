@@ -31,4 +31,4 @@ mod ring_buffer;
 pub mod serial;
 
 pub use logger::KernelLogger;
-pub use ring_buffer::{RING_BUFFER_SIZE, RingBuffer, RingSlot};
+pub use ring_buffer::{RingBuffer, RingSlot, RING_BUFFER_SIZE};
