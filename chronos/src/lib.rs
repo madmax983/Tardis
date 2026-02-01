@@ -11,6 +11,12 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::uninlined_format_args)]
 
 pub mod error;
 pub mod memory;

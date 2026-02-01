@@ -12,6 +12,7 @@ use tardis_gallifrey::Gallifrey;
 use tracing::{error, info};
 
 /// The main REPL for Tardis shell.
+#[derive(Debug)]
 pub struct Repl {
     /// Readline editor.
     editor: DefaultEditor,

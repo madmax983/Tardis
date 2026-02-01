@@ -1,7 +1,9 @@
 //! Benchmarks for Gallifrey store operations.
 
-use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
+#![allow(clippy::expect_used)]
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::collections::HashMap;
+use std::hint::black_box;
 use tardis_common::EntityId;
 use tardis_gallifrey::BiTemporalInterval;
 use tardis_gallifrey::stores::{ConversationStore, Entity, KnowledgeStore};
@@ -47,7 +49,7 @@ fn bench_knowledge_store(c: &mut Criterion) {
         temporal: BiTemporalInterval::now(),
         source: None,
     };
-    let id = store.insert_entity(entity).unwrap();
+    let id = store.insert_entity(entity).expect("failed to insert entity");
     group.bench_function("KnowledgeStore::get_entity", |b| {
         b.iter(|| black_box(store.get_entity(id)));
     });
@@ -68,7 +70,7 @@ fn bench_conversation_store(c: &mut Criterion) {
     });
 
     let store = ConversationStore::new();
-    let session_id = store.create_session().unwrap();
+    let session_id = store.create_session().expect("failed to create session");
     group.bench_function("ConversationStore::get_session", |b| {
         b.iter(|| black_box(store.get_session(session_id)));
     });

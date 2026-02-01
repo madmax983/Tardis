@@ -29,8 +29,13 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
-        run: cargo test --workspace --all-features
+      - name: Run tests (Linux/Windows)
+        if: matrix.os != 'macos-latest'
+        run: cargo test --workspace
+
+      - name: Run tests (macOS)
+        if: matrix.os == 'macos-latest'
+        run: cargo test --workspace --features metal
 
   clippy:
     name: Clippy
@@ -47,7 +52,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
   fmt:
     name: Format
@@ -76,7 +81,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build docs
-        run: cargo doc --workspace --no-deps --all-features
+        run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -153,7 +158,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+
       - name: Check licenses and advisories
-        uses: EmbarkStudios/cargo-deny-action@v1
-        with:
-          command: check
+        run: cargo deny check

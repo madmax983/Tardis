@@ -81,7 +81,9 @@ pub struct RagResponse {
 }
 
 /// The main Chronos RAG engine.
+#[derive(Debug)]
 pub struct Chronos {
+    #[allow(dead_code)] // Will be used for inference
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
@@ -120,7 +122,7 @@ impl Chronos {
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
 
         // 4. Run inference
         // TODO: Use actual model handle
@@ -153,7 +155,7 @@ impl Chronos {
         // Create entity in knowledge graph
         let entity = tardis_gallifrey::stores::Entity {
             id: EntityId::new(),
-            entity_type: format!("Memory:{:?}", category),
+            entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();

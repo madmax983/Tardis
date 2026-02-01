@@ -56,6 +56,11 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::no_effect_underscore_binding)]
 
 extern crate alloc;
 

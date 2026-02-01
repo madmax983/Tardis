@@ -1,6 +1,6 @@
 //! Query analysis for Chronos.
 
-use crate::error::{ChronosError, ChronosResult};
+use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
 
 /// Analyzed query with extracted metadata.
@@ -58,6 +58,7 @@ pub enum TemporalRefType {
 }
 
 /// Query analyzer.
+#[derive(Debug)]
 pub struct QueryAnalyzer {
     // Configuration
 }
@@ -161,14 +162,14 @@ impl QueryAnalyzer {
     }
 
     /// Extract entity mentions from a query.
-    fn extract_entities(&self, query: &str) -> Vec<String> {
+    fn extract_entities(&self, _query: &str) -> Vec<String> {
         // TODO: Implement NER or pattern matching
         // For now, just return empty
-        let _ = query;
         Vec::new()
     }
 
     /// Generate human-readable description of temporal context.
+    #[allow(clippy::unused_self)]
     fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
         if refs.is_empty() {
             return "current time".to_string();

@@ -89,7 +89,8 @@ pub struct Change {
     /// What changed.
     pub path: String,
     /// Type of change.
-    pub change_type: ChangeType,
+    #[serde(rename = "type")]
+    pub kind: ChangeType,
     /// Old value (if applicable).
     pub old_value: Option<serde_json::Value>,
     /// New value (if applicable).
@@ -108,6 +109,7 @@ pub enum ChangeType {
 }
 
 /// The system state store.
+#[derive(Debug)]
 pub struct SystemStateStore {
     /// Snapshots indexed by ID.
     snapshots: RwLock<HashMap<SnapshotId, Snapshot>>,

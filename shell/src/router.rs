@@ -41,6 +41,7 @@ pub enum Intent {
 }
 
 /// Router for classifying user input intent.
+#[derive(Debug)]
 pub struct Router {
     /// Built-in command names.
     builtins: Vec<&'static str>,

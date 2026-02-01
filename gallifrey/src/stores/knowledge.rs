@@ -37,7 +37,7 @@ pub struct Entity {
 pub struct Relationship {
     /// Unique identifier.
     pub id: EntityId,
-    /// Relationship type (e.g., "KNOWS", "CONTAINS", "DEPENDS_ON").
+    /// Relationship type (e.g., "KNOWS", "CONTAINS", "`DEPENDS_ON`").
     pub relationship_type: String,
     /// Source entity ID.
     pub source: EntityId,
@@ -50,6 +50,7 @@ pub struct Relationship {
 }
 
 /// The knowledge graph store.
+#[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
     entities: RwLock<HashMap<EntityId, Vec<Entity>>>,

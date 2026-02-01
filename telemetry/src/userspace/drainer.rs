@@ -12,6 +12,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Configuration for the ring buffer drainer.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct DrainerConfig {
     /// How often to poll the ring buffer.
@@ -34,6 +35,7 @@ impl Default for DrainerConfig {
 ///
 /// This drainer will eventually read from a shared memory ring buffer
 /// populated by the kernel, converting kernel events to tracing spans.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RingBufferDrainer {
     /// Configuration.
@@ -43,6 +45,7 @@ pub struct RingBufferDrainer {
     receiver: Option<mpsc::Receiver<(TelemetryEntry, Vec<u8>)>>,
 }
 
+#[allow(dead_code)]
 impl RingBufferDrainer {
     /// Creates a new drainer with default configuration.
     #[must_use]

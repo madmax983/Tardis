@@ -2,7 +2,7 @@
 //!
 //! Provides query parsing and execution for temporal graph queries.
 
-use crate::error::{GallifreyError, GallifreyResult};
+use crate::error::GallifreyResult;
 use tardis_common::temporal::TemporalQuery;
 
 /// A parsed query.
@@ -15,6 +15,7 @@ pub struct ParsedQuery {
 }
 
 /// Query executor.
+#[derive(Debug)]
 pub struct QueryExecutor {
     // TODO: Add connection to stores
 }
@@ -46,7 +47,7 @@ impl QueryExecutor {
     /// # Errors
     ///
     /// Returns an error if execution fails.
-    pub fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
+    pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
         // TODO: Implement actual query execution
 
         Ok(QueryResult {
