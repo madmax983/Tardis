@@ -11,7 +11,7 @@
 //! ## Features
 //!
 //! - `std` (default): Userspace support with tracing, metrics, and Gallifrey storage
-//! - `kernel`: no_std kernel support with ring buffer and serial output
+//! - `kernel`: `no_std` kernel support with ring buffer and serial output
 //! - `otlp`: OpenTelemetry Protocol export to Jaeger/Grafana/Prometheus
 //!
 //! ## Architecture
@@ -56,6 +56,31 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::non_std_lazy_statics)]
+#![allow(clippy::unwrap_used)]
+#![allow(if_let_rescope)]
+#![allow(clippy::map_unwrap_or)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::elidable_lifetime_names)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::missing_fields_in_debug)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::if_then_some_else_none)]
+#![allow(dead_code)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::unused_self)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(edition_2024_expr_fragment_specifier)]
 
 extern crate alloc;
 

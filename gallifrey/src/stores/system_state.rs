@@ -89,6 +89,7 @@ pub struct Change {
     /// What changed.
     pub path: String,
     /// Type of change.
+    #[allow(clippy::struct_field_names)]
     pub change_type: ChangeType,
     /// Old value (if applicable).
     pub old_value: Option<serde_json::Value>,

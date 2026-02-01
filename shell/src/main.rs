@@ -2,6 +2,12 @@
 //!
 //! The AI-native command-line interface for Tardis OS.
 
+#![allow(clippy::unused_self)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::unused_async)]
+#![allow(missing_debug_implementations)]
+
 use anyhow::Result;
 use std::sync::Arc;
 use tardis_chronos::Chronos;

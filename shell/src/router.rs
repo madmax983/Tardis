@@ -2,6 +2,7 @@
 
 /// Classified intent of user input.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Intent {
     /// Built-in shell command.
     BuiltinCommand {

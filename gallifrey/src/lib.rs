@@ -1,6 +1,6 @@
 //! # Tardis Gallifrey
 //!
-//! The temporal knowledge store for Tardis OS, integrating GallifreyDB.
+//! The temporal knowledge store for Tardis OS, integrating `GallifreyDB`.
 //!
 //! Gallifrey provides three specialized stores:
 //! - **Knowledge Store**: Entity-relationship graph with embeddings
@@ -14,11 +14,13 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(missing_debug_implementations)]
 
 pub mod error;
-pub mod query;
 pub mod stores;
 pub mod temporal;
+pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};

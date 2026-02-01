@@ -1,20 +1,26 @@
-//! Query engine for Gallifrey.
-//!
-//! Provides query parsing and execution for temporal graph queries.
+//! Query execution for Gallifrey.
 
-use crate::error::{GallifreyError, GallifreyResult};
-use tardis_common::temporal::TemporalQuery;
+use crate::error::GallifreyResult;
+use serde::{Deserialize, Serialize};
 
-/// A parsed query.
-#[derive(Debug, Clone)]
+/// Parsed query structure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedQuery {
-    /// The base query string.
+    /// Query string.
     pub query: String,
-    /// Temporal parameters.
-    pub temporal: TemporalQuery,
+    /// Query parameters.
+    pub params: Vec<String>,
+}
+
+/// Query result structure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResult {
+    /// Result rows.
+    pub rows: Vec<serde_json::Value>,
 }
 
 /// Query executor.
+#[derive(Debug)]
 pub struct QueryExecutor {
     // TODO: Add connection to stores
 }
@@ -26,32 +32,16 @@ impl QueryExecutor {
         Self {}
     }
 
-    /// Parse a query string.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the query cannot be parsed.
-    pub fn parse(&self, query: &str) -> GallifreyResult<ParsedQuery> {
-        // TODO: Implement actual query parsing
-        // For now, just wrap the query string
-
-        Ok(ParsedQuery {
-            query: query.to_string(),
-            temporal: TemporalQuery::current(),
-        })
-    }
-
-    /// Execute a parsed query.
+    /// Execute a query.
     ///
     /// # Errors
     ///
     /// Returns an error if execution fails.
-    pub fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
+    pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
         // TODO: Implement actual query execution
 
         Ok(QueryResult {
             rows: Vec::new(),
-            execution_time_ms: 0,
         })
     }
 }
@@ -60,13 +50,4 @@ impl Default for QueryExecutor {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Query result.
-#[derive(Debug, Clone)]
-pub struct QueryResult {
-    /// Result rows.
-    pub rows: Vec<serde_json::Value>,
-    /// Execution time in milliseconds.
-    pub execution_time_ms: u64,
 }

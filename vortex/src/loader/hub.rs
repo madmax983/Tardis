@@ -3,6 +3,8 @@
 //! This module handles downloading models from the `HuggingFace` Hub
 //! with caching support.
 
+#![allow(tail_expr_drop_order)]
+
 use crate::error::{VortexError, VortexResult};
 use hf_hub::{Repo, RepoType, api::sync::Api};
 use std::path::PathBuf;

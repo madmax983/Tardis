@@ -6,7 +6,7 @@
 # Run: cargo fmt --check (CI) or cargo fmt (apply)
 
 # Stable settings (work with stable Rust)
-edition = "2024"
+edition = "2021"
 max_width = 100
 tab_spaces = 4
 newline_style = "Auto"
