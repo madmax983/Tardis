@@ -51,6 +51,8 @@ tokenizers = "0.22"
 safetensors = "0.7"
 half = "2.4"
 hf-hub = "0.3"
+# Pin home to 0.5.11 to support Rust 1.85 (0.5.12 requires 1.88)
+home = "=0.5.11"
 
 # Database (Gallifrey)
 # gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
