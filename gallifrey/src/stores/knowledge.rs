@@ -37,7 +37,7 @@ pub struct Entity {
 pub struct Relationship {
     /// Unique identifier.
     pub id: EntityId,
-    /// Relationship type (e.g., "KNOWS", "CONTAINS", "DEPENDS_ON").
+    /// Relationship type (e.g., "KNOWS", "CONTAINS", "`DEPENDS_ON`").
     pub relationship_type: String,
     /// Source entity ID.
     pub source: EntityId,
@@ -50,6 +50,7 @@ pub struct Relationship {
 }
 
 /// The knowledge graph store.
+#[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
     entities: RwLock<HashMap<EntityId, Vec<Entity>>>,
@@ -68,6 +69,10 @@ impl KnowledgeStore {
     }
 
     /// Insert an entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn insert_entity(&self, entity: Entity) -> GallifreyResult<EntityId> {
         let id = entity.id;
 
@@ -82,6 +87,10 @@ impl KnowledgeStore {
     }
 
     /// Get the current version of an entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_entity(&self, id: EntityId) -> GallifreyResult<Option<Entity>> {
         let entities = self
             .entities
@@ -95,6 +104,10 @@ impl KnowledgeStore {
     }
 
     /// Get entity at a specific point in time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_entity_at(
         &self,
         id: EntityId,
@@ -115,6 +128,10 @@ impl KnowledgeStore {
     }
 
     /// Get all versions of an entity (history).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_entity_history(&self, id: EntityId) -> GallifreyResult<Vec<Entity>> {
         let entities = self
             .entities
@@ -125,7 +142,15 @@ impl KnowledgeStore {
     }
 
     /// Update an entity (creates new version).
-    pub fn update_entity(&self, id: EntityId, updates: HashMap<String, serde_json::Value>) -> GallifreyResult<()> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity is not found or the lock is poisoned.
+    pub fn update_entity(
+        &self,
+        id: EntityId,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> GallifreyResult<()> {
         let mut entities = self
             .entities
             .write()
@@ -159,6 +184,10 @@ impl KnowledgeStore {
     }
 
     /// Insert a relationship.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn insert_relationship(&self, relationship: Relationship) -> GallifreyResult<EntityId> {
         let id = relationship.id;
 
@@ -173,6 +202,10 @@ impl KnowledgeStore {
     }
 
     /// Find entities by type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn find_by_type(&self, entity_type: &str) -> GallifreyResult<Vec<Entity>> {
         let entities = self
             .entities
@@ -188,7 +221,15 @@ impl KnowledgeStore {
     }
 
     /// Find entities by semantic similarity (placeholder for vector search).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Entity>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Entity>> {
         // TODO: Implement actual vector similarity search
         let entities = self
             .entities

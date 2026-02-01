@@ -4,7 +4,7 @@
 //! with caching support.
 
 use crate::error::{VortexError, VortexResult};
-use hf_hub::{api::sync::Api, Repo, RepoType};
+use hf_hub::{Repo, RepoType, api::sync::Api};
 use std::path::PathBuf;
 use tracing::{info, instrument};
 
@@ -46,11 +46,11 @@ impl ModelPreset {
     #[must_use]
     pub const fn estimated_size_bytes(&self) -> u64 {
         match self {
-            Self::TinyLlama => 2_200_000_000,      // ~2.2 GB
-            Self::SmolLm135M => 270_000_000,       // ~270 MB
-            Self::SmolLm360M => 720_000_000,       // ~720 MB
-            Self::Phi2 => 5_600_000_000,           // ~5.6 GB
-            Self::Llama3_2_1B => 2_500_000_000,    // ~2.5 GB
+            Self::TinyLlama => 2_200_000_000,   // ~2.2 GB
+            Self::SmolLm135M => 270_000_000,    // ~270 MB
+            Self::SmolLm360M => 720_000_000,    // ~720 MB
+            Self::Phi2 => 5_600_000_000,        // ~5.6 GB
+            Self::Llama3_2_1B => 2_500_000_000, // ~2.5 GB
         }
     }
 
@@ -68,11 +68,7 @@ impl ModelPreset {
 }
 
 /// Files needed for a complete model.
-const MODEL_FILES: &[&str] = &[
-    "config.json",
-    "tokenizer.json",
-    "tokenizer_config.json",
-];
+const MODEL_FILES: &[&str] = &["config.json", "tokenizer.json", "tokenizer_config.json"];
 
 /// Download a model from `HuggingFace` Hub.
 ///
@@ -139,20 +135,16 @@ fn download_weights(repo: &hf_hub::api::sync::ApiRepo) -> VortexResult<PathBuf> 
         info!("Found sharded model, downloading all shards...");
 
         // Read index to find all shards
-        let index_content = std::fs::read_to_string(&index_path).map_err(|e| {
-            VortexError::LoadFailed(format!("Failed to read index file: {e}"))
-        })?;
+        let index_content = std::fs::read_to_string(&index_path)
+            .map_err(|e| VortexError::LoadFailed(format!("Failed to read index file: {e}")))?;
 
-        let index: serde_json::Value = serde_json::from_str(&index_content).map_err(|e| {
-            VortexError::LoadFailed(format!("Failed to parse index file: {e}"))
-        })?;
+        let index: serde_json::Value = serde_json::from_str(&index_content)
+            .map_err(|e| VortexError::LoadFailed(format!("Failed to parse index file: {e}")))?;
 
         // Get unique shard files
         if let Some(weight_map) = index.get("weight_map").and_then(|v| v.as_object()) {
-            let mut shard_files: Vec<&str> = weight_map
-                .values()
-                .filter_map(|v| v.as_str())
-                .collect();
+            let mut shard_files: Vec<&str> =
+                weight_map.values().filter_map(|v| v.as_str()).collect();
             shard_files.sort_unstable();
             shard_files.dedup();
 
@@ -170,12 +162,12 @@ fn download_weights(repo: &hf_hub::api::sync::ApiRepo) -> VortexResult<PathBuf> 
     // Try PyTorch format as fallback
     if repo.get("pytorch_model.bin").is_ok() {
         return Err(VortexError::LoadFailed(
-            "Model only has PyTorch format (pytorch_model.bin), SafeTensors required".to_string()
+            "Model only has PyTorch format (pytorch_model.bin), SafeTensors required".to_string(),
         ));
     }
 
     Err(VortexError::LoadFailed(
-        "No SafeTensors weights found in repository".to_string()
+        "No SafeTensors weights found in repository".to_string(),
     ))
 }
 

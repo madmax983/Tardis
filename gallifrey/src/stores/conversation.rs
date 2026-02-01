@@ -60,6 +60,7 @@ pub struct Session {
 }
 
 /// The conversation store.
+#[derive(Debug)]
 pub struct ConversationStore {
     /// Sessions indexed by ID.
     sessions: RwLock<HashMap<SessionId, Session>>,
@@ -78,6 +79,10 @@ impl ConversationStore {
     }
 
     /// Create a new session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn create_session(&self) -> GallifreyResult<SessionId> {
         let id = SessionId::new();
         let session = Session {
@@ -100,6 +105,10 @@ impl ConversationStore {
     }
 
     /// Get a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_session(&self, id: SessionId) -> GallifreyResult<Option<Session>> {
         let sessions = self
             .sessions
@@ -110,6 +119,10 @@ impl ConversationStore {
     }
 
     /// End a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session is not found or the lock is poisoned.
     pub fn end_session(&self, id: SessionId) -> GallifreyResult<()> {
         let mut sessions = self
             .sessions
@@ -126,6 +139,10 @@ impl ConversationStore {
     }
 
     /// Add a message to a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn add_message(&self, message: Message) -> GallifreyResult<EntityId> {
         let id = message.id;
         let session_id = message.session_id;
@@ -141,6 +158,10 @@ impl ConversationStore {
     }
 
     /// Get messages for a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_messages(&self, session_id: SessionId) -> GallifreyResult<Vec<Message>> {
         let messages = self
             .messages
@@ -151,7 +172,15 @@ impl ConversationStore {
     }
 
     /// Get recent messages from a session.
-    pub fn get_recent_messages(&self, session_id: SessionId, limit: usize) -> GallifreyResult<Vec<Message>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         let messages = self
             .messages
             .read()
@@ -167,6 +196,10 @@ impl ConversationStore {
     }
 
     /// Set session summary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session is not found or the lock is poisoned.
     pub fn set_summary(&self, id: SessionId, summary: String) -> GallifreyResult<()> {
         let mut sessions = self
             .sessions
@@ -183,7 +216,15 @@ impl ConversationStore {
     }
 
     /// Search messages by semantic similarity (placeholder).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Message>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         // TODO: Implement actual vector similarity search
         let messages = self
             .messages
@@ -200,6 +241,10 @@ impl ConversationStore {
     }
 
     /// List all sessions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn list_sessions(&self) -> GallifreyResult<Vec<Session>> {
         let sessions = self
             .sessions

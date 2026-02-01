@@ -1,12 +1,15 @@
 //! RAG pipeline for Chronos.
+//!
+//! This module orchestrates the Retrieval-Augmented Generation (RAG) process,
+//! combining vector search from Gallifrey with LLM inference from Vortex.
 
 mod analyzer;
-mod retriever;
 mod augmenter;
+mod retriever;
 
 pub use analyzer::QueryAnalyzer;
-pub use retriever::Retriever;
 pub use augmenter::ContextAugmenter;
+pub use retriever::Retriever;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -17,6 +20,21 @@ use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
+///
+/// Controls how context is retrieved and used for generation.
+///
+/// # Examples
+///
+/// ```rust
+/// use tardis_chronos::pipeline::RagConfig;
+///
+/// let config = RagConfig {
+///     max_context_items: 5,
+///     include_knowledge: true,
+///     include_conversation: true,
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagConfig {
     /// Maximum number of context items to retrieve.
@@ -81,6 +99,35 @@ pub struct RagResponse {
 }
 
 /// The main Chronos RAG engine.
+///
+/// Coordinates the flow of data between the user, the knowledge base, and the LLM.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::sync::Arc;
+/// use tardis_chronos::pipeline::{Chronos, RagConfig};
+/// use tardis_vortex::Vortex;
+/// use tardis_gallifrey::Gallifrey;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Initialize dependencies
+/// let vortex = Arc::new(Vortex::new()?);
+/// let gallifrey = Arc::new(Gallifrey::new());
+///
+/// // Create Chronos engine
+/// let chronos = Chronos::new(vortex, gallifrey);
+///
+/// // Run a query
+/// let response = chronos.query(
+///     "What did we discuss about temporal logic?",
+///     RagConfig::default()
+/// ).await?;
+///
+/// println!("Answer: {}", response.text);
+/// # Ok(())
+/// # }
+/// ```
 pub struct Chronos {
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
@@ -104,9 +151,15 @@ impl Chronos {
 
     /// Execute a RAG query.
     ///
+    /// The query process involves:
+    /// 1. **Analysis**: Extracting intent and temporal references.
+    /// 2. **Retrieval**: Fetching relevant context from Gallifrey.
+    /// 3. **Augmentation**: Constructing a prompt with context.
+    /// 4. **Generation**: Invoking Vortex to generate the response.
+    ///
     /// # Errors
     ///
-    /// Returns an error if any stage of the pipeline fails.
+    /// Returns an error if any stage of the pipeline fails (e.g., database error, model error).
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -140,10 +193,32 @@ impl Chronos {
 
     /// Store a memory.
     ///
+    /// Adds a new fact or observation to the knowledge graph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::sync::Arc;
+    /// # use tardis_chronos::pipeline::{Chronos, MemoryCategory};
+    /// # async fn example(chronos: Chronos) -> Result<(), Box<dyn std::error::Error>> {
+    /// let id = chronos.remember(
+    ///     "The user prefers dark mode.",
+    ///     MemoryCategory::Preference
+    /// ).await?;
+    ///
+    /// println!("Stored memory with ID: {}", id);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
+    pub async fn remember(
+        &self,
+        content: &str,
+        category: MemoryCategory,
+    ) -> ChronosResult<EntityId> {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -153,7 +228,10 @@ impl Chronos {
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
+                props.insert(
+                    "content".to_string(),
+                    serde_json::Value::String(content.to_string()),
+                );
                 props
             },
             embedding: None, // TODO: Generate embedding
@@ -171,6 +249,23 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// Performs a semantic search over stored memories.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::sync::Arc;
+    /// # use tardis_chronos::pipeline::Chronos;
+    /// # async fn example(chronos: Chronos) -> Result<(), Box<dyn std::error::Error>> {
+    /// let memories = chronos.recall("What does the user like?", 5).await?;
+    ///
+    /// for memory in memories {
+    ///     println!("Found: {}", memory.content);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Errors
     ///

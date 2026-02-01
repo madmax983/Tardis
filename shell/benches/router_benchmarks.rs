@@ -1,6 +1,6 @@
 //! Benchmarks for shell router operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use tardis_shell::router::Router;
 
 fn bench_router_creation(c: &mut Criterion) {
@@ -65,9 +65,5 @@ fn bench_router_routing(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_router_creation,
-    bench_router_routing,
-);
+criterion_group!(benches, bench_router_creation, bench_router_routing,);
 criterion_main!(benches);

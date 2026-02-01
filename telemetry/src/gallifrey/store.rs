@@ -165,9 +165,7 @@ impl TelemetryStore {
         self.events
             .read()
             .iter()
-            .filter(|stored| {
-                stored.data.timestamp >= from && stored.data.timestamp <= to
-            })
+            .filter(|stored| stored.data.timestamp >= from && stored.data.timestamp <= to)
             .cloned()
             .collect()
     }

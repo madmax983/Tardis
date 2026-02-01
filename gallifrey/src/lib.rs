@@ -1,6 +1,6 @@
 //! # Tardis Gallifrey
 //!
-//! The temporal knowledge store for Tardis OS, integrating GallifreyDB.
+//! The temporal knowledge store for Tardis OS, integrating `GallifreyDB`.
 //!
 //! Gallifrey provides three specialized stores:
 //! - **Knowledge Store**: Entity-relationship graph with embeddings
@@ -16,9 +16,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod query;
 pub mod stores;
 pub mod temporal;
-pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};
@@ -28,6 +28,7 @@ pub use temporal::{BiTemporalInterval, TimeRange};
 use std::sync::Arc;
 
 /// The main Gallifrey database instance.
+#[derive(Debug)]
 pub struct Gallifrey {
     knowledge: Arc<KnowledgeStore>,
     conversation: Arc<ConversationStore>,

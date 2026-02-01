@@ -2,12 +2,48 @@
 //!
 //! Provides strongly-typed identifiers for various entities to prevent
 //! mixing up different ID types at compile time.
+//!
+//! # Why?
+//!
+//! In a complex system like Tardis, passing around raw `Uuid`s or `u64`s is a recipe for bugs.
+//! For example, you might accidentally pass a `SessionId` to a function expecting an `EntityId`.
+//! By using the "Newtype" pattern, the compiler catches these errors for us.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use tardis_common::id::{EntityId, SessionId};
+//!
+//! // Creating IDs
+//! let entity_id = EntityId::new();
+//! let session_id = SessionId::new();
+//!
+//! // This would be a compile error:
+//! // fn process_entity(id: EntityId) {}
+//! // process_entity(session_id);
+//!
+//! // IDs have helpful string representations
+//! assert!(entity_id.to_string().starts_with("entity:"));
+//! assert!(session_id.to_string().starts_with("session:"));
+//! ```
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 
 /// A handle to a loaded LLM model in Vortex.
+///
+/// Handles are lightweight `u64` values that map to loaded model weights in GPU memory.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::ModelHandle;
+///
+/// let handle = ModelHandle::new(101);
+/// assert_eq!(handle.raw(), 101);
+/// assert_eq!(handle.to_string(), "model:101");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ModelHandle(u64);
 
@@ -32,6 +68,18 @@ impl fmt::Display for ModelHandle {
 }
 
 /// Unique identifier for an entity in the knowledge graph.
+///
+/// Entities are the fundamental nodes in the Gallifrey knowledge graph.
+/// Each entity is identified by a UUID.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::EntityId;
+///
+/// let id = EntityId::new();
+/// println!("Created entity: {}", id); // Prints "entity:<uuid>"
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId(Uuid);
 
@@ -68,6 +116,17 @@ impl fmt::Display for EntityId {
 }
 
 /// Unique identifier for a conversation session.
+///
+/// A session represents a continuous interaction thread with the user.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::SessionId;
+///
+/// let id = SessionId::new();
+/// println!("Current session: {}", id); // Prints "session:<uuid>"
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(Uuid);
 
@@ -104,6 +163,9 @@ impl fmt::Display for SessionId {
 }
 
 /// Unique identifier for a system state snapshot.
+///
+/// Snapshots capture the state of the OS at a specific point in time
+/// for time-travel debugging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SnapshotId(Uuid);
 

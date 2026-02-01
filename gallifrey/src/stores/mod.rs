@@ -1,9 +1,9 @@
 //! Storage backends for Gallifrey.
 
-mod knowledge;
 mod conversation;
+mod knowledge;
 mod system_state;
 
-pub use knowledge::{Entity, KnowledgeStore, Relationship};
 pub use conversation::{ConversationStore, Message, Role, Session};
+pub use knowledge::{Entity, KnowledgeStore, Relationship};
 pub use system_state::SystemStateStore;
