@@ -136,3 +136,99 @@ impl Default for ContextAugmenter {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
+
+    fn create_dummy_analysis(intent: QueryIntent) -> AnalyzedQuery {
+        AnalyzedQuery {
+            text: "test".to_string(),
+            intent,
+            temporal_refs: vec![],
+            temporal_description: None,
+            entities: vec![],
+        }
+    }
+
+    #[test]
+    fn test_augment_basic() {
+        let augmenter = ContextAugmenter::new();
+        let analysis = create_dummy_analysis(QueryIntent::Chat);
+        let prompt = "Hello world";
+
+        let result = augmenter.augment(prompt, &[], &analysis).unwrap();
+
+        assert!(result.contains("# Tardis AI Assistant"));
+        assert!(result.contains("## User Query"));
+        assert!(result.contains("Hello world"));
+        assert!(result.contains("## Instructions"));
+        assert!(result.contains("Be helpful and concise."));
+        assert!(!result.contains("## Retrieved Context"));
+    }
+
+    #[test]
+    fn test_context_truncation() {
+        let augmenter = ContextAugmenter::new();
+        let analysis = create_dummy_analysis(QueryIntent::Chat);
+
+        // 12000 chars / 4 = 3000 tokens
+        let content_a = "A".repeat(12000);
+        let content_b = "B".repeat(12000);
+
+        let context = vec![
+            ContextSource {
+                source_type: ContextSourceType::Knowledge,
+                content: content_a.clone(),
+                relevance: 1.0,
+                entity_id: None,
+            },
+            ContextSource {
+                source_type: ContextSourceType::Conversation,
+                content: content_b.clone(),
+                relevance: 0.9,
+                entity_id: None,
+            },
+        ];
+
+        let result = augmenter.augment("test", &context, &analysis).unwrap();
+
+        // Should contain A
+        assert!(result.contains("Knowledge 1"));
+        assert!(result.contains(&content_a));
+
+        // Should truncate B
+        assert!(!result.contains(&content_b));
+        assert!(result.contains("... (1 more sources truncated)"));
+    }
+
+    #[test]
+    fn test_instruction_variations() {
+        let augmenter = ContextAugmenter::new();
+
+        let cases = vec![
+            (QueryIntent::Recall, "accurately recalling"),
+            (QueryIntent::TemporalDiff, "Compare the states"),
+            (QueryIntent::SystemQuery, "accurate system state"),
+            (QueryIntent::Chat, "Be helpful and concise"),
+        ];
+
+        for (intent, expected) in cases {
+            let analysis = create_dummy_analysis(intent);
+            let result = augmenter.augment("test", &[], &analysis).unwrap();
+            assert!(result.contains(expected), "Failed for intent {:?}: expected '{}'", analysis.intent, expected);
+        }
+    }
+
+    #[test]
+    fn test_augment_system_context() {
+        let augmenter = ContextAugmenter::new();
+        let mut analysis = create_dummy_analysis(QueryIntent::Chat);
+        analysis.temporal_description = Some("last week".to_string());
+
+        let result = augmenter.augment("test", &[], &analysis).unwrap();
+
+        assert!(result.contains("Query temporal context: last week"));
+    }
+}
