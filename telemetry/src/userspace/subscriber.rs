@@ -15,6 +15,7 @@ use crate::gallifrey::TelemetryStore;
 
 /// Configuration for the Tardis telemetry system.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TelemetryConfig {
     /// Enable Gallifrey storage for temporal queries.
     pub gallifrey_enabled: bool,
@@ -156,14 +157,14 @@ impl std::fmt::Debug for TelemetryHandle {
 ///     Ok(())
 /// }
 /// ```
+#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::missing_panics_doc)]
 pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     // Create Gallifrey store if enabled
     #[cfg(feature = "std")]
-    let gallifrey_store = if config.gallifrey_enabled {
-        Some(Arc::new(TelemetryStore::new()))
-    } else {
-        None
-    };
+    let gallifrey_store = config
+        .gallifrey_enabled
+        .then(|| Arc::new(TelemetryStore::new()));
 
     // Create OTLP sender if enabled
     let (otlp_sender, otlp_handle) = if config.otlp_enabled {
@@ -207,6 +208,7 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     let env_filter = if let Some(filter) = &config.env_filter {
         EnvFilter::try_new(filter).map_err(|e| TelemetryError::Config(e.to_string()))?
     } else {
+        #[allow(clippy::unwrap_used)]
         EnvFilter::from_default_env().add_directive("tardis=debug".parse().unwrap())
     };
 

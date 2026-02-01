@@ -11,7 +11,7 @@
 //! ## Features
 //!
 //! - `std` (default): Userspace support with tracing, metrics, and Gallifrey storage
-//! - `kernel`: no_std kernel support with ring buffer and serial output
+//! - `kernel`: `no_std` kernel support with ring buffer and serial output
 //! - `otlp`: OpenTelemetry Protocol export to Jaeger/Grafana/Prometheus
 //!
 //! ## Architecture
@@ -93,7 +93,7 @@ pub mod metrics {
     //!
     //! Provides thread-safe counters, gauges, and histograms.
     //!
-    //! Use the [`counter!`], [`gauge!`], and [`histogram!`] macros
+    //! Use the [`crate::counter`], [`crate::gauge`], and [`crate::histogram`] macros
     //! at the crate root for convenient access.
 
     pub use crate::userspace::metrics::{Counter, Gauge, Histogram, METRICS, MetricsRegistry};

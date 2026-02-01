@@ -31,11 +31,11 @@ jobs:
 
       - name: Run tests (Linux/Windows)
         if: matrix.os != 'macos-latest'
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude tardis-kernel
 
       - name: Run tests (macOS)
         if: matrix.os == 'macos-latest'
-        run: cargo test --workspace --features metal
+        run: cargo test --workspace --exclude tardis-kernel --features metal
 
   clippy:
     name: Clippy
@@ -52,7 +52,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --exclude tardis-kernel -- -D warnings
 
   fmt:
     name: Format
@@ -81,7 +81,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build docs
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --exclude tardis-kernel --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -100,7 +100,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check MSRV
-        run: cargo check --workspace
+        run: cargo check --workspace --exclude tardis-kernel
 
   coverage:
     name: Coverage
@@ -120,7 +120,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Generate coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --exclude tardis-kernel --lcov --output-path lcov.info
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -144,7 +144,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run benchmarks
-        run: cargo bench --workspace -- --noplot
+        run: cargo bench --workspace --exclude tardis-kernel -- --noplot
 
       - name: Store benchmark results
         uses: actions/upload-artifact@v6

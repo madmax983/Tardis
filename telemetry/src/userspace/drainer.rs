@@ -87,6 +87,7 @@ impl RingBufferDrainer {
     }
 
     /// Processes a single telemetry entry.
+    #[allow(clippy::unused_self)]
     fn process_entry(&self, entry: &TelemetryEntry, payload: &[u8]) {
         let message = std::str::from_utf8(payload).unwrap_or("<binary>");
 

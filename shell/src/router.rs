@@ -22,6 +22,7 @@ pub enum Intent {
         /// Query text.
         query: String,
         /// Temporal context (if detected).
+        #[allow(dead_code)]
         temporal_context: Option<String>,
     },
 
@@ -108,6 +109,7 @@ impl Router {
     }
 
     /// Parse a time-travel command.
+    #[allow(clippy::unused_self)]
     fn parse_time_travel(&self, input: &str) -> Intent {
         // Expected format: @<timestamp> <query>
         // e.g., "@yesterday what did we discuss"
@@ -122,6 +124,7 @@ impl Router {
     }
 
     /// Detect temporal context in a query.
+    #[allow(clippy::unused_self)]
     fn detect_temporal_context(&self, query: &str) -> Option<String> {
         let lower = query.to_lowercase();
 

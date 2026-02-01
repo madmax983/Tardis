@@ -48,7 +48,7 @@ impl SpanData {
     #[must_use]
     pub fn duration_ns(&self) -> Option<u64> {
         self.end_time
-            .map(|_| self.start_instant.elapsed().as_nanos() as u64)
+            .map(|_| u64::try_from(self.start_instant.elapsed().as_nanos()).unwrap_or(u64::MAX))
     }
 }
 
@@ -142,7 +142,7 @@ impl TardisLayer {
     }
 
     /// Gets or creates a trace ID from the current context.
-    fn get_or_create_trace_id<S>(&self, ctx: &Context<'_, S>) -> TraceId
+    fn get_or_create_trace_id<S>(ctx: &Context<'_, S>) -> TraceId
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
     {
@@ -162,7 +162,7 @@ impl TardisLayer {
     }
 
     /// Gets the parent span ID from the current context.
-    fn get_parent_span_id<S>(&self, ctx: &Context<'_, S>) -> Option<SpanId>
+    fn get_parent_span_id<S>(ctx: &Context<'_, S>) -> Option<SpanId>
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
     {
@@ -181,7 +181,7 @@ impl std::fmt::Debug for TardisLayer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TardisLayer")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -190,6 +190,7 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        #[allow(clippy::expect_used)]
         let span = ctx.span(id).expect("span not found");
         let metadata = attrs.metadata();
 
@@ -199,8 +200,8 @@ where
             return;
         }
 
-        let trace_id = self.get_or_create_trace_id(&ctx);
-        let parent_id = self.get_parent_span_id(&ctx);
+        let trace_id = Self::get_or_create_trace_id(&ctx);
+        let parent_id = Self::get_parent_span_id(&ctx);
         let span_id = SpanId::generate();
 
         // Collect attributes
@@ -225,6 +226,7 @@ where
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+        #[allow(clippy::expect_used)]
         let span = ctx.span(id).expect("span not found");
         let mut extensions = span.extensions_mut();
 
@@ -246,8 +248,9 @@ where
         let (trace_id, span_id) = if let Some(span) = ctx.lookup_current() {
             span.extensions()
                 .get::<SpanData>()
-                .map(|data| (data.trace_id, Some(data.span_id)))
-                .unwrap_or((TraceId::NONE, None))
+                .map_or((TraceId::NONE, None), |data| {
+                    (data.trace_id, Some(data.span_id))
+                })
         } else {
             (TraceId::NONE, None)
         };
@@ -285,6 +288,7 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
+        #[allow(clippy::expect_used)]
         let span = ctx.span(&id).expect("span not found");
         let mut extensions = span.extensions_mut();
 
@@ -314,7 +318,7 @@ where
 /// Field visitor for collecting span attributes.
 struct FieldVisitor<'a>(&'a mut HashMap<String, String>);
 
-impl<'a> tracing::field::Visit for FieldVisitor<'a> {
+impl tracing::field::Visit for FieldVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0
             .insert(field.name().to_string(), format!("{value:?}"));
@@ -343,7 +347,7 @@ struct EventVisitor<'a> {
     message: &'a mut String,
 }
 
-impl<'a> tracing::field::Visit for EventVisitor<'a> {
+impl tracing::field::Visit for EventVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" {
             *self.message = format!("{value:?}");

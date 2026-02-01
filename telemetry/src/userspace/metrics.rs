@@ -28,8 +28,8 @@ use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Global metrics registry.
-pub static METRICS: once_cell::sync::Lazy<MetricsRegistry> =
-    once_cell::sync::Lazy::new(MetricsRegistry::new);
+pub static METRICS: std::sync::LazyLock<MetricsRegistry> =
+    std::sync::LazyLock::new(MetricsRegistry::new);
 
 /// Thread-safe metrics registry.
 ///
@@ -106,6 +106,7 @@ impl MetricsRegistry {
     #[must_use]
     pub fn collect(&self) -> Vec<MetricSample> {
         let mut samples = Vec::new();
+        #[allow(clippy::cast_possible_truncation)]
         let timestamp_ns = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -233,7 +234,7 @@ impl std::fmt::Debug for Counter {
         f.debug_struct("Counter")
             .field("name", &self.name)
             .field("value", &self.get())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -298,7 +299,7 @@ impl std::fmt::Debug for Gauge {
         f.debug_struct("Gauge")
             .field("name", &self.name)
             .field("value", &self.get())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -353,6 +354,7 @@ impl Histogram {
         self.count.fetch_add(1, Ordering::Relaxed);
         self.sum.fetch_add(value, Ordering::Relaxed);
 
+        #[allow(clippy::cast_precision_loss)]
         let value_f64 = value as f64;
         for (i, boundary) in self.buckets.iter().enumerate() {
             if value_f64 <= *boundary {
@@ -363,12 +365,15 @@ impl Histogram {
 
     /// Records a floating-point value.
     pub fn record_f64(&self, value: f64) {
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss)]
         self.record(value as u64);
     }
 
     /// Gets a snapshot of the histogram.
     #[must_use]
     pub fn snapshot(&self) -> (f64, u64, Vec<u64>) {
+        #[allow(clippy::cast_precision_loss)]
         let sum = self.sum.load(Ordering::Relaxed) as f64;
         let count = self.count.load(Ordering::Relaxed);
         let buckets: Vec<u64> = self
@@ -402,7 +407,7 @@ impl std::fmt::Debug for Histogram {
             .field("name", &self.name)
             .field("sum", &sum)
             .field("count", &count)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

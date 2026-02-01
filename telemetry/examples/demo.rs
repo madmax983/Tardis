@@ -23,7 +23,9 @@ struct InferenceRequest {
 #[derive(Debug)]
 struct InferenceResponse {
     text: String,
+    #[allow(dead_code)]
     tokens_generated: usize,
+    #[allow(dead_code)]
     latency_ms: u64,
 }
 

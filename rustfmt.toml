@@ -13,20 +13,20 @@ newline_style = "Auto"
 use_small_heuristics = "Default"
 
 # Import organization
-imports_granularity = "Module"
-group_imports = "StdExternalCrate"
+# imports_granularity = "Module"
+# group_imports = "StdExternalCrate"
 reorder_imports = true
 reorder_modules = true
 
 # Comments
-normalize_comments = false
-wrap_comments = false
-comment_width = 100
+# normalize_comments = false
+# wrap_comments = false
+# comment_width = 100
 
 # Formatting behavior
-format_code_in_doc_comments = true
-format_macro_matchers = true
-format_strings = false
+# format_code_in_doc_comments = true
+# format_macro_matchers = true
+# format_strings = false
 
 # Keep attributes on their own line for readability
 # fn_single_line = false (default)
