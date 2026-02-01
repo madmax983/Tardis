@@ -126,7 +126,7 @@ impl Chronos {
         // TODO: Use actual model handle
         let text = format!(
             "[Chronos] RAG response for: {}... (with {} context items)",
-            &prompt[..prompt.len().min(50)],
+            truncate_safe(prompt, 50),
             context.len()
         );
 
@@ -150,7 +150,7 @@ impl Chronos {
         let entity = tardis_gallifrey::stores::Entity {
             id: EntityId::new(),
             entity_type: format!("Memory:{:?}", category),
-            name: content[..content.len().min(50)].to_string(),
+            name: truncate_safe(content, 50).to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
                 props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
@@ -176,7 +176,7 @@ impl Chronos {
     ///
     /// Returns an error if retrieval fails.
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
-        info!("Recalling memories for: {}", &query[..query.len().min(50)]);
+        info!("Recalling memories for: {}", truncate_safe(query, 50));
 
         // Search knowledge graph
         let results = self
@@ -206,4 +206,111 @@ pub enum MemoryCategory {
     Preference,
     /// Factual information.
     Fact,
+}
+
+/// Safely truncate a string to a maximum byte length, respecting character boundaries.
+fn truncate_safe(s: &str, max_len: usize) -> &str {
+    if s.len() <= max_len {
+        return s;
+    }
+    let mut end = max_len;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use tardis_vortex::Vortex;
+    use tardis_gallifrey::Gallifrey;
+
+    #[tokio::test]
+    async fn test_query_panic_on_char_boundary() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let chronos = Chronos::new(vortex, gallifrey);
+
+        // 49 chars 'a', then 'é' (2 bytes).
+        // 49 bytes + 2 bytes = 51 bytes.
+        // min(50) = 50.
+        // slice[..50] splits 'é' (byte 50 is first byte of 'é', byte 51 is second).
+        // It tries to slice at 50, which is after the first byte of 'é'.
+        // Wait: 'a' * 49 occupies 0..49.
+        // 'é' occupies 49, 50.
+        // So byte 50 IS in the middle of 'é'.
+        // Yes.
+        let mut prompt = "a".repeat(49);
+        prompt.push('é');
+
+        let config = RagConfig::default();
+        // This should panic
+        let _ = chronos.query(&prompt, config).await;
+    }
+
+    #[tokio::test]
+    async fn test_remember_panic_on_char_boundary() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let chronos = Chronos::new(vortex, gallifrey);
+
+        let mut content = "a".repeat(49);
+        content.push('é');
+
+        // This should panic
+        let _ = chronos.remember(&content, MemoryCategory::Fact).await;
+    }
+
+    #[tokio::test]
+    async fn test_recall_panic_on_char_boundary() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let chronos = Chronos::new(vortex, gallifrey);
+
+        let mut query = "a".repeat(49);
+        query.push('é');
+
+        // This should panic
+        let _ = chronos.recall(&query, 5).await;
+    }
+
+    #[test]
+    fn test_truncate_safe_empty() {
+        assert_eq!(truncate_safe("", 50), "");
+    }
+
+    #[test]
+    fn test_truncate_safe_exact() {
+        let s = "a".repeat(50);
+        assert_eq!(truncate_safe(&s, 50), s);
+    }
+
+    #[test]
+    fn test_truncate_safe_short() {
+        let s = "short";
+        assert_eq!(truncate_safe(s, 50), s);
+    }
+
+    #[test]
+    fn test_truncate_safe_long_multibyte() {
+        // "a" * 49 + "é" (2 bytes). Total 51 bytes.
+        // Should truncate at 49 (before 'é') because cutting at 50 would split 'é'.
+        let mut s = "a".repeat(49);
+        s.push('é');
+        assert_eq!(truncate_safe(&s, 50), "a".repeat(49));
+    }
+
+    #[test]
+    fn test_truncate_safe_utf8() {
+        // "é" is 2 bytes. "é" * 25 = 50 bytes.
+        let s = "é".repeat(25);
+        assert_eq!(truncate_safe(&s, 50), s);
+
+        // "é" * 26 = 52 bytes.
+        // Truncate at 50 bytes.
+        let s2 = "é".repeat(26);
+        assert_eq!(truncate_safe(&s2, 50), "é".repeat(25));
+    }
 }
