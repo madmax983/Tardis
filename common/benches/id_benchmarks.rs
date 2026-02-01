@@ -1,8 +1,8 @@
 //! Benchmarks for ID generation and temporal operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use tardis_common::{EntityId, ModelHandle, SessionId, SnapshotId};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
+use tardis_common::{EntityId, ModelHandle, SessionId, SnapshotId};
 
 fn bench_entity_id_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("id_creation");

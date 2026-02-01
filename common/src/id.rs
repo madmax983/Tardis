@@ -188,10 +188,11 @@ mod tests {
     }
 
     #[test]
-    fn session_id_serialization() {
+    fn session_id_serialization() -> serde_json::Result<()> {
         let id = SessionId::new();
-        let json = serde_json::to_string(&id).unwrap();
-        let parsed: SessionId = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&id)?;
+        let parsed: SessionId = serde_json::from_str(&json)?;
         assert_eq!(id, parsed);
+        Ok(())
     }
 }

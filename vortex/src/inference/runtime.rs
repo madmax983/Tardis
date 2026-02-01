@@ -3,16 +3,14 @@
 use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
 use crate::loader::{
-    download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
-    LoadedModel, ModelConfig, ModelPreset,
+    DeviceSpec, LoadedModel, ModelConfig, ModelPreset, download_preset, find_model_file,
+    load_model_weights, parse_model_config,
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use tardis_common::traits::{InferenceParams as TraitParams, ModelInfo as TraitInfo, VortexService};
 use tokio::task;
 use tracing::{info, instrument};
 
@@ -68,7 +66,11 @@ impl Vortex {
     ///
     /// Returns an error if the model cannot be loaded.
     #[instrument(skip(self, config))]
-    pub async fn load_model(&self, path: &str, config: ModelLoadConfig) -> VortexResult<ModelHandle> {
+    pub async fn load_model(
+        &self,
+        path: &str,
+        config: ModelLoadConfig,
+    ) -> VortexResult<ModelHandle> {
         let path_buf = std::path::PathBuf::from(path);
 
         if !path_buf.exists() {
@@ -107,17 +109,23 @@ impl Vortex {
 
         // Store the loaded model
         {
-            let mut models = self.loaded_models.write().map_err(|_| {
-                VortexError::LockPoisoned { context: "storing loaded model" }
-            })?;
+            let mut models = self
+                .loaded_models
+                .write()
+                .map_err(|_| VortexError::LockPoisoned {
+                    context: "storing loaded model",
+                })?;
             models.insert(handle, loaded_model);
         }
 
         // Store the config
         {
-            let mut configs = self.model_configs.write().map_err(|_| {
-                VortexError::LockPoisoned { context: "storing model config" }
-            })?;
+            let mut configs =
+                self.model_configs
+                    .write()
+                    .map_err(|_| VortexError::LockPoisoned {
+                        context: "storing model config",
+                    })?;
             configs.insert(handle, model_config);
         }
 
@@ -223,17 +231,23 @@ impl Vortex {
 
         // Remove loaded model
         {
-            let mut models = self.loaded_models.write().map_err(|_| {
-                VortexError::LockPoisoned { context: "removing loaded model" }
-            })?;
+            let mut models = self
+                .loaded_models
+                .write()
+                .map_err(|_| VortexError::LockPoisoned {
+                    context: "removing loaded model",
+                })?;
             models.remove(&handle);
         }
 
         // Remove config
         {
-            let mut configs = self.model_configs.write().map_err(|_| {
-                VortexError::LockPoisoned { context: "removing model config" }
-            })?;
+            let mut configs =
+                self.model_configs
+                    .write()
+                    .map_err(|_| VortexError::LockPoisoned {
+                        context: "removing model config",
+                    })?;
             configs.remove(&handle);
         }
 
@@ -309,10 +323,15 @@ impl Vortex {
     ///
     /// This is used internally for inference operations.
     #[allow(dead_code)] // Will be used in inference implementation
-    pub(crate) fn get_loaded_model(&self, _handle: ModelHandle) -> VortexResult<std::sync::RwLockReadGuard<'_, HashMap<ModelHandle, LoadedModel>>> {
-        self.loaded_models.read().map_err(|_| {
-            VortexError::LockPoisoned { context: "reading loaded models" }
-        })
+    pub(crate) fn get_loaded_model(
+        &self,
+        _handle: ModelHandle,
+    ) -> VortexResult<std::sync::RwLockReadGuard<'_, HashMap<ModelHandle, LoadedModel>>> {
+        self.loaded_models
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "reading loaded models",
+            })
     }
 
     /// Check if a model is loaded.
@@ -325,108 +344,9 @@ impl Vortex {
     }
 }
 
-/// Implement the `VortexService` trait for integration with other subsystems.
-#[async_trait]
-impl VortexService for Vortex {
-    async fn load_model(
-        &self,
-        path: &str,
-        config: tardis_common::traits::ModelLoadConfig,
-    ) -> tardis_common::Result<tardis_common::ModelHandle> {
-        let local_config = ModelLoadConfig {
-            device: config.device.unwrap_or_else(|| "cpu".to_string()),
-            quantization: config.quantization,
-            max_context_length: config.max_context_length,
-            use_mmap: config.use_mmap,
-            tensor_parallel: 1,
-        };
-
-        let handle = self.load_model(path, local_config).await.map_err(|e| {
-            tardis_common::Error::ModelLoadFailed {
-                name: path.to_string(),
-                reason: e.to_string(),
-            }
-        })?;
-
-        Ok(tardis_common::ModelHandle::new(handle.raw()))
-    }
-
-    async fn unload_model(&self, handle: tardis_common::ModelHandle) -> tardis_common::Result<()> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.unload_model(local_handle)
-            .await
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
-    }
-
-    async fn infer(
-        &self,
-        handle: tardis_common::ModelHandle,
-        prompt: &str,
-        params: TraitParams,
-    ) -> tardis_common::Result<String> {
-        let local_handle = ModelHandle::new(handle.raw());
-        let local_params = InferenceParams {
-            temperature: params.temperature,
-            top_p: params.top_p,
-            top_k: params.top_k,
-            max_tokens: params.max_tokens,
-            stop_sequences: params.stop_sequences,
-            repetition_penalty: 1.1,
-            seed: None,
-        };
-
-        self.infer(local_handle, prompt, local_params)
-            .await
-            .map_err(|e| tardis_common::Error::InferenceFailed {
-                reason: e.to_string(),
-            })
-    }
-
-    async fn embed(
-        &self,
-        handle: tardis_common::ModelHandle,
-        text: &str,
-    ) -> tardis_common::Result<Vec<f32>> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.embed(local_handle, text)
-            .await
-            .map_err(|e| tardis_common::Error::InferenceFailed {
-                reason: e.to_string(),
-            })
-    }
-
-    async fn list_models(&self) -> tardis_common::Result<Vec<TraitInfo>> {
-        Ok(self
-            .list_models()
-            .into_iter()
-            .map(|m| TraitInfo {
-                name: m.name,
-                architecture: m.architecture.to_string(),
-                parameters: m.parameters,
-                context_length: m.context_length,
-                loaded: m.loaded,
-                memory_bytes: m.memory_bytes,
-            })
-            .collect())
-    }
-
-    async fn model_info(&self, handle: tardis_common::ModelHandle) -> tardis_common::Result<TraitInfo> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.model_info(local_handle)
-            .map(|m| TraitInfo {
-                name: m.name,
-                architecture: m.architecture.to_string(),
-                parameters: m.parameters,
-                context_length: m.context_length,
-                loaded: m.loaded,
-                memory_bytes: m.memory_bytes,
-            })
-            .ok_or_else(|| tardis_common::Error::InvalidModelHandle(handle.raw()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[tokio::test]
@@ -436,8 +356,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_load_model_not_found() {
-        let vortex = Vortex::new().unwrap();
+    async fn test_load_model_not_found() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let config = ModelLoadConfig::default();
 
         let result = vortex.load_model("/nonexistent/model/path", config).await;
@@ -447,25 +367,24 @@ mod tests {
             result.unwrap_err(),
             VortexError::ModelNotFound { .. }
         ));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_unload_invalid_handle() {
-        let vortex = Vortex::new().unwrap();
+    async fn test_unload_invalid_handle() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let invalid_handle = ModelHandle::new(999);
 
         let result = vortex.unload_model(invalid_handle).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            VortexError::InvalidHandle(_)
-        ));
+        assert!(matches!(result.unwrap_err(), VortexError::InvalidHandle(_)));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_infer_invalid_handle() {
-        let vortex = Vortex::new().unwrap();
+    async fn test_infer_invalid_handle() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let invalid_handle = ModelHandle::new(999);
 
         let result = vortex
@@ -473,39 +392,37 @@ mod tests {
             .await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            VortexError::InvalidHandle(_)
-        ));
+        assert!(matches!(result.unwrap_err(), VortexError::InvalidHandle(_)));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_embed_invalid_handle() {
-        let vortex = Vortex::new().unwrap();
+    async fn test_embed_invalid_handle() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let invalid_handle = ModelHandle::new(999);
 
         let result = vortex.embed(invalid_handle, "test").await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            VortexError::InvalidHandle(_)
-        ));
+        assert!(matches!(result.unwrap_err(), VortexError::InvalidHandle(_)));
+        Ok(())
     }
 
     #[test]
-    fn test_is_model_loaded_false_for_invalid() {
-        let vortex = Vortex::new().unwrap();
+    fn test_is_model_loaded_false_for_invalid() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let invalid_handle = ModelHandle::new(999);
 
         assert!(!vortex.is_model_loaded(invalid_handle));
+        Ok(())
     }
 
     #[test]
-    fn test_model_info_none_for_invalid() {
-        let vortex = Vortex::new().unwrap();
+    fn test_model_info_none_for_invalid() -> VortexResult<()> {
+        let vortex = Vortex::new()?;
         let invalid_handle = ModelHandle::new(999);
 
         assert!(vortex.model_info(invalid_handle).is_none());
+        Ok(())
     }
 }

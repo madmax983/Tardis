@@ -26,9 +26,9 @@
 //!            └───────────────────────────┘
 //! ```
 
-mod ring_buffer;
 mod logger;
+mod ring_buffer;
 pub mod serial;
 
-pub use ring_buffer::{RingBuffer, RingSlot, RING_BUFFER_SIZE};
 pub use logger::KernelLogger;
+pub use ring_buffer::{RING_BUFFER_SIZE, RingBuffer, RingSlot};
