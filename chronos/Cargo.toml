@@ -39,8 +39,12 @@ anyhow = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-criterion = { workspace = true }
+criterion = { workspace = true, features = ["async_tokio"] }
 
 [[bench]]
 name = "pipeline_benchmarks"
+harness = false
+
+[[bench]]
+name = "retriever_benchmarks"
 harness = false

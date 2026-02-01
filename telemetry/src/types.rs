@@ -517,7 +517,10 @@ mod tests {
 
     #[test]
     fn trace_id_display() {
-        let id = TraceId::from_bytes([0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+        let id = TraceId::from_bytes([
+            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
+            0xcd, 0xef,
+        ]);
         assert_eq!(id.to_string(), "0123456789abcdef0123456789abcdef");
     }
 
@@ -537,10 +540,22 @@ mod tests {
 
     #[test]
     fn subsystem_from_target() {
-        assert_eq!(Subsystem::from_target("tardis_vortex::inference"), Subsystem::Vortex);
-        assert_eq!(Subsystem::from_target("tardis_gallifrey::stores"), Subsystem::Gallifrey);
-        assert_eq!(Subsystem::from_target("memory::allocator"), Subsystem::Memory);
-        assert_eq!(Subsystem::from_target("tardis_kernel::core"), Subsystem::Kernel);
+        assert_eq!(
+            Subsystem::from_target("tardis_vortex::inference"),
+            Subsystem::Vortex
+        );
+        assert_eq!(
+            Subsystem::from_target("tardis_gallifrey::stores"),
+            Subsystem::Gallifrey
+        );
+        assert_eq!(
+            Subsystem::from_target("memory::allocator"),
+            Subsystem::Memory
+        );
+        assert_eq!(
+            Subsystem::from_target("tardis_kernel::core"),
+            Subsystem::Kernel
+        );
         assert_eq!(Subsystem::from_target("random_crate"), Subsystem::Unknown);
     }
 }

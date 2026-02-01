@@ -12,5 +12,5 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod commands;
-pub mod router;
 pub mod repl;
+pub mod router;
