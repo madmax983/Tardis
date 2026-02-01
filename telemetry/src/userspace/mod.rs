@@ -28,11 +28,11 @@
 //! }
 //! ```
 
+mod drainer;
 pub mod layer;
 pub mod metrics;
 pub mod subscriber;
-mod drainer;
 
 pub use layer::TardisLayer;
-pub use subscriber::{init, TelemetryConfig, TelemetryHandle};
 pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
+pub use subscriber::{TelemetryConfig, TelemetryHandle, init};

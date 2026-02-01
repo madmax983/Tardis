@@ -110,20 +110,28 @@ pub enum LoadedModel {
 impl std::fmt::Debug for LoadedModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Llama { config, device, dtype, .. } => {
-                f.debug_struct("LoadedModel::Llama")
-                    .field("config", config)
-                    .field("device", device)
-                    .field("dtype", dtype)
-                    .finish()
-            }
-            Self::QuantizedLlama { device, quantization, parameters, .. } => {
-                f.debug_struct("LoadedModel::QuantizedLlama")
-                    .field("device", device)
-                    .field("quantization", quantization)
-                    .field("parameters", parameters)
-                    .finish()
-            }
+            Self::Llama {
+                config,
+                device,
+                dtype,
+                ..
+            } => f
+                .debug_struct("LoadedModel::Llama")
+                .field("config", config)
+                .field("device", device)
+                .field("dtype", dtype)
+                .finish(),
+            Self::QuantizedLlama {
+                device,
+                quantization,
+                parameters,
+                ..
+            } => f
+                .debug_struct("LoadedModel::QuantizedLlama")
+                .field("device", device)
+                .field("quantization", quantization)
+                .field("parameters", parameters)
+                .finish(),
         }
     }
 }
@@ -189,7 +197,11 @@ impl LoadedModel {
                 };
                 params * bytes_per_param
             }
-            Self::QuantizedLlama { quantization, parameters, .. } => {
+            Self::QuantizedLlama {
+                quantization,
+                parameters,
+                ..
+            } => {
                 // Estimate bytes based on quantization type
                 let bits_per_weight = estimate_bits_from_quantization(quantization);
                 // Convert bits to bytes
@@ -277,11 +289,12 @@ pub fn load_model_weights(
     let device = super::device::create_device(device_spec)?;
 
     // Detect format
-    let format = ModelFormat::detect_from_directory(model_path)
-        .ok_or_else(|| VortexError::LoadFailed(format!(
+    let format = ModelFormat::detect_from_directory(model_path).ok_or_else(|| {
+        VortexError::LoadFailed(format!(
             "Could not detect model format in {}",
             model_path.display()
-        )))?;
+        ))
+    })?;
 
     info!(
         "Loading {} model ({:?} format) on {:?}",
@@ -322,9 +335,8 @@ fn load_gguf(model_path: &Path, device: &Device) -> VortexResult<LoadedModel> {
 
     // Open and parse the GGUF file
     let mut file = std::fs::File::open(&gguf_path)?;
-    let gguf_content = gguf_file::Content::read(&mut file).map_err(|e| {
-        VortexError::LoadFailed(format!("Failed to parse GGUF file: {e}"))
-    })?;
+    let gguf_content = gguf_file::Content::read(&mut file)
+        .map_err(|e| VortexError::LoadFailed(format!("Failed to parse GGUF file: {e}")))?;
 
     // Extract metadata for logging
     let arch = gguf_content
@@ -356,11 +368,13 @@ fn load_gguf(model_path: &Path, device: &Device) -> VortexResult<LoadedModel> {
     // Note: The file handle is reused after metadata read. QuantizedLlama::from_gguf
     // expects the file position to be after metadata and seeks internally as needed
     // to read weight tensors.
-    let model = QuantizedLlama::from_gguf(gguf_content, &mut file, device).map_err(|e| {
-        VortexError::LoadFailed(format!("Failed to build quantized model: {e}"))
-    })?;
+    let model = QuantizedLlama::from_gguf(gguf_content, &mut file, device)
+        .map_err(|e| VortexError::LoadFailed(format!("Failed to build quantized model: {e}")))?;
 
-    info!("Quantized Llama model loaded successfully ({} params)", parameters);
+    info!(
+        "Quantized Llama model loaded successfully ({} params)",
+        parameters
+    );
 
     Ok(LoadedModel::QuantizedLlama {
         model,
@@ -380,22 +394,13 @@ fn extract_quantization_from_filename(filename: &str) -> String {
     // Include K-quant variants like q4_k_s, q4_k_m, q5_k_s, q5_k_m, etc.
     let patterns = [
         // K-quant variants (check specific sizes first)
-        "q2_k_s", "q2_k_m", "q2_k_l", "q2_k",
-        "q3_k_s", "q3_k_m", "q3_k_l", "q3_k",
-        "q4_k_s", "q4_k_m", "q4_k_l", "q4_k",
-        "q5_k_s", "q5_k_m", "q5_k_l", "q5_k",
-        "q6_k_s", "q6_k_m", "q6_k_l", "q6_k",
-        // Standard quantization
-        "q4_0", "q4_1",
-        "q5_0", "q5_1",
-        "q8_0", "q8_1",
-        // Float types
-        "f16", "f32", "bf16",
-        // IQ quantization (newer formats)
-        "iq1_s", "iq1_m",
-        "iq2_xxs", "iq2_xs", "iq2_s", "iq2_m",
-        "iq3_xxs", "iq3_xs", "iq3_s", "iq3_m",
-        "iq4_xs", "iq4_nl",
+        "q2_k_s", "q2_k_m", "q2_k_l", "q2_k", "q3_k_s", "q3_k_m", "q3_k_l", "q3_k", "q4_k_s",
+        "q4_k_m", "q4_k_l", "q4_k", "q5_k_s", "q5_k_m", "q5_k_l", "q5_k", "q6_k_s", "q6_k_m",
+        "q6_k_l", "q6_k", // Standard quantization
+        "q4_0", "q4_1", "q5_0", "q5_1", "q8_0", "q8_1", // Float types
+        "f16", "f32", "bf16", // IQ quantization (newer formats)
+        "iq1_s", "iq1_m", "iq2_xxs", "iq2_xs", "iq2_s", "iq2_m", "iq3_xxs", "iq3_xs", "iq3_s",
+        "iq3_m", "iq4_xs", "iq4_nl",
     ];
 
     for pattern in patterns {
@@ -543,7 +548,9 @@ fn load_llama_safetensors(
         rms_norm_eps: config.rms_norm_eps,
         rope_theta: config.rope_theta as f32,
         bos_token_id: config.bos_token_id,
-        eos_token_id: config.eos_token_id.map(candle_transformers::models::llama::LlamaEosToks::Single),
+        eos_token_id: config
+            .eos_token_id
+            .map(candle_transformers::models::llama::LlamaEosToks::Single),
         rope_scaling: None,
         max_position_embeddings: config.max_seq_len,
         tie_word_embeddings: None,
@@ -554,7 +561,9 @@ fn load_llama_safetensors(
 
     info!(
         "Creating Llama model: {} layers, {} hidden, {} heads",
-        runtime_config.num_hidden_layers, runtime_config.hidden_size, runtime_config.num_attention_heads
+        runtime_config.num_hidden_layers,
+        runtime_config.hidden_size,
+        runtime_config.num_attention_heads
     );
 
     // Find weight files
@@ -577,9 +586,8 @@ fn load_llama_safetensors(
 
     // Build the model
     info!("Building Llama model...");
-    let model = Llama::load(vb, &runtime_config).map_err(|e| {
-        VortexError::LoadFailed(format!("Failed to build Llama model: {e}"))
-    })?;
+    let model = Llama::load(vb, &runtime_config)
+        .map_err(|e| VortexError::LoadFailed(format!("Failed to build Llama model: {e}")))?;
 
     info!("Llama model loaded successfully");
 
@@ -600,7 +608,10 @@ fn find_safetensors_files(model_path: &Path) -> VortexResult<Vec<std::path::Path
 
     if model_path.is_file() {
         // Single file provided
-        if model_path.extension().is_some_and(|ext| ext == "safetensors") {
+        if model_path
+            .extension()
+            .is_some_and(|ext| ext == "safetensors")
+        {
             files.push(model_path.to_path_buf());
         } else {
             return Err(VortexError::LoadFailed(format!(
@@ -682,7 +693,10 @@ mod tests {
     #[test]
     fn test_model_format_from_extension_safetensors() {
         let path = PathBuf::from("model.safetensors");
-        assert_eq!(ModelFormat::from_extension(&path), Some(ModelFormat::SafeTensors));
+        assert_eq!(
+            ModelFormat::from_extension(&path),
+            Some(ModelFormat::SafeTensors)
+        );
     }
 
     #[test]
@@ -697,7 +711,10 @@ mod tests {
         assert_eq!(ModelFormat::from_extension(&path), Some(ModelFormat::Gguf));
 
         let path = PathBuf::from("model.SafeTensors");
-        assert_eq!(ModelFormat::from_extension(&path), Some(ModelFormat::SafeTensors));
+        assert_eq!(
+            ModelFormat::from_extension(&path),
+            Some(ModelFormat::SafeTensors)
+        );
     }
 
     #[test]
@@ -718,13 +735,19 @@ mod tests {
 
     #[test]
     fn test_extract_quantization_from_filename_q8_0() {
-        assert_eq!(extract_quantization_from_filename("model-Q8_0-GGUF"), "Q8_0");
+        assert_eq!(
+            extract_quantization_from_filename("model-Q8_0-GGUF"),
+            "Q8_0"
+        );
     }
 
     #[test]
     fn test_extract_quantization_from_filename_q4_k_m() {
         // More specific pattern matching now returns the full variant
-        assert_eq!(extract_quantization_from_filename("tinyllama-q4_k_m"), "Q4_K_M");
+        assert_eq!(
+            extract_quantization_from_filename("tinyllama-q4_k_m"),
+            "Q4_K_M"
+        );
     }
 
     #[test]

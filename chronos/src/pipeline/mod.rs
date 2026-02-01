@@ -1,12 +1,12 @@
 //! RAG pipeline for Chronos.
 
 mod analyzer;
-mod retriever;
 mod augmenter;
+mod retriever;
 
 pub use analyzer::QueryAnalyzer;
-pub use retriever::Retriever;
 pub use augmenter::ContextAugmenter;
+pub use retriever::Retriever;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,9 @@ use tardis_common::{EntityId, SessionId};
 use tardis_gallifrey::Gallifrey;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
+
+#[cfg(feature = "nova")]
+use crate::dream::Dreamer;
 
 /// Configuration for a RAG query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,7 +146,11 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
+    pub async fn remember(
+        &self,
+        content: &str,
+        category: MemoryCategory,
+    ) -> ChronosResult<EntityId> {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -153,7 +160,10 @@ impl Chronos {
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
+                props.insert(
+                    "content".to_string(),
+                    serde_json::Value::String(content.to_string()),
+                );
                 props
             },
             embedding: None, // TODO: Generate embedding
@@ -194,6 +204,13 @@ impl Chronos {
                 entity_id: Some(e.id),
             })
             .collect())
+    }
+
+    /// Access the Dream Engine (Simulation).
+    #[cfg(feature = "nova")]
+    #[must_use]
+    pub fn dreamer(&self) -> Dreamer {
+        Dreamer::new(Arc::clone(&self.vortex), Arc::clone(&self.gallifrey))
     }
 }
 

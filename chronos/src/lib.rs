@@ -13,8 +13,11 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
-pub mod pipeline;
 pub mod memory;
+pub mod pipeline;
+
+#[cfg(feature = "nova")]
+pub mod dream;
 
 // Re-export main types
 pub use error::{ChronosError, ChronosResult};

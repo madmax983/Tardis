@@ -80,7 +80,7 @@ pub use error::{TelemetryError, TelemetryResult};
 pub use types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 
 #[cfg(feature = "std")]
-pub use userspace::{init, TelemetryConfig, TelemetryHandle};
+pub use userspace::{TelemetryConfig, TelemetryHandle, init};
 
 #[cfg(feature = "std")]
 pub mod metrics {
@@ -91,9 +91,7 @@ pub mod metrics {
     //! Use the [`counter!`], [`gauge!`], and [`histogram!`] macros
     //! at the crate root for convenient access.
 
-    pub use crate::userspace::metrics::{
-        Counter, Gauge, Histogram, MetricsRegistry, METRICS,
-    };
+    pub use crate::userspace::metrics::{Counter, Gauge, Histogram, METRICS, MetricsRegistry};
 }
 
 // Note: counter!, gauge!, histogram! macros are automatically exported
