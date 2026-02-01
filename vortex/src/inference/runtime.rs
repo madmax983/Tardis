@@ -115,6 +115,14 @@ impl Vortex {
     }
 
     /// Load weights in a blocking task.
+    ///
+    /// This runs the heavy weight loading operation in a `spawn_blocking` task
+    /// to avoid stalling the async runtime.
+    ///
+    /// # Errors
+    ///
+    /// Returns `VortexError::LoadFailed` if the spawn task fails or weight loading fails.
+    #[inline]
     async fn load_weights_task(
         &self,
         path: &Path,
@@ -137,6 +145,11 @@ impl Vortex {
     }
 
     /// Register loaded model and config in internal storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns `VortexError::LockPoisoned` if acquiring a lock fails.
+    #[inline]
     fn register_loaded_model(
         &self,
         handle: ModelHandle,
@@ -144,6 +157,9 @@ impl Vortex {
         model_config: ModelConfig,
     ) -> VortexResult<()> {
         // Store the loaded model
+        // We acquire locks independently to minimize lock contention.
+        // Holding the `loaded_models` lock while acquiring `model_configs` is unnecessary
+        // and could reduce parallelism.
         {
             let mut models = self
                 .loaded_models
@@ -169,6 +185,11 @@ impl Vortex {
     }
 
     /// Setup tokenizer for the model.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tokenizer cannot be loaded (if present).
+    #[inline]
     fn setup_tokenizer(&self, handle: ModelHandle, path: &Path) -> VortexResult<()> {
         // Load tokenizer using shared helper
         let tokenizer_path = find_model_file(path, "tokenizer.json");
