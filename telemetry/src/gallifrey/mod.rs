@@ -26,8 +26,8 @@
 //! let context = store.context_around(error_time, 5000).await?;
 //! ```
 
-mod store;
 mod queries;
+mod store;
 
-pub use store::TelemetryStore;
 pub use queries::{TelemetryContext, TelemetryQuery};
+pub use store::TelemetryStore;

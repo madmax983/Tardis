@@ -74,19 +74,58 @@ fn print_banner(st: &mut SystemTable<Boot>) {
     let stdout = st.stdout();
 
     let _ = writeln!(stdout);
-    let _ = writeln!(stdout, "╔════════════════════════════════════════════════════════════╗");
-    let _ = writeln!(stdout, "║                                                            ║");
-    let _ = writeln!(stdout, "║              ████████╗ █████╗ ██████╗ ██████╗ ██╗███████╗  ║");
-    let _ = writeln!(stdout, "║              ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██║██╔════╝  ║");
-    let _ = writeln!(stdout, "║                 ██║   ███████║██████╔╝██║  ██║██║███████╗  ║");
-    let _ = writeln!(stdout, "║                 ██║   ██╔══██║██╔══██╗██║  ██║██║╚════██║  ║");
-    let _ = writeln!(stdout, "║                 ██║   ██║  ██║██║  ██║██████╔╝██║███████║  ║");
-    let _ = writeln!(stdout, "║                 ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝╚══════╝  ║");
-    let _ = writeln!(stdout, "║                                                            ║");
-    let _ = writeln!(stdout, "║           AI-Native Operating System v0.1.0                ║");
-    let _ = writeln!(stdout, "║           Time And Relative Dimension In Space             ║");
-    let _ = writeln!(stdout, "║                                                            ║");
-    let _ = writeln!(stdout, "╚════════════════════════════════════════════════════════════╝");
+    let _ = writeln!(
+        stdout,
+        "╔════════════════════════════════════════════════════════════╗"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                                                            ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║              ████████╗ █████╗ ██████╗ ██████╗ ██╗███████╗  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║              ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██║██╔════╝  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                 ██║   ███████║██████╔╝██║  ██║██║███████╗  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                 ██║   ██╔══██║██╔══██╗██║  ██║██║╚════██║  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                 ██║   ██║  ██║██║  ██║██████╔╝██║███████║  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                 ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝╚══════╝  ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                                                            ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║           AI-Native Operating System v0.1.0                ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║           Time And Relative Dimension In Space             ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "║                                                            ║"
+    );
+    let _ = writeln!(
+        stdout,
+        "╚════════════════════════════════════════════════════════════╝"
+    );
     let _ = writeln!(stdout);
 }
 

@@ -1,6 +1,6 @@
 //! Telemetry benchmarks.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use tardis_telemetry::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 
 fn bench_trace_id_generation(c: &mut Criterion) {
@@ -32,9 +32,7 @@ fn bench_telemetry_entry(c: &mut Criterion) {
     let mut group = c.benchmark_group("TelemetryEntry");
 
     group.bench_function("create_log", |b| {
-        b.iter(|| {
-            black_box(TelemetryEntry::log(Level::Info, Subsystem::Vortex))
-        });
+        b.iter(|| black_box(TelemetryEntry::log(Level::Info, Subsystem::Vortex)));
     });
 
     group.bench_function("create_full", |b| {
