@@ -15,9 +15,11 @@ use tokio::sync::mpsc;
 #[derive(Debug, Clone)]
 pub struct DrainerConfig {
     /// How often to poll the ring buffer.
+    #[allow(dead_code)] // Will be used when ring buffer integration is complete
     pub poll_interval: Duration,
 
     /// Maximum entries to process per poll.
+    #[allow(dead_code)] // Will be used when ring buffer integration is complete
     pub batch_size: usize,
 }
 
@@ -37,12 +39,15 @@ impl Default for DrainerConfig {
 #[derive(Debug)]
 pub struct RingBufferDrainer {
     /// Configuration.
+    #[allow(dead_code)] // Will be used when ring buffer integration is complete
     config: DrainerConfig,
 
     /// Channel for receiving entries (for testing/simulation).
+    #[allow(dead_code)] // Will be used when ring buffer integration is complete
     receiver: Option<mpsc::Receiver<(TelemetryEntry, Vec<u8>)>>,
 }
 
+#[allow(dead_code)] // Placeholder structure not yet fully integrated
 impl RingBufferDrainer {
     /// Creates a new drainer with default configuration.
     #[must_use]

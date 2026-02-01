@@ -2,7 +2,7 @@
 //!
 //! Handles parsing device specifications and creating Candle devices.
 
-#[cfg(any(feature = "cuda", feature = "metal"))]
+#[cfg(feature = "cuda")]
 use crate::error::VortexError;
 use crate::error::VortexResult;
 use candle_core::Device;
@@ -86,20 +86,11 @@ pub fn create_device(spec: &DeviceSpec) -> VortexResult<Device> {
             }
         }
         DeviceSpec::Metal => {
-            #[cfg(feature = "metal")]
-            {
-                tracing::info!("Using Metal device");
-                Device::new_metal(0).map_err(|e| {
-                    VortexError::DeviceError(format!("Failed to create Metal device: {}", e))
-                })
-            }
-            #[cfg(not(feature = "metal"))]
-            {
-                tracing::warn!(
-                    "Metal requested but not compiled with metal feature, falling back to CPU"
-                );
-                Ok(Device::Cpu)
-            }
+            // Metal feature is currently disabled in Cargo.toml for cross-platform CI compatibility
+            tracing::warn!(
+                "Metal requested but metal feature is currently disabled, falling back to CPU"
+            );
+            Ok(Device::Cpu)
         }
     }
 }
