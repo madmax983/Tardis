@@ -16,9 +16,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod query;
 pub mod stores;
 pub mod temporal;
-pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};
@@ -28,6 +28,7 @@ pub use temporal::{BiTemporalInterval, TimeRange};
 use std::sync::Arc;
 
 /// The main Gallifrey database instance.
+#[derive(Debug)]
 pub struct Gallifrey {
     knowledge: Arc<KnowledgeStore>,
     conversation: Arc<ConversationStore>,

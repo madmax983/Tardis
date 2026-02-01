@@ -17,8 +17,8 @@
 //! // Spans are automatically batched and exported
 //! ```
 
-mod otlp;
 mod batch;
+mod otlp;
 
-pub use otlp::{OtlpConfig, OtlpExporter};
 pub use batch::BatchProcessor;
+pub use otlp::{OtlpConfig, OtlpExporter};

@@ -1,12 +1,12 @@
 //! RAG pipeline for Chronos.
 
 mod analyzer;
-mod retriever;
 mod augmenter;
+mod retriever;
 
 pub use analyzer::QueryAnalyzer;
-pub use retriever::Retriever;
 pub use augmenter::ContextAugmenter;
+pub use retriever::Retriever;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -143,7 +143,11 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
+    pub async fn remember(
+        &self,
+        content: &str,
+        category: MemoryCategory,
+    ) -> ChronosResult<EntityId> {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -153,7 +157,10 @@ impl Chronos {
             name: truncate_safe(content, 50).to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
+                props.insert(
+                    "content".to_string(),
+                    serde_json::Value::String(content.to_string()),
+                );
                 props
             },
             embedding: None, // TODO: Generate embedding
@@ -224,8 +231,8 @@ fn truncate_safe(s: &str, max_len: usize) -> &str {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tardis_vortex::Vortex;
     use tardis_gallifrey::Gallifrey;
+    use tardis_vortex::Vortex;
 
     #[tokio::test]
     async fn test_query_panic_on_char_boundary() {

@@ -29,8 +29,8 @@
 //! └────────────────────────────────────────────────────────────────┘
 //! ```
 
+use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use crate::types::{TelemetryEntry, Level, Subsystem, EventType, TraceId, SpanId};
 
 /// Ring buffer capacity (power of 2 for efficient modulo).
 pub const RING_BUFFER_SIZE: usize = 4096;
@@ -180,7 +180,8 @@ impl RingBuffer {
         }
 
         // Mark slot as ready to read (even sequence, incremented)
-        slot.sequence.store(expected_seq.wrapping_add(2), Ordering::Release);
+        slot.sequence
+            .store(expected_seq.wrapping_add(2), Ordering::Release);
 
         true
     }
