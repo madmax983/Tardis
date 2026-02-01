@@ -1,8 +1,8 @@
 //! Multi-source retrieval for Chronos.
 
 use super::{ContextSource, ContextSourceType, RagConfig};
-use crate::pipeline::analyzer::AnalyzedQuery;
 use crate::error::{ChronosError, ChronosResult};
+use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tracing::info;
@@ -10,6 +10,14 @@ use tracing::info;
 /// Multi-source retriever.
 pub struct Retriever {
     gallifrey: Arc<Gallifrey>,
+}
+
+impl std::fmt::Debug for Retriever {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Retriever")
+            .field("gallifrey", &"Arc<Gallifrey>")
+            .finish()
+    }
 }
 
 impl Retriever {
@@ -45,7 +53,11 @@ impl Retriever {
         }
 
         // Sort by relevance and limit
-        sources.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal));
+        sources.sort_by(|a, b| {
+            b.relevance
+                .partial_cmp(&a.relevance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         sources.truncate(config.max_context_items);
 
         Ok(sources)
@@ -54,7 +66,7 @@ impl Retriever {
     /// Retrieve from knowledge graph.
     async fn retrieve_knowledge(
         &self,
-        query: &AnalyzedQuery,
+        _query: &AnalyzedQuery,
         config: &RagConfig,
     ) -> ChronosResult<Vec<ContextSource>> {
         info!("Retrieving from knowledge graph");
@@ -82,7 +94,7 @@ impl Retriever {
     /// Retrieve from conversation history.
     async fn retrieve_conversation(
         &self,
-        query: &AnalyzedQuery,
+        _query: &AnalyzedQuery,
         config: &RagConfig,
     ) -> ChronosResult<Vec<ContextSource>> {
         info!("Retrieving from conversation history");

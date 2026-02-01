@@ -125,7 +125,11 @@ impl KnowledgeStore {
     }
 
     /// Update an entity (creates new version).
-    pub fn update_entity(&self, id: EntityId, updates: HashMap<String, serde_json::Value>) -> GallifreyResult<()> {
+    pub fn update_entity(
+        &self,
+        id: EntityId,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> GallifreyResult<()> {
         let mut entities = self
             .entities
             .write()
@@ -188,7 +192,11 @@ impl KnowledgeStore {
     }
 
     /// Find entities by semantic similarity (placeholder for vector search).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Entity>> {
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Entity>> {
         // TODO: Implement actual vector similarity search
         let entities = self
             .entities

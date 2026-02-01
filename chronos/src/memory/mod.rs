@@ -5,8 +5,10 @@
 use tardis_common::SessionId;
 
 /// Memory consolidator for long-term storage.
+#[derive(Debug)]
 pub struct MemoryConsolidator {
     /// Age threshold for consolidation (in days).
+    #[allow(dead_code)] // Will be used in future
     consolidation_age_days: u32,
 }
 

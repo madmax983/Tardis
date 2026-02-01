@@ -25,6 +25,10 @@ pub enum ChronosError {
     #[error("memory operation failed: {0}")]
     MemoryFailed(String),
 
+    /// Input too large.
+    #[error("input too large: {0}")]
+    InputTooLarge(String),
+
     /// Invalid temporal reference.
     #[error("invalid temporal reference: {0}")]
     InvalidTemporalReference(String),

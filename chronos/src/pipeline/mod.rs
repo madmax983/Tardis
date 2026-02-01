@@ -1,12 +1,12 @@
 //! RAG pipeline for Chronos.
 
 mod analyzer;
-mod retriever;
 mod augmenter;
+mod retriever;
 
 pub use analyzer::QueryAnalyzer;
-pub use retriever::Retriever;
 pub use augmenter::ContextAugmenter;
+pub use retriever::Retriever;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,8 @@ use tardis_common::{EntityId, SessionId};
 use tardis_gallifrey::Gallifrey;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
+
+const MAX_INPUT_LEN: usize = 10_000;
 
 /// Configuration for a RAG query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,11 +84,24 @@ pub struct RagResponse {
 
 /// The main Chronos RAG engine.
 pub struct Chronos {
+    #[allow(dead_code)] // Will be used in future
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
+}
+
+impl std::fmt::Debug for Chronos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Chronos")
+            .field("vortex", &self.vortex)
+            .field("gallifrey", &"Arc<Gallifrey>")
+            .field("analyzer", &self.analyzer)
+            .field("retriever", &self.retriever)
+            .field("augmenter", &self.augmenter)
+            .finish()
+    }
 }
 
 impl Chronos {
@@ -109,6 +124,14 @@ impl Chronos {
     /// Returns an error if any stage of the pipeline fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
+        if prompt.len() > MAX_INPUT_LEN {
+            return Err(ChronosError::InputTooLarge(format!(
+                "query prompt length {} exceeds limit {}",
+                prompt.len(),
+                MAX_INPUT_LEN
+            )));
+        }
+
         info!("Processing RAG query");
 
         // 1. Analyze the query
@@ -120,7 +143,7 @@ impl Chronos {
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
 
         // 4. Run inference
         // TODO: Use actual model handle
@@ -143,7 +166,19 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
+    pub async fn remember(
+        &self,
+        content: &str,
+        category: MemoryCategory,
+    ) -> ChronosResult<EntityId> {
+        if content.len() > MAX_INPUT_LEN {
+            return Err(ChronosError::InputTooLarge(format!(
+                "memory content length {} exceeds limit {}",
+                content.len(),
+                MAX_INPUT_LEN
+            )));
+        }
+
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -153,7 +188,10 @@ impl Chronos {
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
+                props.insert(
+                    "content".to_string(),
+                    serde_json::Value::String(content.to_string()),
+                );
                 props
             },
             embedding: None, // TODO: Generate embedding

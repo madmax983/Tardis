@@ -107,11 +107,7 @@ pub struct TokenizerService {
 
 impl std::fmt::Debug for TokenizerService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let count = self
-            .tokenizers
-            .read()
-            .map(|t| t.len())
-            .unwrap_or(0);
+        let count = self.tokenizers.read().map(|t| t.len()).unwrap_or(0);
         f.debug_struct("TokenizerService")
             .field("loaded_count", &count)
             .finish()
@@ -163,20 +159,19 @@ impl TokenizerService {
             chat_template,
         };
 
-        let mut tokenizers = self.tokenizers.write().map_err(|_| {
-            VortexError::LockPoisoned {
+        let mut tokenizers = self
+            .tokenizers
+            .write()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer write lock",
-            }
-        })?;
+            })?;
 
         tokenizers.insert(handle, loaded);
         Ok(())
     }
 
     /// Load special tokens and chat template from `tokenizer_config.json`.
-    fn load_tokenizer_config(
-        config_path: &Path,
-    ) -> VortexResult<(SpecialTokens, Option<String>)> {
+    fn load_tokenizer_config(config_path: &Path) -> VortexResult<(SpecialTokens, Option<String>)> {
         let config_str = std::fs::read_to_string(config_path).map_err(|e| {
             VortexError::TokenizationError(format!("failed to read tokenizer config: {e}"))
         })?;
@@ -214,9 +209,18 @@ impl TokenizerService {
         let vocab = tokenizer.get_vocab(true);
 
         SpecialTokens {
-            bos_token_id: vocab.get("<s>").or_else(|| vocab.get("<|begin_of_text|>")).copied(),
-            eos_token_id: vocab.get("</s>").or_else(|| vocab.get("<|end_of_text|>")).copied(),
-            pad_token_id: vocab.get("<pad>").or_else(|| vocab.get("<|padding|>")).copied(),
+            bos_token_id: vocab
+                .get("<s>")
+                .or_else(|| vocab.get("<|begin_of_text|>"))
+                .copied(),
+            eos_token_id: vocab
+                .get("</s>")
+                .or_else(|| vocab.get("<|end_of_text|>"))
+                .copied(),
+            pad_token_id: vocab
+                .get("<pad>")
+                .or_else(|| vocab.get("<|padding|>"))
+                .copied(),
             unk_token_id: vocab.get("<unk>").copied(),
         }
     }
@@ -227,11 +231,12 @@ impl TokenizerService {
     ///
     /// Returns an error if the tokenizer lock is poisoned.
     pub fn unload(&self, handle: ModelHandle) -> VortexResult<()> {
-        let mut tokenizers = self.tokenizers.write().map_err(|_| {
-            VortexError::LockPoisoned {
+        let mut tokenizers = self
+            .tokenizers
+            .write()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer write lock",
-            }
-        })?;
+            })?;
 
         tokenizers.remove(&handle);
         Ok(())
@@ -248,11 +253,12 @@ impl TokenizerService {
     ///
     /// Returns an error if encoding fails.
     pub fn encode(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<u32>> {
-        let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::LockPoisoned {
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer read lock",
-            }
-        })?;
+            })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
             VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
@@ -302,11 +308,12 @@ impl TokenizerService {
     ///
     /// Returns an error if decoding fails.
     pub fn decode(&self, handle: ModelHandle, tokens: &[u32]) -> VortexResult<String> {
-        let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::LockPoisoned {
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer read lock",
-            }
-        })?;
+            })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
             VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
@@ -332,11 +339,12 @@ impl TokenizerService {
         handle: ModelHandle,
         tokens: &[u32],
     ) -> VortexResult<String> {
-        let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::LockPoisoned {
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer read lock",
-            }
-        })?;
+            })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
             VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
@@ -398,11 +406,12 @@ impl TokenizerService {
         messages: &[ChatMessage],
         add_generation_prompt: bool,
     ) -> VortexResult<String> {
-        let tokenizers = self.tokenizers.read().map_err(|_| {
-            VortexError::LockPoisoned {
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
                 context: "tokenizer read lock",
-            }
-        })?;
+            })?;
 
         let loaded = tokenizers.get(&handle).ok_or_else(|| {
             VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
@@ -410,7 +419,11 @@ impl TokenizerService {
 
         if let Some(template) = &loaded.chat_template {
             // Use Jinja-like template (simplified implementation)
-            Ok(Self::apply_jinja_template(template, messages, add_generation_prompt))
+            Ok(Self::apply_jinja_template(
+                template,
+                messages,
+                add_generation_prompt,
+            ))
         } else {
             // Fall back to simple `ChatML`-like format
             Ok(Self::apply_simple_template(messages, add_generation_prompt))
@@ -609,9 +622,7 @@ mod tests {
 
     #[test]
     fn test_apply_llama3_template() {
-        let messages = vec![
-            ChatMessage::user("What is 2+2?"),
-        ];
+        let messages = vec![ChatMessage::user("What is 2+2?")];
 
         let result = TokenizerService::apply_llama3_template(&messages, true);
         assert!(result.starts_with("<|begin_of_text|>"));
@@ -622,10 +633,7 @@ mod tests {
 
     #[test]
     fn test_apply_simple_template() {
-        let messages = vec![
-            ChatMessage::user("Hello"),
-            ChatMessage::assistant("Hi!"),
-        ];
+        let messages = vec![ChatMessage::user("Hello"), ChatMessage::assistant("Hi!")];
 
         let result = TokenizerService::apply_simple_template(&messages, true);
         assert!(result.contains("user: Hello"));
