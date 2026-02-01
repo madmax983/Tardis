@@ -33,9 +33,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cargo test --workspace --exclude kernel
+            cargo test --workspace --exclude tardis-kernel --features metal
           else
-            cargo test --workspace --exclude kernel --all-features
+            cargo test --workspace --exclude tardis-kernel
           fi
 
   clippy:
@@ -53,7 +53,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace --exclude kernel --all-features -- -D warnings
+        run: cargo clippy --workspace --exclude tardis-kernel -- -D warnings
 
   fmt:
     name: Format
@@ -82,7 +82,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build docs
-        run: cargo doc --workspace --exclude kernel --no-deps --all-features
+        run: cargo doc --workspace --exclude tardis-kernel --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -101,7 +101,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check MSRV
-        run: cargo check --workspace --exclude kernel
+        run: cargo check --workspace --exclude tardis-kernel
 
   coverage:
     name: Coverage

@@ -1,12 +1,12 @@
 //! RAG pipeline for Chronos.
 
 mod analyzer;
-mod augmenter;
 mod retriever;
+mod augmenter;
 
 pub use analyzer::QueryAnalyzer;
-pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
+pub use augmenter::ContextAugmenter;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -81,7 +81,9 @@ pub struct RagResponse {
 }
 
 /// The main Chronos RAG engine.
+#[derive(Debug)]
 pub struct Chronos {
+    #[allow(dead_code)]
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
@@ -120,7 +122,7 @@ impl Chronos {
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
 
         // 4. Run inference
         // TODO: Use actual model handle
@@ -143,11 +145,7 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(
-        &self,
-        content: &str,
-        category: MemoryCategory,
-    ) -> ChronosResult<EntityId> {
+    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -157,10 +155,7 @@ impl Chronos {
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert(
-                    "content".to_string(),
-                    serde_json::Value::String(content.to_string()),
-                );
+                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
                 props
             },
             embedding: None, // TODO: Generate embedding

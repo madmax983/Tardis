@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Ring buffer drainer for kernel telemetry.
 //!
 //! This module reads telemetry events from the kernel ring buffer

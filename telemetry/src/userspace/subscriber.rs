@@ -168,8 +168,8 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     // Create OTLP sender if enabled
     let (otlp_sender, otlp_handle) = if config.otlp_enabled {
         let (tx, rx) = tokio::sync::mpsc::channel::<SpanData>(10_000);
-        let endpoint = config.otlp_endpoint.clone();
-        let batch_size = config.otlp_batch_size;
+        let _endpoint = config.otlp_endpoint.clone();
+        let _batch_size = config.otlp_batch_size;
 
         let handle = tokio::spawn(async move {
             // OTLP exporter would run here
