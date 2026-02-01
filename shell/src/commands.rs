@@ -5,6 +5,7 @@ use tardis_common::SessionId;
 use tardis_gallifrey::Gallifrey;
 
 /// Handler for built-in shell commands.
+#[derive(Debug)]
 pub struct CommandHandler {
     // Configuration
 }

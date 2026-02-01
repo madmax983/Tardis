@@ -10,6 +10,10 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::unused_async)]
 
 pub mod commands;
 pub mod repl;

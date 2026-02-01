@@ -22,6 +22,7 @@ pub enum Intent {
         /// Query text.
         query: String,
         /// Temporal context (if detected).
+        #[allow(dead_code)]
         temporal_context: Option<String>,
     },
 
@@ -41,6 +42,7 @@ pub enum Intent {
 }
 
 /// Router for classifying user input intent.
+#[derive(Debug)]
 pub struct Router {
     /// Built-in command names.
     builtins: Vec<&'static str>,

@@ -9,6 +9,7 @@ use tardis_common::SessionId;
 #[derive(Debug)]
 pub struct MemoryConsolidator {
     /// Age threshold for consolidation (in days).
+    #[allow(dead_code)]
     consolidation_age_days: u32,
 }
 

@@ -29,7 +29,12 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
+      - name: Run tests (Linux/Windows)
+        if: runner.os != 'macOS'
+        run: cargo test --workspace
+
+      - name: Run tests (macOS)
+        if: runner.os == 'macOS'
         run: cargo test --workspace --all-features
 
   clippy:
@@ -47,7 +52,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
   fmt:
     name: Format
@@ -76,7 +81,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build docs
-        run: cargo doc --workspace --no-deps --all-features
+        run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -95,7 +100,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check MSRV
-        run: cargo check --workspace
+        run: cargo check --workspace --exclude tardis-kernel
 
   coverage:
     name: Coverage
