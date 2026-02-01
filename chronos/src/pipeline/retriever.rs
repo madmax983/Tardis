@@ -1,8 +1,8 @@
 //! Multi-source retrieval for Chronos.
 
 use super::{ContextSource, ContextSourceType, RagConfig};
-use crate::pipeline::analyzer::AnalyzedQuery;
 use crate::error::{ChronosError, ChronosResult};
+use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tracing::info;
@@ -45,7 +45,11 @@ impl Retriever {
         }
 
         // Sort by relevance and limit
-        sources.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal));
+        sources.sort_by(|a, b| {
+            b.relevance
+                .partial_cmp(&a.relevance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         sources.truncate(config.max_context_items);
 
         Ok(sources)

@@ -2,9 +2,11 @@
 //!
 //! Handles memory consolidation, summarization, and lifecycle.
 
+use crate::error::ChronosResult;
 use tardis_common::SessionId;
 
 /// Memory consolidator for long-term storage.
+#[derive(Debug)]
 pub struct MemoryConsolidator {
     /// Age threshold for consolidation (in days).
     consolidation_age_days: u32,
@@ -29,7 +31,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if consolidation fails.
-    pub async fn consolidate(&self) -> Result<ConsolidationResult, Box<dyn std::error::Error>> {
+    pub async fn consolidate(&self) -> ChronosResult<ConsolidationResult> {
         // TODO: Implement actual consolidation
         // For now, return empty result
 
@@ -45,10 +47,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if summarization fails.
-    pub async fn summarize_session(
-        &self,
-        _session_id: SessionId,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn summarize_session(&self, _session_id: SessionId) -> ChronosResult<String> {
         // TODO: Use Vortex to generate summary
         Ok("Session summary placeholder".to_string())
     }
