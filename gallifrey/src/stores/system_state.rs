@@ -108,6 +108,7 @@ pub enum ChangeType {
 }
 
 /// The system state store.
+#[derive(Debug)]
 pub struct SystemStateStore {
     /// Snapshots indexed by ID.
     snapshots: RwLock<HashMap<SnapshotId, Snapshot>>,

@@ -2,7 +2,7 @@
 name = "tardis-kernel"
 description = "Tardis OS Kernel - AI-native operating system core"
 version.workspace = true
-edition.workspace = true
+edition = "2021" # Downgraded to fix cargo-deny action compatibility
 license.workspace = true
 repository.workspace = true
 

@@ -57,4 +57,5 @@ default = []
 # Enable CUDA GPU support
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 # Enable Metal GPU support (macOS)
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+# Disabled to fix CI on Linux/Windows where --all-features enables it
+# metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
