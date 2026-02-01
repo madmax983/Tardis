@@ -33,10 +33,18 @@ pub struct ModelConfig {
     #[serde(alias = "vocab_size")]
     pub vocab_size: usize,
     /// Maximum sequence length.
-    #[serde(alias = "max_position_embeddings", alias = "n_positions", alias = "max_seq_len")]
+    #[serde(
+        alias = "max_position_embeddings",
+        alias = "n_positions",
+        alias = "max_seq_len"
+    )]
     pub max_seq_len: usize,
     /// RMS norm epsilon.
-    #[serde(alias = "rms_norm_eps", alias = "layer_norm_epsilon", default = "default_rms_norm_eps")]
+    #[serde(
+        alias = "rms_norm_eps",
+        alias = "layer_norm_epsilon",
+        default = "default_rms_norm_eps"
+    )]
     pub rms_norm_eps: f64,
     /// Rope theta (for rotary embeddings).
     #[serde(alias = "rope_theta", default = "default_rope_theta")]
@@ -74,7 +82,8 @@ impl ModelConfig {
         let hidden = self.hidden_size as u64;
         let layers = self.num_layers as u64;
         let vocab = self.vocab_size as u64;
-        let intermediate = self.intermediate_size
+        let intermediate = self
+            .intermediate_size
             .map_or_else(|| hidden.saturating_mul(4), |i| i as u64);
 
         // Use checked arithmetic to detect overflow
@@ -128,9 +137,9 @@ pub async fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> 
     }
 
     // Read file asynchronously
-    let config_str = tokio::fs::read_to_string(&config_path).await.map_err(|e| {
-        VortexError::ConfigError(format!("Failed to read config.json: {e}"))
-    })?;
+    let config_str = tokio::fs::read_to_string(&config_path)
+        .await
+        .map_err(|e| VortexError::ConfigError(format!("Failed to read config.json: {e}")))?;
 
     // Parse JSON in a blocking task to avoid stalling the executor
     let config = task::spawn_blocking(move || -> VortexResult<ModelConfig> {

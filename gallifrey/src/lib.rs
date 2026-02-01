@@ -16,9 +16,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod query;
 pub mod stores;
 pub mod temporal;
-pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};

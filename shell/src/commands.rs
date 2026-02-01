@@ -122,7 +122,12 @@ impl CommandHandler {
                         } else {
                             msg.content.clone()
                         };
-                        println!("  [{}] {}: {}", msg.timestamp.format("%H:%M"), role, content);
+                        println!(
+                            "  [{}] {}: {}",
+                            msg.timestamp.format("%H:%M"),
+                            role,
+                            content
+                        );
                     }
                     if messages.len() > 20 {
                         println!("  ... and {} more", messages.len() - 20);

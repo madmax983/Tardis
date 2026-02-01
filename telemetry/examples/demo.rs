@@ -9,11 +9,8 @@
 //! - Querying Gallifrey for temporal data
 
 use std::time::Duration;
-use tardis_telemetry::{
-    counter, gauge, histogram,
-    init, TelemetryConfig,
-};
-use tracing::{info, info_span, warn, instrument};
+use tardis_telemetry::{TelemetryConfig, counter, gauge, histogram, init};
+use tracing::{info, info_span, instrument, warn};
 
 /// Simulated inference request
 #[derive(Debug)]
@@ -95,7 +92,8 @@ async fn run_rag_query(query: &str) -> String {
     let response = run_inference(InferenceRequest {
         prompt: format!("Context: [retrieved docs]\n\nQuery: {query}"),
         max_tokens: 100,
-    }).await;
+    })
+    .await;
 
     counter!("chronos.rag_query_total").inc();
 

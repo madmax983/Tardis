@@ -9,8 +9,8 @@ use tardis_gallifrey::Gallifrey;
 use tardis_vortex::Vortex;
 use tracing::info;
 
-mod repl;
 mod commands;
+mod repl;
 mod router;
 
 use repl::Repl;
@@ -20,8 +20,7 @@ async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("tardis=info".parse()?)
+            tracing_subscriber::EnvFilter::from_default_env().add_directive("tardis=info".parse()?),
         )
         .init();
 

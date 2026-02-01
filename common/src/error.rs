@@ -183,10 +183,12 @@ mod tests {
 
     #[test]
     fn error_is_recoverable() {
-        assert!(Error::ModelNotFound {
-            path: "test".to_string()
-        }
-        .is_recoverable());
+        assert!(
+            Error::ModelNotFound {
+                path: "test".to_string()
+            }
+            .is_recoverable()
+        );
         assert!(!Error::Internal("test".to_string()).is_recoverable());
     }
 }

@@ -1,8 +1,8 @@
 //! Context augmentation for Chronos.
 
 use super::{ContextSource, ContextSourceType};
-use crate::pipeline::analyzer::AnalyzedQuery;
 use crate::error::ChronosResult;
+use crate::pipeline::analyzer::AnalyzedQuery;
 use chrono::Utc;
 
 /// Context augmenter for building RAG prompts.
@@ -58,7 +58,10 @@ impl ContextAugmenter {
         let mut ctx = String::new();
 
         ctx.push_str("# Tardis AI Assistant\n\n");
-        ctx.push_str(&format!("Current time: {}\n", Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+        ctx.push_str(&format!(
+            "Current time: {}\n",
+            Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+        ));
 
         if let Some(ref temporal) = analysis.temporal_description {
             ctx.push_str(&format!("Query temporal context: {}\n", temporal));
@@ -76,7 +79,10 @@ impl ContextAugmenter {
             // Rough token estimate (4 chars per token)
             let source_tokens = source.content.len() / 4;
             if token_estimate + source_tokens > self.max_context_tokens {
-                formatted.push_str(&format!("\n... ({} more sources truncated)\n", context.len() - i));
+                formatted.push_str(&format!(
+                    "\n... ({} more sources truncated)\n",
+                    context.len() - i
+                ));
                 break;
             }
 
@@ -217,7 +223,12 @@ mod tests {
         for (intent, expected) in cases {
             let analysis = create_dummy_analysis(intent);
             let result = augmenter.augment("test", &[], &analysis).unwrap();
-            assert!(result.contains(expected), "Failed for intent {:?}: expected '{}'", analysis.intent, expected);
+            assert!(
+                result.contains(expected),
+                "Failed for intent {:?}: expected '{}'",
+                analysis.intent,
+                expected
+            );
         }
     }
 
