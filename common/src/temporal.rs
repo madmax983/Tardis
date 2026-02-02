@@ -1,15 +1,45 @@
 //! Temporal primitives for bi-temporal data.
 //!
-//! Provides types for working with bi-temporal data, which tracks both:
-//! - **Valid time**: When the fact was/is true in the real world
-//! - **Transaction time**: When the fact was recorded in the system
+//! # What is Bi-Temporality?
 //!
-//! This enables queries like "What did we know about X at time T?"
+//! Bi-temporal data tracks two dimensions of time for every fact:
+//!
+//! 1. **Valid Time**: The time range when the fact was, is, or will be true in the real world.
+//!    *Example: "John lived in NY from 2020 to 2022."*
+//! 2. **Transaction Time**: The time range when the system knew this fact to be true.
+//!    *Example: "We learned this on Jan 1st, 2023, and it is currently the accepted truth."*
+//!
+//! # Why is this useful?
+//!
+//! It allows for **retroactive corrections** without losing history.
+//!
+//! *Scenario:*
+//! - **Day 1**: System records "Price is $10" (Valid: [Day 1, ∞), Transaction: [Day 1, ∞)).
+//! - **Day 2**: We realize the price was actually $12 starting Day 1.
+//! - **Correction**: We close the Transaction Time of the first record (making it historical)
+//!   and insert a new record "Price is $12" (Valid: [Day 1, ∞), Transaction: [Day 2, ∞)).
+//!
+//! Now we can ask:
+//! - "What is the price?" -> $12
+//! - "What did we *think* the price was yesterday?" -> $10
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A range of time with optional end (open-ended if None).
+///
+/// Represents an interval `[start, end)`. If `end` is `None`, it represents `[start, ∞)`.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::temporal::TimeRange;
+/// use chrono::{Utc, Duration};
+///
+/// let now = Utc::now();
+/// let range = TimeRange::starting_at(now);
+/// assert!(range.contains(now + Duration::days(1)));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeRange {
     /// Start of the time range (inclusive).
@@ -44,6 +74,8 @@ impl TimeRange {
     }
 
     /// Check if a timestamp falls within this range.
+    ///
+    /// Returns true if `start <= timestamp < end` (or `end` is None).
     #[must_use]
     pub fn contains(&self, timestamp: DateTime<Utc>) -> bool {
         if timestamp < self.start {
@@ -65,6 +97,8 @@ impl TimeRange {
     }
 
     /// Close this range at the current time.
+    ///
+    /// Returns a new `TimeRange` with `end` set to `Utc::now()`.
     #[must_use]
     pub fn close_now(&self) -> Self {
         Self {
@@ -83,6 +117,16 @@ impl Default for TimeRange {
 /// Bi-temporal interval tracking both valid and transaction time.
 ///
 /// This is the core temporal primitive used throughout Gallifrey.
+/// It combines two [`TimeRange`]s to fully describe the temporal state of a fact.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::temporal::BiTemporalInterval;
+///
+/// let interval = BiTemporalInterval::now();
+/// assert!(interval.is_current());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BiTemporalInterval {
     /// When the fact was/is true in the real world.
@@ -93,6 +137,8 @@ pub struct BiTemporalInterval {
 
 impl BiTemporalInterval {
     /// Create a new bi-temporal interval starting now.
+    ///
+    /// Both valid and transaction time start at `Utc::now()` and are open-ended.
     #[must_use]
     pub fn now() -> Self {
         let now = Utc::now();
@@ -118,6 +164,9 @@ impl BiTemporalInterval {
     }
 
     /// Close the transaction time (mark as superseded).
+    ///
+    /// This effectively "deletes" the record from the current system state,
+    /// turning it into a historical artifact.
     #[must_use]
     pub fn supersede(&self) -> Self {
         Self {
@@ -152,6 +201,22 @@ impl Default for BiTemporalInterval {
 }
 
 /// Parameters for temporal queries.
+///
+/// Allows specifying exactly which slice of time you want to query.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::temporal::TemporalQuery;
+/// use chrono::Utc;
+///
+/// // Query the current state (default)
+/// let query = TemporalQuery::current();
+///
+/// // Query the state as it was known yesterday
+/// let yesterday = Utc::now() - chrono::Duration::days(1);
+/// let historical = TemporalQuery::as_of_transaction(yesterday);
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TemporalQuery {
     /// Point-in-time for valid time queries (AS OF VALID TIME).
