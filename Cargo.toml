@@ -43,14 +43,14 @@ linked_list_allocator = "0.10"
 log = "0.4"
 
 # LLM (Vortex)
-candle-core = "=0.9.1"
-candle-nn = "=0.9.1"
-candle-transformers = "=0.9.1"
+candle-core = "=0.9.2"
+candle-nn = "=0.9.2"
+candle-transformers = "=0.9.2"
 cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"
 half = "2.4"
-hf-hub = "0.3"
+hf-hub = "0.4"
 
 # Database (Gallifrey)
 # gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
