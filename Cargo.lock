@@ -3182,6 +3182,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "x86_64",
 ]
 
 [[package]]

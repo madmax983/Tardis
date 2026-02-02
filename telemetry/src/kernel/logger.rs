@@ -172,7 +172,7 @@ impl KernelLogger {
 /// Convenience macro for kernel logging.
 #[macro_export]
 macro_rules! klog {
-    ($level:expr, $subsystem:expr, $($arg:tt)*) => {{
+    ($level:expr_2021, $subsystem:expr_2021, $($arg:tt)*) => {{
         if let Some(logger) = $crate::kernel::KernelLogger::get() {
             use ::alloc::format;
             let message = format!($($arg)*);
@@ -184,7 +184,7 @@ macro_rules! klog {
 /// Log an info message from the kernel.
 #[macro_export]
 macro_rules! kinfo {
-    ($subsystem:expr, $($arg:tt)*) => {
+    ($subsystem:expr_2021, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Info, $subsystem, $($arg)*)
     };
 }
@@ -192,7 +192,7 @@ macro_rules! kinfo {
 /// Log an error message from the kernel.
 #[macro_export]
 macro_rules! kerror {
-    ($subsystem:expr, $($arg:tt)*) => {
+    ($subsystem:expr_2021, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Error, $subsystem, $($arg)*)
     };
 }
@@ -200,7 +200,7 @@ macro_rules! kerror {
 /// Log a warning message from the kernel.
 #[macro_export]
 macro_rules! kwarn {
-    ($subsystem:expr, $($arg:tt)*) => {
+    ($subsystem:expr_2021, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Warn, $subsystem, $($arg)*)
     };
 }
@@ -208,7 +208,7 @@ macro_rules! kwarn {
 /// Log a debug message from the kernel.
 #[macro_export]
 macro_rules! kdebug {
-    ($subsystem:expr, $($arg:tt)*) => {
+    ($subsystem:expr_2021, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Debug, $subsystem, $($arg)*)
     };
 }
@@ -216,7 +216,7 @@ macro_rules! kdebug {
 /// Log a trace message from the kernel.
 #[macro_export]
 macro_rules! ktrace {
-    ($subsystem:expr, $($arg:tt)*) => {
+    ($subsystem:expr_2021, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Trace, $subsystem, $($arg)*)
     };
 }

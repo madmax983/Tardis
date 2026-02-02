@@ -69,6 +69,14 @@ impl KnowledgeStore {
     }
 
     /// Insert an entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity insertion fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity retrieval fails.
     pub fn insert_entity(&self, entity: Entity) -> GallifreyResult<EntityId> {
         let id = entity.id;
 
@@ -96,6 +104,10 @@ impl KnowledgeStore {
     }
 
     /// Get entity at a specific point in time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity retrieval fails.
     pub fn get_entity_at(
         &self,
         id: EntityId,
@@ -116,6 +128,10 @@ impl KnowledgeStore {
     }
 
     /// Get all versions of an entity (history).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity history retrieval fails.
     pub fn get_entity_history(&self, id: EntityId) -> GallifreyResult<Vec<Entity>> {
         let entities = self
             .entities
@@ -126,6 +142,10 @@ impl KnowledgeStore {
     }
 
     /// Update an entity (creates new version).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity update fails.
     pub fn update_entity(
         &self,
         id: EntityId,
@@ -164,6 +184,10 @@ impl KnowledgeStore {
     }
 
     /// Insert a relationship.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the relationship insertion fails.
     pub fn insert_relationship(&self, relationship: Relationship) -> GallifreyResult<EntityId> {
         let id = relationship.id;
 
@@ -178,6 +202,10 @@ impl KnowledgeStore {
     }
 
     /// Find entities by type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity retrieval fails.
     pub fn find_by_type(&self, entity_type: &str) -> GallifreyResult<Vec<Entity>> {
         let entities = self
             .entities
