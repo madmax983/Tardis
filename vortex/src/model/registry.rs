@@ -5,8 +5,8 @@ use crate::error::{VortexError, VortexResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// A handle to a loaded model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -100,9 +100,10 @@ impl ModelRegistry {
     ///
     /// Returns an error if the model metadata cannot be read.
     pub fn register(&self, path: PathBuf, info: ModelInfo) -> VortexResult<()> {
-        let mut models = self.models.write().map_err(|_| {
-            VortexError::ConfigError("failed to acquire registry lock".to_string())
-        })?;
+        let mut models = self
+            .models
+            .write()
+            .map_err(|_| VortexError::ConfigError("failed to acquire registry lock".to_string()))?;
 
         models.insert(path, info);
         Ok(())
