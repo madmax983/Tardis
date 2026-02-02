@@ -50,6 +50,7 @@ pub struct Relationship {
 }
 
 /// The knowledge graph store.
+#[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
     entities: RwLock<HashMap<EntityId, Vec<Entity>>>,
