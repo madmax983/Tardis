@@ -8,13 +8,9 @@ use crate::loader::{
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use tardis_common::traits::{
-    InferenceParams as TraitParams, ModelInfo as TraitInfo, VortexService,
-};
 use tokio::task;
 use tracing::{info, instrument};
 
@@ -345,109 +341,6 @@ impl Vortex {
             .read()
             .map(|models| models.contains_key(&handle))
             .unwrap_or(false)
-    }
-}
-
-/// Implement the `VortexService` trait for integration with other subsystems.
-#[async_trait]
-impl VortexService for Vortex {
-    async fn load_model(
-        &self,
-        path: &str,
-        config: tardis_common::traits::ModelLoadConfig,
-    ) -> tardis_common::Result<tardis_common::ModelHandle> {
-        let local_config = ModelLoadConfig {
-            device: config.device.unwrap_or_else(|| "cpu".to_string()),
-            quantization: config.quantization,
-            max_context_length: config.max_context_length,
-            use_mmap: config.use_mmap,
-            tensor_parallel: 1,
-        };
-
-        let handle = self.load_model(path, local_config).await.map_err(|e| {
-            tardis_common::Error::ModelLoadFailed {
-                name: path.to_string(),
-                reason: e.to_string(),
-            }
-        })?;
-
-        Ok(tardis_common::ModelHandle::new(handle.raw()))
-    }
-
-    async fn unload_model(&self, handle: tardis_common::ModelHandle) -> tardis_common::Result<()> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.unload_model(local_handle)
-            .await
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
-    }
-
-    async fn infer(
-        &self,
-        handle: tardis_common::ModelHandle,
-        prompt: &str,
-        params: TraitParams,
-    ) -> tardis_common::Result<String> {
-        let local_handle = ModelHandle::new(handle.raw());
-        let local_params = InferenceParams {
-            temperature: params.temperature,
-            top_p: params.top_p,
-            top_k: params.top_k,
-            max_tokens: params.max_tokens,
-            stop_sequences: params.stop_sequences,
-            repetition_penalty: 1.1,
-            seed: None,
-        };
-
-        self.infer(local_handle, prompt, local_params)
-            .await
-            .map_err(|e| tardis_common::Error::InferenceFailed {
-                reason: e.to_string(),
-            })
-    }
-
-    async fn embed(
-        &self,
-        handle: tardis_common::ModelHandle,
-        text: &str,
-    ) -> tardis_common::Result<Vec<f32>> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.embed(local_handle, text)
-            .await
-            .map_err(|e| tardis_common::Error::InferenceFailed {
-                reason: e.to_string(),
-            })
-    }
-
-    async fn list_models(&self) -> tardis_common::Result<Vec<TraitInfo>> {
-        Ok(self
-            .list_models()
-            .into_iter()
-            .map(|m| TraitInfo {
-                name: m.name,
-                architecture: m.architecture.to_string(),
-                parameters: m.parameters,
-                context_length: m.context_length,
-                loaded: m.loaded,
-                memory_bytes: m.memory_bytes,
-            })
-            .collect())
-    }
-
-    async fn model_info(
-        &self,
-        handle: tardis_common::ModelHandle,
-    ) -> tardis_common::Result<TraitInfo> {
-        let local_handle = ModelHandle::new(handle.raw());
-        self.model_info(local_handle)
-            .map(|m| TraitInfo {
-                name: m.name,
-                architecture: m.architecture.to_string(),
-                parameters: m.parameters,
-                context_length: m.context_length,
-                loaded: m.loaded,
-                memory_bytes: m.memory_bytes,
-            })
-            .ok_or_else(|| tardis_common::Error::InvalidModelHandle(handle.raw()))
     }
 }
 

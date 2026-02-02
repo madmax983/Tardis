@@ -76,14 +76,14 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
-        let intent = self.classify_intent(query);
-        let temporal_refs = self.extract_temporal_refs(query);
-        let entities = self.extract_entities(query);
+        let intent = Self::classify_intent(query);
+        let temporal_refs = Self::extract_temporal_refs(query);
+        let entities = Self::extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
             None
         } else {
-            Some(self.describe_temporal_context(&temporal_refs))
+            Some(Self::describe_temporal_context(&temporal_refs))
         };
 
         Ok(AnalyzedQuery {
@@ -96,7 +96,7 @@ impl QueryAnalyzer {
     }
 
     /// Classify the intent of a query.
-    fn classify_intent(&self, query: &str) -> QueryIntent {
+    fn classify_intent(query: &str) -> QueryIntent {
         let lower = query.to_lowercase();
 
         if lower.contains("remember that") || lower.contains("remember this") {
@@ -123,7 +123,7 @@ impl QueryAnalyzer {
     }
 
     /// Extract temporal references from a query.
-    fn extract_temporal_refs(&self, query: &str) -> Vec<TemporalRef> {
+    fn extract_temporal_refs(query: &str) -> Vec<TemporalRef> {
         let mut refs = Vec::new();
         let lower = query.to_lowercase();
         let now = Utc::now();
@@ -162,15 +162,14 @@ impl QueryAnalyzer {
     }
 
     /// Extract entity mentions from a query.
-    fn extract_entities(&self, query: &str) -> Vec<String> {
+    const fn extract_entities(_query: &str) -> Vec<String> {
         // TODO: Implement NER or pattern matching
         // For now, just return empty
-        let _ = query;
         Vec::new()
     }
 
     /// Generate human-readable description of temporal context.
-    fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
+    fn describe_temporal_context(refs: &[TemporalRef]) -> String {
         if refs.is_empty() {
             return "current time".to_string();
         }

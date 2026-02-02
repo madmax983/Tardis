@@ -17,7 +17,7 @@ use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct RagConfig {
     /// Maximum number of context items to retrieve.
     pub max_context_items: usize,
@@ -110,7 +110,7 @@ impl Chronos {
     ///
     /// Returns an error if any stage of the pipeline fails.
     #[instrument(skip(self, config))]
-    pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
+    pub fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
 
         // 1. Analyze the query
@@ -118,7 +118,7 @@ impl Chronos {
         info!("Query analyzed: {:?}", analysis.intent);
 
         // 2. Retrieve relevant context
-        let context = self.retriever.retrieve(&analysis, &config).await?;
+        let context = self.retriever.retrieve(&analysis, &config)?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -145,7 +145,7 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(
+    pub fn remember(
         &self,
         content: &str,
         category: MemoryCategory,
@@ -155,7 +155,7 @@ impl Chronos {
         // Create entity in knowledge graph
         let entity = tardis_gallifrey::stores::Entity {
             id: EntityId::new(),
-            entity_type: format!("Memory:{:?}", category),
+            entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
@@ -184,7 +184,7 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if retrieval fails.
-    pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
+    pub fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
 
         // Search knowledge graph

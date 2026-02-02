@@ -31,7 +31,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if consolidation fails.
-    pub async fn consolidate(&self) -> Result<ConsolidationResult, Box<dyn std::error::Error>> {
+    pub fn consolidate(&self) -> Result<ConsolidationResult, Box<dyn std::error::Error>> {
         // TODO: Implement actual consolidation
         // For now, return empty result
 
@@ -47,7 +47,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if summarization fails.
-    pub async fn summarize_session(
+    pub fn summarize_session(
         &self,
         _session_id: SessionId,
     ) -> Result<String, Box<dyn std::error::Error>> {

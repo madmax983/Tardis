@@ -18,8 +18,6 @@ pub struct Repl {
     editor: DefaultEditor,
     /// Router for intent classification.
     router: Router,
-    /// Command handler for built-in commands.
-    commands: CommandHandler,
     /// Chronos RAG engine.
     chronos: Arc<Chronos>,
     /// Gallifrey database.
@@ -46,7 +44,6 @@ impl Repl {
         Ok(Self {
             editor,
             router: Router::new(),
-            commands: CommandHandler::new(),
             chronos,
             gallifrey,
             session_id,
@@ -59,17 +56,16 @@ impl Repl {
     /// # Errors
     ///
     /// Returns an error if the REPL encounters a fatal error.
-    pub async fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         while self.running {
             match self.read_line() {
                 Ok(line) => {
                     if !line.trim().is_empty() {
-                        self.process_input(&line).await;
+                        self.process_input(&line);
                     }
                 }
                 Err(ReadlineError::Interrupted) => {
                     println!("^C");
-                    continue;
                 }
                 Err(ReadlineError::Eof) => {
                     println!("Goodbye!");
@@ -94,7 +90,7 @@ impl Repl {
     }
 
     /// Process user input.
-    async fn process_input(&mut self, input: &str) {
+    fn process_input(&mut self, input: &str) {
         // Add to history
         let _ = self.editor.add_history_entry(input);
 
@@ -103,80 +99,78 @@ impl Repl {
 
         match intent {
             Intent::BuiltinCommand { command, args } => {
-                self.handle_builtin(&command, &args).await;
+                self.handle_builtin(&command, &args);
             }
             Intent::ShellCommand { command } => {
-                self.handle_shell_command(&command).await;
+                Self::handle_shell_command(&command);
             }
             Intent::ChronosQuery { query, .. } => {
-                self.handle_chronos_query(&query).await;
+                self.handle_chronos_query(&query);
             }
             Intent::TimeTravel { timestamp, query } => {
-                self.handle_time_travel(&timestamp, &query).await;
+                Self::handle_time_travel(&timestamp, &query);
             }
             Intent::DirectQuery { query } => {
-                self.handle_direct_query(&query).await;
+                Self::handle_direct_query(&query);
             }
         }
     }
 
     /// Handle a built-in command.
-    async fn handle_builtin(&mut self, command: &str, args: &[String]) {
+    fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
-            "help" => self.commands.help(args),
+            "help" => CommandHandler::help(args),
             "exit" | "quit" => {
                 println!("Goodbye!");
                 self.running = false;
             }
-            "history" => self.commands.history(&self.gallifrey, self.session_id),
+            "history" => CommandHandler::history(&self.gallifrey, self.session_id),
             "remember" => {
                 let content = args.join(" ");
                 match self
                     .chronos
                     .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
-                    .await
                 {
-                    Ok(id) => println!("Remembered: {}", id),
-                    Err(e) => println!("Failed to remember: {}", e),
+                    Ok(id) => println!("Remembered: {id}"),
+                    Err(e) => println!("Failed to remember: {e}"),
                 }
             }
             "recall" => {
                 let query = args.join(" ");
-                match self.chronos.recall(&query, 5).await {
+                match self.chronos.recall(&query, 5) {
                     Ok(results) => {
                         for result in results {
                             println!("- {}", result.content);
                         }
                     }
-                    Err(e) => println!("Failed to recall: {}", e),
+                    Err(e) => println!("Failed to recall: {e}"),
                 }
             }
-            "models" => self.commands.list_models(),
-            "context" => self.commands.show_context(self.session_id),
+            "models" => CommandHandler::list_models(),
+            "context" => CommandHandler::show_context(self.session_id),
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
             _ => println!(
-                "Unknown command: {}. Type 'help' for available commands.",
-                command
+                "Unknown command: {command}. Type 'help' for available commands."
             ),
         }
     }
 
     /// Handle a shell command (prefixed with !).
-    async fn handle_shell_command(&self, command: &str) {
-        println!("[Shell command: {}]", command);
+    fn handle_shell_command(command: &str) {
+        println!("[Shell command: {command}]");
         println!("Shell commands not yet implemented.");
     }
 
     /// Handle a Chronos RAG query.
-    async fn handle_chronos_query(&self, query: &str) {
+    fn handle_chronos_query(&self, query: &str) {
         let config = RagConfig {
             session_id: Some(self.session_id),
             ..RagConfig::default()
         };
 
-        match self.chronos.query(query, config).await {
+        match self.chronos.query(query, config) {
             Ok(response) => {
                 println!();
                 println!("{}", response.text);
@@ -187,20 +181,20 @@ impl Repl {
                 println!();
             }
             Err(e) => {
-                println!("Query failed: {}", e);
+                println!("Query failed: {e}");
             }
         }
     }
 
     /// Handle a time-travel query (prefixed with @).
-    async fn handle_time_travel(&self, timestamp: &str, query: &str) {
-        println!("[Time travel to {} with query: {}]", timestamp, query);
+    fn handle_time_travel(timestamp: &str, query: &str) {
+        println!("[Time travel to {timestamp} with query: {query}]");
         println!("Time travel not yet fully implemented.");
     }
 
     /// Handle a direct LLM query (prefixed with ?).
-    async fn handle_direct_query(&self, query: &str) {
-        println!("[Direct query: {}]", query);
+    fn handle_direct_query(query: &str) {
+        println!("[Direct query: {query}]");
         println!("Direct queries not yet implemented.");
     }
 }

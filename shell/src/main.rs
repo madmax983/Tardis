@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
 
     // Create and run REPL
     let mut repl = Repl::new(chronos, gallifrey)?;
-    repl.run().await?;
+    repl.run()?;
 
     info!("Tardis Shell exiting");
     Ok(())
