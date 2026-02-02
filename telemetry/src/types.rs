@@ -3,6 +3,7 @@
 //! All types in this module are `no_std` compatible and can be used
 //! in both kernel and userspace contexts.
 
+use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -242,7 +243,14 @@ impl Subsystem {
     /// Parses a subsystem from a target string.
     #[must_use]
     pub fn from_target(target: &str) -> Self {
-        let target_lower = target.to_lowercase();
+        // Bolt: Performance optimization to avoid allocation for common lowercase targets.
+        // Most tracing targets are module paths which are lowercase.
+        let target_cow = if target.chars().any(char::is_uppercase) {
+            Cow::Owned(target.to_lowercase())
+        } else {
+            Cow::Borrowed(target)
+        };
+        let target_lower = &*target_cow;
 
         if target_lower.contains("kernel") {
             Self::Kernel

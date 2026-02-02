@@ -15,6 +15,7 @@ static mut KERNEL_LOGGER: Option<KernelLogger> = None;
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 /// Kernel logger that writes to the ring buffer.
+#[allow(missing_debug_implementations)]
 pub struct KernelLogger {
     /// Ring buffer for userspace consumption.
     ring_buffer: &'static RingBuffer,
@@ -56,6 +57,7 @@ impl KernelLogger {
     /// # Panics
     ///
     /// Panics if called more than once.
+    #[allow(clippy::panic, clippy::manual_assert)]
     pub unsafe fn init(ring_buffer: &'static RingBuffer, serial_enabled: bool) {
         if INITIALIZED.swap(true, Ordering::SeqCst) {
             panic!("KernelLogger::init called more than once");
@@ -136,13 +138,13 @@ impl KernelLogger {
     }
 
     /// Sets the current trace context.
-    pub fn set_trace_context(&mut self, trace_id: TraceId, span_id: SpanId) {
+    pub const fn set_trace_context(&mut self, trace_id: TraceId, span_id: SpanId) {
         self.current_trace = trace_id;
         self.current_span = span_id;
     }
 
     /// Clears the current trace context.
-    pub fn clear_trace_context(&mut self) {
+    pub const fn clear_trace_context(&mut self) {
         self.current_trace = TraceId::NONE;
         self.current_span = SpanId::NONE;
     }
@@ -151,6 +153,7 @@ impl KernelLogger {
     ///
     /// In kernel context, this would use TSC or HPET.
     /// For now, returns a placeholder.
+    #[allow(clippy::unused_self)]
     fn read_timestamp(&self) -> u64 {
         // TODO: Use actual TSC or HPET in kernel
         // This is a placeholder that increments
@@ -159,6 +162,7 @@ impl KernelLogger {
     }
 
     /// Writes a message to the serial port.
+    #[allow(clippy::unused_self)]
     fn write_serial(&self, level: Level, subsystem: Subsystem, message: &str) {
         // Format: [LEVEL] subsystem: message\n
         serial::write_str("[");

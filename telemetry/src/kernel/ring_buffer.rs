@@ -47,6 +47,7 @@ pub const MAX_PAYLOAD_SIZE: usize = 192;
 /// Each slot is cache-line aligned to prevent false sharing between
 /// producer and consumer.
 #[repr(C, align(64))]
+#[allow(missing_debug_implementations)]
 pub struct RingSlot {
     /// Sequence number for lock-free synchronization.
     /// - Odd = being written
@@ -85,6 +86,7 @@ impl RingSlot {
 /// This buffer is designed to be placed in a shared memory region
 /// accessible by both kernel and userspace.
 #[repr(C)]
+#[allow(missing_debug_implementations)]
 pub struct RingBuffer {
     /// Write position (only producer advances).
     write_pos: AtomicUsize,
@@ -117,8 +119,10 @@ impl RingBuffer {
     pub const fn new() -> Self {
         // Initialize all slots
         // Note: In const context, we can't use array::from_fn
+        #[allow(clippy::declare_interior_mutable_const)]
         const EMPTY_SLOT: RingSlot = RingSlot::new();
 
+        #[allow(clippy::large_stack_arrays)]
         Self {
             write_pos: AtomicUsize::new(0),
             _pad1: [0; 56],
@@ -173,11 +177,14 @@ impl RingBuffer {
 
             // Write payload
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
-            let payload_ptr = slot.payload.get() as *mut u8;
+            let payload_ptr = slot.payload.get().cast::<u8>();
             core::ptr::copy_nonoverlapping(payload.as_ptr(), payload_ptr, payload_len);
 
             // Update payload length
-            (*entry_ptr).payload_len = payload_len as u16;
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                (*entry_ptr).payload_len = payload_len as u16;
+            }
         }
 
         // Mark slot as ready to read (even sequence, incremented)
@@ -241,7 +248,7 @@ impl RingBuffer {
 
             unsafe {
                 core::ptr::copy_nonoverlapping(
-                    slot.payload.get() as *const u8,
+                    slot.payload.get().cast::<u8>(),
                     payload.as_mut_ptr(),
                     payload_len,
                 );

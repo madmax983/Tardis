@@ -1,6 +1,7 @@
 //! Telemetry benchmarks.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use tardis_telemetry::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 
 fn bench_trace_id_generation(c: &mut Criterion) {
