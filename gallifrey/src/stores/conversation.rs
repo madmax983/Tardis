@@ -67,6 +67,21 @@ pub struct ConversationStore {
     messages: RwLock<HashMap<SessionId, Vec<Message>>>,
 }
 
+impl std::fmt::Debug for ConversationStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConversationStore")
+            .field(
+                "sessions_count",
+                &self.sessions.read().map(|s| s.len()).unwrap_or(0),
+            )
+            .field(
+                "messages_count",
+                &self.messages.read().map(|m| m.len()).unwrap_or(0),
+            )
+            .finish()
+    }
+}
+
 impl ConversationStore {
     /// Create a new conversation store.
     #[must_use]
@@ -151,7 +166,11 @@ impl ConversationStore {
     }
 
     /// Get recent messages from a session.
-    pub fn get_recent_messages(&self, session_id: SessionId, limit: usize) -> GallifreyResult<Vec<Message>> {
+    pub fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         let messages = self
             .messages
             .read()
@@ -183,7 +202,11 @@ impl ConversationStore {
     }
 
     /// Search messages by semantic similarity (placeholder).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Message>> {
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         // TODO: Implement actual vector similarity search
         let messages = self
             .messages

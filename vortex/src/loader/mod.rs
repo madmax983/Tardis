@@ -14,10 +14,10 @@ mod weights;
 
 use std::path::{Path, PathBuf};
 
-pub use config::{ModelConfig, parse_model_config};
-pub use device::{DeviceSpec, create_device};
-pub use hub::{ModelPreset, download_model, download_preset, get_cached_model, is_preset_cached};
-pub use weights::{LoadedModel, ModelFormat, load_model_weights};
+pub use config::{parse_model_config, ModelConfig};
+pub use device::{create_device, DeviceSpec};
+pub use hub::{download_model, download_preset, get_cached_model, is_preset_cached, ModelPreset};
+pub use weights::{load_model_weights, LoadedModel, ModelFormat};
 
 /// Resolve a sibling file path relative to a model path.
 ///

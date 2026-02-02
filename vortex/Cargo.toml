@@ -55,6 +55,11 @@ harness = false
 [features]
 default = []
 # Enable CUDA GPU support
-cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+cuda = []
 # Enable Metal GPU support (macOS)
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+metal = []
+
+[target.'cfg(target_os = "macos")'.dependencies]
+candle-core = { workspace = true, features = ["metal"] }
+candle-nn = { workspace = true, features = ["metal"] }
+candle-transformers = { workspace = true, features = ["metal"] }

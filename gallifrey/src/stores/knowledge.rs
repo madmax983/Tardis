@@ -57,6 +57,21 @@ pub struct KnowledgeStore {
     relationships: RwLock<HashMap<EntityId, Vec<Relationship>>>,
 }
 
+impl std::fmt::Debug for KnowledgeStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KnowledgeStore")
+            .field(
+                "entities_count",
+                &self.entities.read().map(|m| m.len()).unwrap_or(0),
+            )
+            .field(
+                "relationships_count",
+                &self.relationships.read().map(|m| m.len()).unwrap_or(0),
+            )
+            .finish()
+    }
+}
+
 impl KnowledgeStore {
     /// Create a new knowledge store.
     #[must_use]
@@ -125,7 +140,11 @@ impl KnowledgeStore {
     }
 
     /// Update an entity (creates new version).
-    pub fn update_entity(&self, id: EntityId, updates: HashMap<String, serde_json::Value>) -> GallifreyResult<()> {
+    pub fn update_entity(
+        &self,
+        id: EntityId,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> GallifreyResult<()> {
         let mut entities = self
             .entities
             .write()
@@ -188,7 +207,11 @@ impl KnowledgeStore {
     }
 
     /// Find entities by semantic similarity (placeholder for vector search).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Entity>> {
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Entity>> {
         // TODO: Implement actual vector similarity search
         let entities = self
             .entities

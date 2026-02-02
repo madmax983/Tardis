@@ -6,7 +6,6 @@ use crate::userspace::layer::{EventData, SpanData};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tardis_common::EntityId;
 
 /// Stored span record.
@@ -165,9 +164,7 @@ impl TelemetryStore {
         self.events
             .read()
             .iter()
-            .filter(|stored| {
-                stored.data.timestamp >= from && stored.data.timestamp <= to
-            })
+            .filter(|stored| stored.data.timestamp >= from && stored.data.timestamp <= to)
             .cloned()
             .collect()
     }

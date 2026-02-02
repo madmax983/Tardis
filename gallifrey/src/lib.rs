@@ -16,9 +16,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod query;
 pub mod stores;
 pub mod temporal;
-pub mod query;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};
@@ -32,6 +32,16 @@ pub struct Gallifrey {
     knowledge: Arc<KnowledgeStore>,
     conversation: Arc<ConversationStore>,
     system_state: Arc<SystemStateStore>,
+}
+
+impl std::fmt::Debug for Gallifrey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Gallifrey")
+            .field("knowledge", &self.knowledge)
+            .field("conversation", &self.conversation)
+            .field("system_state", &self.system_state)
+            .finish()
+    }
 }
 
 impl Gallifrey {

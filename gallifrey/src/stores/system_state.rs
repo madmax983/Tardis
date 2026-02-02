@@ -117,6 +117,21 @@ pub struct SystemStateStore {
     changes: RwLock<Vec<Change>>,
 }
 
+impl std::fmt::Debug for SystemStateStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SystemStateStore")
+            .field(
+                "snapshots_count",
+                &self.snapshots.read().map(|s| s.len()).unwrap_or(0),
+            )
+            .field(
+                "changes_count",
+                &self.changes.read().map(|c| c.len()).unwrap_or(0),
+            )
+            .finish()
+    }
+}
+
 impl SystemStateStore {
     /// Create a new system state store.
     #[must_use]

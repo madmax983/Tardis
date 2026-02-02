@@ -1,6 +1,6 @@
 //! OTLP (OpenTelemetry Protocol) exporter.
 
-use crate::error::{TelemetryError, TelemetryResult};
+use crate::error::TelemetryResult;
 use crate::userspace::layer::SpanData;
 use std::time::Duration;
 use tokio::sync::mpsc;
