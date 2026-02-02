@@ -169,7 +169,7 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     let (otlp_sender, otlp_handle) = if config.otlp_enabled {
         let (tx, rx) = tokio::sync::mpsc::channel::<SpanData>(10_000);
         let _endpoint = config.otlp_endpoint.clone();
-        let _batch_size = config.otlp_batch_size;
+        let _ = config.otlp_batch_size;
 
         let handle = tokio::spawn(async move {
             // OTLP exporter would run here
@@ -207,13 +207,9 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     let env_filter = if let Some(filter) = &config.env_filter {
         EnvFilter::try_new(filter).map_err(|e| TelemetryError::Config(e.to_string()))?
     } else {
-        EnvFilter::from_default_env().add_directive(
-            "tardis=debug"
-                .parse()
-                .map_err(|e: tracing_subscriber::filter::ParseError| {
-                    TelemetryError::Config(e.to_string())
-                })?,
-        )
+        EnvFilter::from_default_env().add_directive("tardis=debug".parse().map_err(
+            |e: tracing_subscriber::filter::ParseError| TelemetryError::Config(e.to_string()),
+        )?)
     };
 
     // Build the subscriber

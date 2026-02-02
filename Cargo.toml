@@ -43,9 +43,9 @@ linked_list_allocator = "0.10"
 log = "0.4"
 
 # LLM (Vortex)
-candle-core = "0.9"
-candle-nn = "0.9"
-candle-transformers = "0.9"
+candle-core = "=0.9.1"
+candle-nn = "=0.9.1"
+candle-transformers = "=0.9.1"
 cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"

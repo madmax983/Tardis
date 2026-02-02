@@ -61,6 +61,7 @@ impl TelemetryStore {
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
+    #[allow(clippy::unused_async)]
     pub async fn record_span(&self, span: SpanData) -> TelemetryResult<EntityId> {
         let entity_id = EntityId::new();
         let span_id = span.span_id;
@@ -89,6 +90,7 @@ impl TelemetryStore {
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
+    #[allow(clippy::unused_async)]
     pub async fn record_event(&self, event: EventData) -> TelemetryResult<EntityId> {
         let entity_id = EntityId::new();
 

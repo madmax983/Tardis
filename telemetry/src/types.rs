@@ -42,7 +42,11 @@ impl TraceId {
     pub fn generate() -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
 
+        // Use simple counter/random for last 8 bytes
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
         let mut bytes = [0u8; 16];
+        #[allow(clippy::cast_possible_truncation)]
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -51,8 +55,6 @@ impl TraceId {
         // Use timestamp for first 8 bytes
         bytes[..8].copy_from_slice(&nanos.to_le_bytes()[..8]);
 
-        // Use simple counter/random for last 8 bytes
-        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         bytes[8..].copy_from_slice(&count.to_le_bytes());
 
@@ -62,7 +64,7 @@ impl TraceId {
 
 impl fmt::Debug for TraceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TraceId({})", self)
+        write!(f, "TraceId({self})")
     }
 }
 
@@ -116,7 +118,7 @@ impl SpanId {
 
 impl fmt::Debug for SpanId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SpanId({})", self)
+        write!(f, "SpanId({self})")
     }
 }
 
@@ -446,6 +448,7 @@ impl TelemetryEntry {
     ) -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
 
+        #[allow(clippy::cast_possible_truncation)]
         let timestamp_ns = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()

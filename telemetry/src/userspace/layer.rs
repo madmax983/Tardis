@@ -46,6 +46,7 @@ pub struct SpanData {
 impl SpanData {
     /// Returns the duration of the span in nanoseconds.
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn duration_ns(&self) -> Option<u64> {
         self.end_time
             .map(|_| self.start_instant.elapsed().as_nanos() as u64)
@@ -117,7 +118,7 @@ impl TardisLayer {
 
     /// Creates a new Tardis layer with the given configuration.
     #[must_use]
-    pub fn with_config(config: TardisLayerConfig) -> Self {
+    pub const fn with_config(config: TardisLayerConfig) -> Self {
         Self {
             config,
             #[cfg(feature = "std")]
@@ -142,6 +143,7 @@ impl TardisLayer {
     }
 
     /// Gets or creates a trace ID from the current context.
+    #[allow(clippy::unused_self)]
     fn get_or_create_trace_id<S>(&self, ctx: &Context<'_, S>) -> TraceId
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
@@ -162,6 +164,7 @@ impl TardisLayer {
     }
 
     /// Gets the parent span ID from the current context.
+    #[allow(clippy::unused_self)]
     fn get_parent_span_id<S>(&self, ctx: &Context<'_, S>) -> Option<SpanId>
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
@@ -181,7 +184,7 @@ impl std::fmt::Debug for TardisLayer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TardisLayer")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
