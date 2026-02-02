@@ -31,6 +31,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if consolidation fails.
+    #[allow(clippy::unused_async)]
     pub async fn consolidate(&self) -> Result<ConsolidationResult, Box<dyn std::error::Error>> {
         // TODO: Implement actual consolidation
         // For now, return empty result
@@ -47,6 +48,7 @@ impl MemoryConsolidator {
     /// # Errors
     ///
     /// Returns an error if summarization fails.
+    #[allow(clippy::unused_async)]
     pub async fn summarize_session(
         &self,
         _session_id: SessionId,

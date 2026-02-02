@@ -4,6 +4,7 @@ use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;
 use crate::pipeline::analyzer::AnalyzedQuery;
 use chrono::Utc;
+use std::fmt::Write;
 
 /// Context augmenter for building RAG prompts.
 #[derive(Debug)]
@@ -55,17 +56,20 @@ impl ContextAugmenter {
     }
 
     /// Build system context header.
+    #[allow(clippy::unused_self)]
     fn build_system_context(&self, analysis: &AnalyzedQuery) -> String {
         let mut ctx = String::new();
 
         ctx.push_str("# Tardis AI Assistant\n\n");
-        ctx.push_str(&format!(
-            "Current time: {}\n",
+        // Bolt: Optimized format string usage
+        let _ = writeln!(
+            ctx,
+            "Current time: {}",
             Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        ));
+        );
 
         if let Some(ref temporal) = analysis.temporal_description {
-            ctx.push_str(&format!("Query temporal context: {}\n", temporal));
+            let _ = writeln!(ctx, "Query temporal context: {temporal}");
         }
 
         ctx
@@ -80,10 +84,11 @@ impl ContextAugmenter {
             // Rough token estimate (4 chars per token)
             let source_tokens = source.content.len() / 4;
             if token_estimate + source_tokens > self.max_context_tokens {
-                formatted.push_str(&format!(
-                    "\n... ({} more sources truncated)\n",
+                let _ = writeln!(
+                    formatted,
+                    "\n... ({} more sources truncated)",
                     context.len() - i
-                ));
+                );
                 break;
             }
 
@@ -93,13 +98,13 @@ impl ContextAugmenter {
                 ContextSourceType::SystemState => "System State",
             };
 
-            formatted.push_str(&format!(
-                "### {} {} (relevance: {:.2})\n{}\n\n",
-                source_type,
+            let _ = writeln!(
+                formatted,
+                "### {source_type} {} (relevance: {:.2})\n{}\n",
                 i + 1,
                 source.relevance,
                 source.content
-            ));
+            );
 
             token_estimate += source_tokens;
         }
@@ -108,6 +113,7 @@ impl ContextAugmenter {
     }
 
     /// Build response instructions based on query analysis.
+    #[allow(clippy::unused_self)]
     fn build_instructions(&self, analysis: &AnalyzedQuery) -> String {
         let mut instructions = String::new();
 
