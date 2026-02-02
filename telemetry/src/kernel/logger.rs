@@ -3,9 +3,9 @@
 //! Implements `log::Log` to capture all kernel log messages and write them
 //! to the telemetry ring buffer.
 
-use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 use crate::kernel::ring_buffer::RingBuffer;
 use crate::kernel::serial;
+use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 use core::sync::atomic::{AtomicBool, Ordering};
 
 /// Global kernel telemetry state.

@@ -47,7 +47,8 @@ impl SpanData {
     /// Returns the duration of the span in nanoseconds.
     #[must_use]
     pub fn duration_ns(&self) -> Option<u64> {
-        self.end_time.map(|_| self.start_instant.elapsed().as_nanos() as u64)
+        self.end_time
+            .map(|_| self.start_instant.elapsed().as_nanos() as u64)
     }
 }
 
@@ -165,9 +166,8 @@ impl TardisLayer {
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
     {
-        ctx.lookup_current().and_then(|span| {
-            span.extensions().get::<SpanData>().map(|data| data.span_id)
-        })
+        ctx.lookup_current()
+            .and_then(|span| span.extensions().get::<SpanData>().map(|data| data.span_id))
     }
 }
 
@@ -316,7 +316,8 @@ struct FieldVisitor<'a>(&'a mut HashMap<String, String>);
 
 impl<'a> tracing::field::Visit for FieldVisitor<'a> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-        self.0.insert(field.name().to_string(), format!("{value:?}"));
+        self.0
+            .insert(field.name().to_string(), format!("{value:?}"));
     }
 
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
@@ -347,7 +348,8 @@ impl<'a> tracing::field::Visit for EventVisitor<'a> {
         if field.name() == "message" {
             *self.message = format!("{value:?}");
         } else {
-            self.fields.insert(field.name().to_string(), format!("{value:?}"));
+            self.fields
+                .insert(field.name().to_string(), format!("{value:?}"));
         }
     }
 
@@ -355,19 +357,23 @@ impl<'a> tracing::field::Visit for EventVisitor<'a> {
         if field.name() == "message" {
             *self.message = value.to_string();
         } else {
-            self.fields.insert(field.name().to_string(), value.to_string());
+            self.fields
+                .insert(field.name().to_string(), value.to_string());
         }
     }
 
     fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
-        self.fields.insert(field.name().to_string(), value.to_string());
+        self.fields
+            .insert(field.name().to_string(), value.to_string());
     }
 
     fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
-        self.fields.insert(field.name().to_string(), value.to_string());
+        self.fields
+            .insert(field.name().to_string(), value.to_string());
     }
 
     fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
-        self.fields.insert(field.name().to_string(), value.to_string());
+        self.fields
+            .insert(field.name().to_string(), value.to_string());
     }
 }

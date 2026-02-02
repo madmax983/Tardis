@@ -140,7 +140,11 @@ impl MetricsRegistry {
                 name: histogram.name.to_string(),
                 subsystem: histogram.subsystem,
                 timestamp_ns,
-                value: MetricValue::Histogram { sum, count, buckets },
+                value: MetricValue::Histogram {
+                    sum,
+                    count,
+                    buckets,
+                },
                 labels: Vec::new(),
             });
         }
@@ -367,7 +371,11 @@ impl Histogram {
     pub fn snapshot(&self) -> (f64, u64, Vec<u64>) {
         let sum = self.sum.load(Ordering::Relaxed) as f64;
         let count = self.count.load(Ordering::Relaxed);
-        let buckets: Vec<u64> = self.counts.iter().map(|c| c.load(Ordering::Relaxed)).collect();
+        let buckets: Vec<u64> = self
+            .counts
+            .iter()
+            .map(|c| c.load(Ordering::Relaxed))
+            .collect();
         (sum, count, buckets)
     }
 
@@ -473,7 +481,8 @@ mod tests {
 
     #[test]
     fn histogram_operations() {
-        let histogram = Histogram::with_buckets("test_histogram", Subsystem::Kernel, &[1.0, 5.0, 10.0]);
+        let histogram =
+            Histogram::with_buckets("test_histogram", Subsystem::Kernel, &[1.0, 5.0, 10.0]);
 
         histogram.record(2);
         histogram.record(7);

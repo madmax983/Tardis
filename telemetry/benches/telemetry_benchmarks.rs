@@ -32,9 +32,7 @@ fn bench_telemetry_entry(c: &mut Criterion) {
     let mut group = c.benchmark_group("TelemetryEntry");
 
     group.bench_function("create_log", |b| {
-        b.iter(|| {
-            black_box(TelemetryEntry::log(Level::Info, Subsystem::Vortex))
-        });
+        b.iter(|| black_box(TelemetryEntry::log(Level::Info, Subsystem::Vortex)));
     });
 
     group.bench_function("create_full", |b| {

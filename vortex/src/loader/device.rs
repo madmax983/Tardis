@@ -70,7 +70,10 @@ pub fn create_device(spec: &DeviceSpec) -> VortexResult<Device> {
             {
                 tracing::info!("Using CUDA device {}", ordinal);
                 Device::new_cuda(*ordinal).map_err(|e| {
-                    VortexError::DeviceError(format!("Failed to create CUDA device {}: {}", ordinal, e))
+                    VortexError::DeviceError(format!(
+                        "Failed to create CUDA device {}: {}",
+                        ordinal, e
+                    ))
                 })
             }
             #[cfg(not(feature = "cuda"))]

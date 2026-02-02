@@ -43,9 +43,5 @@ fn bench_model_handle(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_model_registry,
-    bench_model_handle,
-);
+criterion_group!(benches, bench_model_registry, bench_model_handle,);
 criterion_main!(benches);

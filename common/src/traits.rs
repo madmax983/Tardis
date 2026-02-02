@@ -80,8 +80,12 @@ pub trait VortexService: Send + Sync {
     async fn unload_model(&self, handle: ModelHandle) -> Result<()>;
 
     /// Run inference and return generated text.
-    async fn infer(&self, handle: ModelHandle, prompt: &str, params: InferenceParams)
-        -> Result<String>;
+    async fn infer(
+        &self,
+        handle: ModelHandle,
+        prompt: &str,
+        params: InferenceParams,
+    ) -> Result<String>;
 
     /// Generate embeddings for text.
     async fn embed(&self, handle: ModelHandle, text: &str) -> Result<Vec<f32>>;
