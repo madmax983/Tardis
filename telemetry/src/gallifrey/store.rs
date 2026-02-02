@@ -6,7 +6,6 @@ use crate::userspace::layer::{EventData, SpanData};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tardis_common::EntityId;
 
 /// Stored span record.

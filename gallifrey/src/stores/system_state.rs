@@ -89,6 +89,7 @@ pub struct Change {
     /// What changed.
     pub path: String,
     /// Type of change.
+    #[allow(clippy::struct_field_names)]
     pub change_type: ChangeType,
     /// Old value (if applicable).
     pub old_value: Option<serde_json::Value>,
@@ -130,6 +131,10 @@ impl SystemStateStore {
     }
 
     /// Take a snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn take_snapshot(
         &self,
         name: &str,
@@ -163,6 +168,10 @@ impl SystemStateStore {
     }
 
     /// Get a snapshot by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_snapshot(&self, id: SnapshotId) -> GallifreyResult<Option<Snapshot>> {
         let snapshots = self
             .snapshots
@@ -173,6 +182,10 @@ impl SystemStateStore {
     }
 
     /// Get a snapshot by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_snapshot_by_name(&self, name: &str) -> GallifreyResult<Option<Snapshot>> {
         let by_name = self
             .by_name
@@ -190,6 +203,10 @@ impl SystemStateStore {
     }
 
     /// Find snapshot closest to a timestamp.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn find_snapshot_at(&self, timestamp: DateTime<Utc>) -> GallifreyResult<Option<Snapshot>> {
         let snapshots = self
             .snapshots
@@ -204,6 +221,10 @@ impl SystemStateStore {
     }
 
     /// Record a change.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn record_change(&self, change: Change) -> GallifreyResult<()> {
         let mut changes = self
             .changes
@@ -216,6 +237,10 @@ impl SystemStateStore {
     }
 
     /// Get changes between two timestamps.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn get_changes(
         &self,
         from: DateTime<Utc>,
@@ -234,6 +259,10 @@ impl SystemStateStore {
     }
 
     /// List all snapshots.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub fn list_snapshots(&self) -> GallifreyResult<Vec<Snapshot>> {
         let snapshots = self
             .snapshots

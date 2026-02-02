@@ -4,13 +4,13 @@
 //! that captures spans and events for storage in Gallifrey and export
 //! via OpenTelemetry.
 
-use crate::types::{EventType, Level, SpanId, Subsystem, TraceId};
+use crate::types::{Level, SpanId, Subsystem, TraceId};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::span::{Attributes, Id, Record};
-use tracing::{Event, Metadata, Subscriber};
+use tracing::{Event, Subscriber};
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
@@ -243,13 +243,13 @@ where
         }
 
         // Get trace context from current span
-        let (trace_id, span_id) = if let Some(span) = ctx.lookup_current() {
-            span.extensions()
+        let (trace_id, span_id) = match ctx.lookup_current() {
+            Some(span) => span
+                .extensions()
                 .get::<SpanData>()
                 .map(|data| (data.trace_id, Some(data.span_id)))
-                .unwrap_or((TraceId::NONE, None))
-        } else {
-            (TraceId::NONE, None)
+                .unwrap_or((TraceId::NONE, None)),
+            None => (TraceId::NONE, None),
         };
 
         // Collect event fields

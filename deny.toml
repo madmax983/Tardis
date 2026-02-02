@@ -13,13 +13,13 @@ all-features = true
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
+# 'vulnerability' key is deprecated, defaults to deny if not present, or controlled via 'severity_threshold'
+# 'unmaintained', 'yanked', 'notice' are deprecated in newer versions or renamed.
+# We will use the new 'ignore' list if we need to ignore specific advisories.
+# For now, default behavior is usually deny vulnerabilities.
 
 [licenses]
-unlicensed = "deny"
+# 'unlicensed' key is deprecated
 allow = [
     "MIT",
     "Apache-2.0",
@@ -34,7 +34,7 @@ allow = [
     "CC0-1.0",
     "MPL-2.0",
 ]
-copyleft = "warn"
+# 'copyleft' key is deprecated
 confidence-threshold = 0.8
 
 [[licenses.clarify]]
