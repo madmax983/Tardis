@@ -61,6 +61,11 @@ opentelemetry = { version = "0.31", optional = true }
 opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
 opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"], optional = true }
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+# Disable default features to avoid 'nightly' feature which breaks stable builds
+# Explicit version to allow overriding default-features
+x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 proptest = { workspace = true }

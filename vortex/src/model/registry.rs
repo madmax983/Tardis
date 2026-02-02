@@ -100,9 +100,10 @@ impl ModelRegistry {
     ///
     /// Returns an error if the model metadata cannot be read.
     pub fn register(&self, path: PathBuf, info: ModelInfo) -> VortexResult<()> {
-        let mut models = self.models.write().map_err(|_| {
-            VortexError::ConfigError("failed to acquire registry lock".to_string())
-        })?;
+        let mut models = self
+            .models
+            .write()
+            .map_err(|_| VortexError::ConfigError("failed to acquire registry lock".to_string()))?;
 
         models.insert(path, info);
         Ok(())

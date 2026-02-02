@@ -21,9 +21,11 @@ fn bench_query_analyzer(c: &mut Criterion) {
     });
 
     group.bench_function("QueryAnalyzer::analyze_complex", |b| {
-        b.iter(|| black_box(analyzer.analyze(
+        b.iter(|| {
+            black_box(analyzer.analyze(
             "Last week before the meeting, what changes were made to the authentication system?"
-        )));
+        ))
+        });
     });
 
     group.finish();
@@ -47,9 +49,5 @@ fn bench_context_augmenter(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_query_analyzer,
-    bench_context_augmenter,
-);
+criterion_group!(benches, bench_query_analyzer, bench_context_augmenter,);
 criterion_main!(benches);

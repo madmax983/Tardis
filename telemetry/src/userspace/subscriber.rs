@@ -205,11 +205,9 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
 
     // Build the env filter
     let env_filter = if let Some(filter) = &config.env_filter {
-        EnvFilter::try_new(filter)
-            .map_err(|e| TelemetryError::Config(e.to_string()))?
+        EnvFilter::try_new(filter).map_err(|e| TelemetryError::Config(e.to_string()))?
     } else {
-        EnvFilter::from_default_env()
-            .add_directive("tardis=debug".parse().unwrap())
+        EnvFilter::from_default_env().add_directive("tardis=debug".parse().unwrap())
     };
 
     // Build the subscriber
@@ -227,10 +225,11 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
                 .with_file(true)
                 .with_line_number(true);
 
-            registry.with(fmt_layer).try_init()
-                .map_err(|e: tracing_subscriber::util::TryInitError| {
+            registry.with(fmt_layer).try_init().map_err(
+                |e: tracing_subscriber::util::TryInitError| {
                     TelemetryError::SubscriberInit(e.to_string())
-                })?;
+                },
+            )?;
         } else {
             let fmt_layer = tracing_subscriber::fmt::layer()
                 .with_target(true)
@@ -238,13 +237,15 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
                 .with_file(true)
                 .with_line_number(true);
 
-            registry.with(fmt_layer).try_init()
-                .map_err(|e: tracing_subscriber::util::TryInitError| {
+            registry.with(fmt_layer).try_init().map_err(
+                |e: tracing_subscriber::util::TryInitError| {
                     TelemetryError::SubscriberInit(e.to_string())
-                })?;
+                },
+            )?;
         }
     } else {
-        registry.try_init()
+        registry
+            .try_init()
             .map_err(|e: tracing_subscriber::util::TryInitError| {
                 TelemetryError::SubscriberInit(e.to_string())
             })?;
@@ -276,6 +277,9 @@ mod tests {
     fn config_with_otlp() {
         let config = TelemetryConfig::with_otlp("http://localhost:4317");
         assert!(config.otlp_enabled);
-        assert_eq!(config.otlp_endpoint, Some("http://localhost:4317".to_string()));
+        assert_eq!(
+            config.otlp_endpoint,
+            Some("http://localhost:4317".to_string())
+        );
     }
 }

@@ -91,9 +91,7 @@ pub mod metrics {
     //! Use the [`counter!`], [`gauge!`], and [`histogram!`] macros
     //! at the crate root for convenient access.
 
-    pub use crate::userspace::metrics::{
-        Counter, Gauge, Histogram, MetricsRegistry, METRICS,
-    };
+    pub use crate::userspace::metrics::{Counter, Gauge, Histogram, MetricsRegistry, METRICS};
 }
 
 // Note: counter!, gauge!, histogram! macros are automatically exported

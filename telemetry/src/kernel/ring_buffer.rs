@@ -29,8 +29,9 @@
 //! └────────────────────────────────────────────────────────────────┘
 //! ```
 
+use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
+use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use crate::types::{TelemetryEntry, Level, Subsystem, EventType, TraceId, SpanId};
 
 /// Ring buffer capacity (power of 2 for efficient modulo).
 pub const RING_BUFFER_SIZE: usize = 4096;
@@ -53,10 +54,10 @@ pub struct RingSlot {
     sequence: AtomicUsize,
 
     /// Telemetry entry header.
-    entry: TelemetryEntry,
+    entry: UnsafeCell<TelemetryEntry>,
 
     /// Inline payload storage.
-    payload: [u8; MAX_PAYLOAD_SIZE],
+    payload: UnsafeCell<[u8; MAX_PAYLOAD_SIZE]>,
 }
 
 impl RingSlot {
@@ -64,7 +65,7 @@ impl RingSlot {
     const fn new() -> Self {
         Self {
             sequence: AtomicUsize::new(0),
-            entry: TelemetryEntry {
+            entry: UnsafeCell::new(TelemetryEntry {
                 timestamp_ns: 0,
                 level: Level::Trace,
                 subsystem: Subsystem::Unknown,
@@ -73,8 +74,8 @@ impl RingSlot {
                 trace_id: TraceId::NONE,
                 parent_span_id: SpanId::NONE,
                 payload_len: 0,
-            },
-            payload: [0; MAX_PAYLOAD_SIZE],
+            }),
+            payload: UnsafeCell::new([0; MAX_PAYLOAD_SIZE]),
         }
     }
 }
@@ -164,15 +165,15 @@ impl RingBuffer {
         // Mark slot as being written (odd sequence)
         slot.sequence.store(expected_seq | 1, Ordering::Release);
 
-        // Write the entry (unsafe pointer cast for no_std compatibility)
+        // Write the entry
         // SAFETY: We have exclusive access to this slot via the sequence protocol
         unsafe {
-            let entry_ptr = &slot.entry as *const TelemetryEntry as *mut TelemetryEntry;
+            let entry_ptr = slot.entry.get();
             core::ptr::write_volatile(entry_ptr, entry.clone());
 
             // Write payload
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
-            let payload_ptr = slot.payload.as_ptr() as *mut u8;
+            let payload_ptr = slot.payload.get() as *mut u8;
             core::ptr::copy_nonoverlapping(payload.as_ptr(), payload_ptr, payload_len);
 
             // Update payload length
@@ -180,7 +181,8 @@ impl RingBuffer {
         }
 
         // Mark slot as ready to read (even sequence, incremented)
-        slot.sequence.store(expected_seq.wrapping_add(2), Ordering::Release);
+        slot.sequence
+            .store(expected_seq.wrapping_add(2), Ordering::Release);
 
         true
     }
@@ -230,7 +232,7 @@ impl RingBuffer {
             // Read the entry
             // SAFETY: We have exclusive read access via compare_exchange
             let entry = unsafe {
-                let entry_ptr = &slot.entry as *const TelemetryEntry;
+                let entry_ptr = slot.entry.get();
                 core::ptr::read_volatile(entry_ptr)
             };
 
@@ -239,7 +241,7 @@ impl RingBuffer {
 
             unsafe {
                 core::ptr::copy_nonoverlapping(
-                    slot.payload.as_ptr(),
+                    slot.payload.get() as *const u8,
                     payload.as_mut_ptr(),
                     payload_len,
                 );
@@ -292,7 +294,8 @@ mod tests {
 
     #[test]
     fn ring_buffer_write_read() {
-        let buffer = RingBuffer::new();
+        // Use static to avoid stack overflow (RingBuffer is ~1MB)
+        static BUFFER: RingBuffer = RingBuffer::new();
 
         let entry = TelemetryEntry {
             timestamp_ns: 12345,
@@ -305,20 +308,21 @@ mod tests {
             payload_len: 0,
         };
 
-        assert!(buffer.try_write(&entry, b"test payload"));
-        assert_eq!(buffer.available(), 1);
+        assert!(BUFFER.try_write(&entry, b"test payload"));
+        assert_eq!(BUFFER.available(), 1);
 
-        let (read_entry, payload) = buffer.try_read().unwrap();
+        let (read_entry, payload) = BUFFER.try_read().unwrap();
         assert_eq!(read_entry.timestamp_ns, 12345);
         assert_eq!(read_entry.level, Level::Info);
         assert_eq!(&payload, b"test payload");
-        assert!(buffer.is_empty());
+        assert!(BUFFER.is_empty());
     }
 
     #[test]
     fn ring_buffer_empty() {
-        let buffer = RingBuffer::new();
-        assert!(buffer.is_empty());
-        assert!(buffer.try_read().is_none());
+        // Use static to avoid stack overflow (RingBuffer is ~1MB)
+        static BUFFER: RingBuffer = RingBuffer::new();
+        assert!(BUFFER.is_empty());
+        assert!(BUFFER.try_read().is_none());
     }
 }

@@ -7,6 +7,8 @@
 //! Note: The actual ring buffer integration requires shared memory
 //! between kernel and userspace, which is not yet implemented.
 
+#![allow(dead_code)]
+
 use crate::types::{Level, TelemetryEntry};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -72,7 +74,9 @@ impl RingBufferDrainer {
     /// This will process events from the receiver if configured.
     pub async fn run(mut self) {
         let Some(mut receiver) = self.receiver.take() else {
-            tracing::warn!("RingBufferDrainer started without receiver - no kernel events will be processed");
+            tracing::warn!(
+                "RingBufferDrainer started without receiver - no kernel events will be processed"
+            );
             return;
         };
 
