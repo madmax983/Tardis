@@ -28,6 +28,7 @@ pub use temporal::{BiTemporalInterval, TimeRange};
 use std::sync::Arc;
 
 /// The main Gallifrey database instance.
+#[derive(Debug)]
 pub struct Gallifrey {
     knowledge: Arc<KnowledgeStore>,
     conversation: Arc<ConversationStore>,

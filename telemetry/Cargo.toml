@@ -32,11 +32,12 @@ otlp = [
 ]
 
 # Kernel support (no_std)
-kernel = []
+kernel = ["dep:x86_64"]
 
 [dependencies]
 # Core (always available, no_std compatible)
 tardis-common = { path = "../common" }
+x86_64 = { workspace = true, optional = true }
 
 # Userspace dependencies (behind "std" feature)
 tracing = { workspace = true, optional = true }

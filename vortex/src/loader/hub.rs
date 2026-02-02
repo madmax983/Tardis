@@ -93,6 +93,7 @@ pub fn download_model(repo_id: &str) -> VortexResult<PathBuf> {
 
     // Download essential files first
     for file in MODEL_FILES {
+        #[allow(tail_expr_drop_order)]
         match repo.get(file) {
             Ok(path) => {
                 info!("Downloaded {}: {}", file, path.display());

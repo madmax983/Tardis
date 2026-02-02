@@ -44,6 +44,12 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
+# Platform specific auto-activation
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+candle-core = { workspace = true, features = ["metal"] }
+candle-nn = { workspace = true, features = ["metal"] }
+candle-transformers = { workspace = true, features = ["metal"] }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 criterion = { workspace = true }
@@ -54,7 +60,7 @@ harness = false
 
 [features]
 default = []
-# Enable CUDA GPU support
-cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
-# Enable Metal GPU support (macOS)
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+# Enable CUDA GPU support (Requires local NVIDIA setup, disabled for CI safety)
+cuda = []
+# Enable Metal GPU support (macOS) - Auto-enabled on macOS via target deps
+metal = []

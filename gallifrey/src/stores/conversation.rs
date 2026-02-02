@@ -60,6 +60,7 @@ pub struct Session {
 }
 
 /// The conversation store.
+#[derive(Debug)]
 pub struct ConversationStore {
     /// Sessions indexed by ID.
     sessions: RwLock<HashMap<SessionId, Session>>,

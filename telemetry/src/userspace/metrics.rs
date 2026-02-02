@@ -409,10 +409,10 @@ impl std::fmt::Debug for Histogram {
 /// Creates or retrieves a counter from the global registry.
 #[macro_export]
 macro_rules! counter {
-    ($name:expr) => {
+    ($name:expr_2021) => {
         $crate::metrics::METRICS.counter($name, $crate::Subsystem::Unknown)
     };
-    ($name:expr, $subsystem:expr) => {
+    ($name:expr_2021, $subsystem:expr_2021) => {
         $crate::metrics::METRICS.counter($name, $subsystem)
     };
 }
@@ -420,10 +420,10 @@ macro_rules! counter {
 /// Creates or retrieves a gauge from the global registry.
 #[macro_export]
 macro_rules! gauge {
-    ($name:expr) => {
+    ($name:expr_2021) => {
         $crate::metrics::METRICS.gauge($name, $crate::Subsystem::Unknown)
     };
-    ($name:expr, $subsystem:expr) => {
+    ($name:expr_2021, $subsystem:expr_2021) => {
         $crate::metrics::METRICS.gauge($name, $subsystem)
     };
 }
@@ -431,10 +431,10 @@ macro_rules! gauge {
 /// Creates or retrieves a histogram from the global registry.
 #[macro_export]
 macro_rules! histogram {
-    ($name:expr) => {
+    ($name:expr_2021) => {
         $crate::metrics::METRICS.histogram($name, $crate::Subsystem::Unknown)
     };
-    ($name:expr, $subsystem:expr) => {
+    ($name:expr_2021, $subsystem:expr_2021) => {
         $crate::metrics::METRICS.histogram($name, $subsystem)
     };
 }
