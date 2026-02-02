@@ -57,6 +57,10 @@ impl TelemetryStore {
     }
 
     /// Records a completed span.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub async fn record_span(&self, span: SpanData) -> TelemetryResult<EntityId> {
         let entity_id = EntityId::new();
         let span_id = span.span_id;
@@ -81,6 +85,10 @@ impl TelemetryStore {
     }
 
     /// Records an event.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
     pub async fn record_event(&self, event: EventData) -> TelemetryResult<EntityId> {
         let entity_id = EntityId::new();
 
@@ -95,6 +103,11 @@ impl TelemetryStore {
     }
 
     /// Records a metric sample.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    #[allow(clippy::unused_async)]
     pub async fn record_metric(&self, metric: MetricSample) -> TelemetryResult<()> {
         self.metrics.write().push(metric);
         Ok(())
@@ -177,7 +190,9 @@ impl TelemetryStore {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Vec<MetricSample> {
+        #[allow(clippy::cast_sign_loss)]
         let from_ns = from.timestamp_nanos_opt().unwrap_or(0) as u64;
+        #[allow(clippy::cast_sign_loss)]
         let to_ns = to.timestamp_nanos_opt().unwrap_or(i64::MAX) as u64;
 
         self.metrics

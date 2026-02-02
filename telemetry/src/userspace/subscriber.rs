@@ -15,6 +15,7 @@ use crate::gallifrey::TelemetryStore;
 
 /// Configuration for the Tardis telemetry system.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TelemetryConfig {
     /// Enable Gallifrey storage for temporal queries.
     pub gallifrey_enabled: bool,
@@ -105,7 +106,7 @@ impl TelemetryHandle {
     /// Gets a reference to the telemetry store.
     #[cfg(feature = "std")]
     #[must_use]
-    pub fn store(&self) -> Option<&Arc<TelemetryStore>> {
+    pub const fn store(&self) -> Option<&Arc<TelemetryStore>> {
         self.store.as_ref()
     }
 
@@ -156,20 +157,19 @@ impl std::fmt::Debug for TelemetryHandle {
 ///     Ok(())
 /// }
 /// ```
+#[allow(clippy::missing_panics_doc, clippy::needless_pass_by_value)]
 pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     // Create Gallifrey store if enabled
     #[cfg(feature = "std")]
-    let gallifrey_store = if config.gallifrey_enabled {
-        Some(Arc::new(TelemetryStore::new()))
-    } else {
-        None
-    };
+    let gallifrey_store = config
+        .gallifrey_enabled
+        .then(|| Arc::new(TelemetryStore::new()));
 
     // Create OTLP sender if enabled
     let (otlp_sender, otlp_handle) = if config.otlp_enabled {
         let (tx, rx) = tokio::sync::mpsc::channel::<SpanData>(10_000);
-        let endpoint = config.otlp_endpoint.clone();
-        let batch_size = config.otlp_batch_size;
+        let _endpoint = config.otlp_endpoint.clone();
+        let _batch_size = config.otlp_batch_size;
 
         let handle = tokio::spawn(async move {
             // OTLP exporter would run here
@@ -207,7 +207,13 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
     let env_filter = if let Some(filter) = &config.env_filter {
         EnvFilter::try_new(filter).map_err(|e| TelemetryError::Config(e.to_string()))?
     } else {
-        EnvFilter::from_default_env().add_directive("tardis=debug".parse().unwrap())
+        EnvFilter::from_default_env().add_directive(
+            "tardis=debug"
+                .parse()
+                .map_err(|e: tracing_subscriber::filter::ParseError| {
+                    TelemetryError::Config(e.to_string())
+                })?,
+        )
     };
 
     // Build the subscriber

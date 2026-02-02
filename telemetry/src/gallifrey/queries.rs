@@ -83,49 +83,49 @@ impl TelemetryQuery {
 
     /// Filters by trace ID.
     #[must_use]
-    pub fn with_trace_id(mut self, trace_id: TraceId) -> Self {
+    pub const fn with_trace_id(mut self, trace_id: TraceId) -> Self {
         self.trace_id = Some(trace_id);
         self
     }
 
     /// Filters by span ID.
     #[must_use]
-    pub fn with_span_id(mut self, span_id: SpanId) -> Self {
+    pub const fn with_span_id(mut self, span_id: SpanId) -> Self {
         self.span_id = Some(span_id);
         self
     }
 
     /// Filters to spans active at a specific time.
     #[must_use]
-    pub fn valid_at(mut self, time: DateTime<Utc>) -> Self {
+    pub const fn valid_at(mut self, time: DateTime<Utc>) -> Self {
         self.valid_at = Some(time);
         self
     }
 
     /// Filters to what we knew at a specific time.
     #[must_use]
-    pub fn transaction_at(mut self, time: DateTime<Utc>) -> Self {
+    pub const fn transaction_at(mut self, time: DateTime<Utc>) -> Self {
         self.transaction_at = Some(time);
         self
     }
 
     /// Filters to a time range.
     #[must_use]
-    pub fn in_range(mut self, from: DateTime<Utc>, to: DateTime<Utc>) -> Self {
+    pub const fn in_range(mut self, from: DateTime<Utc>, to: DateTime<Utc>) -> Self {
         self.time_range = Some((from, to));
         self
     }
 
     /// Includes historical versions.
     #[must_use]
-    pub fn with_history(mut self) -> Self {
+    pub const fn with_history(mut self) -> Self {
         self.include_history = true;
         self
     }
 
     /// Limits the number of results.
     #[must_use]
-    pub fn limit(mut self, limit: usize) -> Self {
+    pub const fn limit(mut self, limit: usize) -> Self {
         self.limit = Some(limit);
         self
     }

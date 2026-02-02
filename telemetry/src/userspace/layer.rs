@@ -190,7 +190,7 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        let span = ctx.span(id).expect("span not found");
+        let Some(span) = ctx.span(id) else { return };
         let metadata = attrs.metadata();
 
         // Check level filter
@@ -225,7 +225,7 @@ where
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        let span = ctx.span(id).expect("span not found");
+        let Some(span) = ctx.span(id) else { return };
         let mut extensions = span.extensions_mut();
 
         if let Some(span_data) = extensions.get_mut::<SpanData>() {
@@ -247,8 +247,9 @@ where
             Some(span) => span
                 .extensions()
                 .get::<SpanData>()
-                .map(|data| (data.trace_id, Some(data.span_id)))
-                .unwrap_or((TraceId::NONE, None)),
+                .map_or((TraceId::NONE, None), |data| {
+                    (data.trace_id, Some(data.span_id))
+                }),
             None => (TraceId::NONE, None),
         };
 
@@ -285,7 +286,7 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        let span = ctx.span(&id).expect("span not found");
+        let Some(span) = ctx.span(&id) else { return };
         let mut extensions = span.extensions_mut();
 
         if let Some(mut span_data) = extensions.remove::<SpanData>() {
@@ -314,7 +315,7 @@ where
 /// Field visitor for collecting span attributes.
 struct FieldVisitor<'a>(&'a mut HashMap<String, String>);
 
-impl<'a> tracing::field::Visit for FieldVisitor<'a> {
+impl tracing::field::Visit for FieldVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0
             .insert(field.name().to_string(), format!("{value:?}"));
@@ -343,7 +344,7 @@ struct EventVisitor<'a> {
     message: &'a mut String,
 }
 
-impl<'a> tracing::field::Visit for EventVisitor<'a> {
+impl tracing::field::Visit for EventVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" {
             *self.message = format!("{value:?}");
