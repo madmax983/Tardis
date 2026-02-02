@@ -1,6 +1,6 @@
 //! Query analysis for Chronos.
 
-use crate::error::{ChronosError, ChronosResult};
+use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
 
 /// Analyzed query with extracted metadata.
@@ -58,6 +58,7 @@ pub enum TemporalRefType {
 }
 
 /// Query analyzer.
+#[derive(Debug)]
 pub struct QueryAnalyzer {
     // Configuration
 }

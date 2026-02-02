@@ -6,6 +6,7 @@ use crate::pipeline::analyzer::AnalyzedQuery;
 use chrono::Utc;
 
 /// Context augmenter for building RAG prompts.
+#[derive(Debug)]
 pub struct ContextAugmenter {
     /// Maximum tokens for context.
     max_context_tokens: usize,

@@ -1,6 +1,6 @@
 //! # Tardis Gallifrey
 //!
-//! The temporal knowledge store for Tardis OS, integrating GallifreyDB.
+//! The temporal knowledge store for Tardis OS, integrating `GallifreyDB`.
 //!
 //! Gallifrey provides three specialized stores:
 //! - **Knowledge Store**: Entity-relationship graph with embeddings

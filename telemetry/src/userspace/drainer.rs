@@ -57,7 +57,7 @@ impl RingBufferDrainer {
 
     /// Sets the configuration.
     #[must_use]
-    pub fn with_config(mut self, config: DrainerConfig) -> Self {
+    pub const fn with_config(mut self, config: DrainerConfig) -> Self {
         self.config = config;
         self
     }
@@ -86,6 +86,7 @@ impl RingBufferDrainer {
     }
 
     /// Processes a single telemetry entry.
+    #[allow(clippy::unused_self)]
     fn process_entry(&self, entry: &TelemetryEntry, payload: &[u8]) {
         let message = std::str::from_utf8(payload).unwrap_or("<binary>");
 

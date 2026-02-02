@@ -8,6 +8,7 @@ use tardis_gallifrey::Gallifrey;
 use tracing::info;
 
 /// Multi-source retriever.
+#[derive(Debug)]
 pub struct Retriever {
     gallifrey: Arc<Gallifrey>,
 }
@@ -58,7 +59,7 @@ impl Retriever {
     /// Retrieve from knowledge graph.
     async fn retrieve_knowledge(
         &self,
-        query: &AnalyzedQuery,
+        _query: &AnalyzedQuery,
         config: &RagConfig,
     ) -> ChronosResult<Vec<ContextSource>> {
         info!("Retrieving from knowledge graph");
@@ -86,7 +87,7 @@ impl Retriever {
     /// Retrieve from conversation history.
     async fn retrieve_conversation(
         &self,
-        query: &AnalyzedQuery,
+        _query: &AnalyzedQuery,
         config: &RagConfig,
     ) -> ChronosResult<Vec<ContextSource>> {
         info!("Retrieving from conversation history");

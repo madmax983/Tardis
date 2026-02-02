@@ -93,7 +93,9 @@ pub fn download_model(repo_id: &str) -> VortexResult<PathBuf> {
 
     // Download essential files first
     for file in MODEL_FILES {
-        match repo.get(file) {
+        // Use a variable to avoid drop order issues in Rust 2024
+        let result = repo.get(file);
+        match result {
             Ok(path) => {
                 info!("Downloaded {}: {}", file, path.display());
             }

@@ -81,7 +81,9 @@ pub struct RagResponse {
 }
 
 /// The main Chronos RAG engine.
+#[derive(Debug)]
 pub struct Chronos {
+    #[allow(dead_code)]
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
@@ -120,7 +122,7 @@ impl Chronos {
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
 
         // 4. Run inference
         // TODO: Use actual model handle

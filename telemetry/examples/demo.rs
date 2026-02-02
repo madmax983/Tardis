@@ -21,6 +21,7 @@ struct InferenceRequest {
 
 /// Simulated inference response
 #[derive(Debug)]
+#[allow(dead_code)]
 struct InferenceResponse {
     text: String,
     tokens_generated: usize,

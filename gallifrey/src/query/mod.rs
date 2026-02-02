@@ -47,7 +47,7 @@ impl QueryExecutor {
     /// # Errors
     ///
     /// Returns an error if execution fails.
-    pub fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
+    pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
         // TODO: Implement actual query execution
 
         Ok(QueryResult {

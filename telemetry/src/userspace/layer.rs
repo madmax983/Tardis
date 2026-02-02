@@ -4,13 +4,13 @@
 //! that captures spans and events for storage in Gallifrey and export
 //! via OpenTelemetry.
 
-use crate::types::{EventType, Level, SpanId, Subsystem, TraceId};
+use crate::types::{Level, SpanId, Subsystem, TraceId};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::span::{Attributes, Id, Record};
-use tracing::{Event, Metadata, Subscriber};
+use tracing::{Event, Subscriber};
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
@@ -46,6 +46,7 @@ pub struct SpanData {
 impl SpanData {
     /// Returns the duration of the span in nanoseconds.
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn duration_ns(&self) -> Option<u64> {
         self.end_time
             .map(|_| self.start_instant.elapsed().as_nanos() as u64)
@@ -117,7 +118,7 @@ impl TardisLayer {
 
     /// Creates a new Tardis layer with the given configuration.
     #[must_use]
-    pub fn with_config(config: TardisLayerConfig) -> Self {
+    pub const fn with_config(config: TardisLayerConfig) -> Self {
         Self {
             config,
             #[cfg(feature = "std")]
@@ -142,6 +143,7 @@ impl TardisLayer {
     }
 
     /// Gets or creates a trace ID from the current context.
+    #[allow(clippy::unused_self)]
     fn get_or_create_trace_id<S>(&self, ctx: &Context<'_, S>) -> TraceId
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
@@ -162,6 +164,7 @@ impl TardisLayer {
     }
 
     /// Gets the parent span ID from the current context.
+    #[allow(clippy::unused_self)]
     fn get_parent_span_id<S>(&self, ctx: &Context<'_, S>) -> Option<SpanId>
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
@@ -181,7 +184,7 @@ impl std::fmt::Debug for TardisLayer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TardisLayer")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -190,7 +193,7 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        let span = ctx.span(id).expect("span not found");
+        let Some(span) = ctx.span(id) else { return };
         let metadata = attrs.metadata();
 
         // Check level filter
@@ -225,7 +228,7 @@ where
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        let span = ctx.span(id).expect("span not found");
+        let Some(span) = ctx.span(id) else { return };
         let mut extensions = span.extensions_mut();
 
         if let Some(span_data) = extensions.get_mut::<SpanData>() {
@@ -243,13 +246,14 @@ where
         }
 
         // Get trace context from current span
-        let (trace_id, span_id) = if let Some(span) = ctx.lookup_current() {
-            span.extensions()
+        let (trace_id, span_id) = match ctx.lookup_current() {
+            Some(span) => span
+                .extensions()
                 .get::<SpanData>()
-                .map(|data| (data.trace_id, Some(data.span_id)))
-                .unwrap_or((TraceId::NONE, None))
-        } else {
-            (TraceId::NONE, None)
+                .map_or((TraceId::NONE, None), |data| {
+                    (data.trace_id, Some(data.span_id))
+                }),
+            None => (TraceId::NONE, None),
         };
 
         // Collect event fields
@@ -285,7 +289,7 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        let span = ctx.span(&id).expect("span not found");
+        let Some(span) = ctx.span(&id) else { return };
         let mut extensions = span.extensions_mut();
 
         if let Some(mut span_data) = extensions.remove::<SpanData>() {
@@ -314,7 +318,7 @@ where
 /// Field visitor for collecting span attributes.
 struct FieldVisitor<'a>(&'a mut HashMap<String, String>);
 
-impl<'a> tracing::field::Visit for FieldVisitor<'a> {
+impl tracing::field::Visit for FieldVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0
             .insert(field.name().to_string(), format!("{value:?}"));
@@ -343,7 +347,7 @@ struct EventVisitor<'a> {
     message: &'a mut String,
 }
 
-impl<'a> tracing::field::Visit for EventVisitor<'a> {
+impl tracing::field::Visit for EventVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" {
             *self.message = format!("{value:?}");
