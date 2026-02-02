@@ -50,7 +50,7 @@ cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"
 half = "2.4"
-hf-hub = "0.3"
+hf-hub = "0.4"
 
 # Database (Gallifrey)
 # gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
