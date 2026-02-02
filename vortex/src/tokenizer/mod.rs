@@ -7,6 +7,11 @@
 //! - Special token handling (BOS, EOS, PAD)
 //! - Chat template support for conversation formatting
 
+pub(crate) mod template;
+mod types;
+
+pub use types::*;
+
 use crate::error::{VortexError, VortexResult};
 use crate::model::ModelHandle;
 use std::collections::HashMap;
@@ -14,80 +19,6 @@ use std::path::Path;
 use std::sync::RwLock;
 use tokenizers::Tokenizer;
 use tracing::info;
-
-/// Special token IDs for a model.
-#[derive(Debug, Clone, Default)]
-pub struct SpecialTokens {
-    /// Beginning of sequence token ID.
-    pub bos_token_id: Option<u32>,
-    /// End of sequence token ID.
-    pub eos_token_id: Option<u32>,
-    /// Padding token ID.
-    pub pad_token_id: Option<u32>,
-    /// Unknown token ID.
-    pub unk_token_id: Option<u32>,
-}
-
-/// Chat message role.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ChatRole {
-    /// System message (instructions).
-    System,
-    /// User message.
-    User,
-    /// Assistant response.
-    Assistant,
-}
-
-impl ChatRole {
-    /// Get the role name as used in chat templates.
-    #[must_use]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::System => "system",
-            Self::User => "user",
-            Self::Assistant => "assistant",
-        }
-    }
-}
-
-/// A chat message for template formatting.
-#[derive(Debug, Clone)]
-pub struct ChatMessage {
-    /// The role of the message sender.
-    pub role: ChatRole,
-    /// The message content.
-    pub content: String,
-}
-
-impl ChatMessage {
-    /// Create a new chat message.
-    #[must_use]
-    pub fn new(role: ChatRole, content: impl Into<String>) -> Self {
-        Self {
-            role,
-            content: content.into(),
-        }
-    }
-
-    /// Create a system message.
-    #[must_use]
-    pub fn system(content: impl Into<String>) -> Self {
-        Self::new(ChatRole::System, content)
-    }
-
-    /// Create a user message.
-    #[must_use]
-    pub fn user(content: impl Into<String>) -> Self {
-        Self::new(ChatRole::User, content)
-    }
-
-    /// Create an assistant message.
-    #[must_use]
-    pub fn assistant(content: impl Into<String>) -> Self {
-        Self::new(ChatRole::Assistant, content)
-    }
-}
 
 /// Loaded tokenizer with metadata.
 struct LoadedTokenizer {
@@ -419,142 +350,18 @@ impl TokenizerService {
 
         if let Some(template) = &loaded.chat_template {
             // Use Jinja-like template (simplified implementation)
-            Ok(Self::apply_jinja_template(
+            Ok(template::apply_jinja_template(
                 template,
                 messages,
                 add_generation_prompt,
             ))
         } else {
             // Fall back to simple `ChatML`-like format
-            Ok(Self::apply_simple_template(messages, add_generation_prompt))
+            Ok(template::apply_simple_template(
+                messages,
+                add_generation_prompt,
+            ))
         }
-    }
-
-    /// Apply a Jinja-like chat template.
-    ///
-    /// This is a simplified implementation that handles common patterns.
-    fn apply_jinja_template(
-        template: &str,
-        messages: &[ChatMessage],
-        add_generation_prompt: bool,
-    ) -> String {
-        // Check for common template patterns and use appropriate formatter
-        if template.contains("<|im_start|>") {
-            // `ChatML` format (used by many models)
-            Self::apply_chatml_template(messages, add_generation_prompt)
-        } else if template.contains("[INST]") {
-            // Llama 2 format
-            Self::apply_llama2_template(messages, add_generation_prompt)
-        } else if template.contains("<|start_header_id|>") {
-            // Llama 3 format
-            Self::apply_llama3_template(messages, add_generation_prompt)
-        } else {
-            // Default to simple format
-            Self::apply_simple_template(messages, add_generation_prompt)
-        }
-    }
-
-    /// Apply `ChatML` template format.
-    fn apply_chatml_template(messages: &[ChatMessage], add_generation_prompt: bool) -> String {
-        let mut result = String::new();
-
-        for msg in messages {
-            result.push_str("<|im_start|>");
-            result.push_str(msg.role.as_str());
-            result.push('\n');
-            result.push_str(&msg.content);
-            result.push_str("<|im_end|>\n");
-        }
-
-        if add_generation_prompt {
-            result.push_str("<|im_start|>assistant\n");
-        }
-
-        result
-    }
-
-    /// Apply Llama 2 template format.
-    ///
-    /// Note: Only the first system message is used; subsequent system messages
-    /// are ignored per Llama 2 chat format conventions.
-    fn apply_llama2_template(messages: &[ChatMessage], add_generation_prompt: bool) -> String {
-        let mut result = String::new();
-        let mut system_msg = None;
-
-        // Extract first system message if present (Llama 2 only uses one)
-        for msg in messages {
-            if msg.role == ChatRole::System {
-                system_msg = Some(&msg.content);
-                break;
-            }
-        }
-
-        for msg in messages {
-            match msg.role {
-                ChatRole::System => {
-                    // System message is included with first user message
-                }
-                ChatRole::User => {
-                    result.push_str("[INST] ");
-                    if let Some(sys) = system_msg.take() {
-                        result.push_str("<<SYS>>\n");
-                        result.push_str(sys);
-                        result.push_str("\n<</SYS>>\n\n");
-                    }
-                    result.push_str(&msg.content);
-                    result.push_str(" [/INST]");
-                }
-                ChatRole::Assistant => {
-                    result.push(' ');
-                    result.push_str(&msg.content);
-                    result.push_str(" </s><s>");
-                }
-            }
-        }
-
-        // Add space after [/INST] for assistant to generate
-        if add_generation_prompt && result.ends_with(" [/INST]") {
-            result.push(' ');
-        }
-
-        result
-    }
-
-    /// Apply Llama 3 template format.
-    fn apply_llama3_template(messages: &[ChatMessage], add_generation_prompt: bool) -> String {
-        let mut result = String::from("<|begin_of_text|>");
-
-        for msg in messages {
-            result.push_str("<|start_header_id|>");
-            result.push_str(msg.role.as_str());
-            result.push_str("<|end_header_id|>\n\n");
-            result.push_str(&msg.content);
-            result.push_str("<|eot_id|>");
-        }
-
-        if add_generation_prompt {
-            result.push_str("<|start_header_id|>assistant<|end_header_id|>\n\n");
-        }
-
-        result
-    }
-
-    /// Apply simple template format (fallback).
-    fn apply_simple_template(messages: &[ChatMessage], add_generation_prompt: bool) -> String {
-        let mut result = String::new();
-
-        for msg in messages {
-            result.push_str(msg.role.as_str());
-            result.push_str(": ");
-            result.push_str(&msg.content);
-            result.push('\n');
-        }
-
-        if add_generation_prompt {
-            result.push_str("assistant: ");
-        }
-
-        result
     }
 
     /// Check if a tokenizer is loaded for a handle.
@@ -581,82 +388,6 @@ mod tests {
     fn test_tokenizer_service_new() {
         let service = TokenizerService::new();
         assert!(!service.is_loaded(ModelHandle::new(1)));
-    }
-
-    #[test]
-    fn test_chat_role_as_str() {
-        assert_eq!(ChatRole::System.as_str(), "system");
-        assert_eq!(ChatRole::User.as_str(), "user");
-        assert_eq!(ChatRole::Assistant.as_str(), "assistant");
-    }
-
-    #[test]
-    fn test_chat_message_constructors() {
-        let system = ChatMessage::system("You are helpful");
-        assert_eq!(system.role, ChatRole::System);
-        assert_eq!(system.content, "You are helpful");
-
-        let user = ChatMessage::user("Hello");
-        assert_eq!(user.role, ChatRole::User);
-        assert_eq!(user.content, "Hello");
-
-        let assistant = ChatMessage::assistant("Hi there!");
-        assert_eq!(assistant.role, ChatRole::Assistant);
-        assert_eq!(assistant.content, "Hi there!");
-    }
-
-    #[test]
-    fn test_apply_chatml_template() {
-        let messages = vec![
-            ChatMessage::system("You are helpful"),
-            ChatMessage::user("Hello"),
-        ];
-
-        let result = TokenizerService::apply_chatml_template(&messages, true);
-        assert!(result.contains("<|im_start|>system"));
-        assert!(result.contains("You are helpful"));
-        assert!(result.contains("<|im_start|>user"));
-        assert!(result.contains("Hello"));
-        assert!(result.ends_with("<|im_start|>assistant\n"));
-    }
-
-    #[test]
-    fn test_apply_llama3_template() {
-        let messages = vec![ChatMessage::user("What is 2+2?")];
-
-        let result = TokenizerService::apply_llama3_template(&messages, true);
-        assert!(result.starts_with("<|begin_of_text|>"));
-        assert!(result.contains("<|start_header_id|>user<|end_header_id|>"));
-        assert!(result.contains("What is 2+2?"));
-        assert!(result.ends_with("<|start_header_id|>assistant<|end_header_id|>\n\n"));
-    }
-
-    #[test]
-    fn test_apply_simple_template() {
-        let messages = vec![ChatMessage::user("Hello"), ChatMessage::assistant("Hi!")];
-
-        let result = TokenizerService::apply_simple_template(&messages, true);
-        assert!(result.contains("user: Hello"));
-        assert!(result.contains("assistant: Hi!"));
-        assert!(result.ends_with("assistant: "));
-    }
-
-    #[test]
-    fn test_apply_simple_template_no_generation_prompt() {
-        let messages = vec![ChatMessage::user("Hello")];
-
-        let result = TokenizerService::apply_simple_template(&messages, false);
-        assert!(!result.ends_with("assistant: "));
-        assert!(result.ends_with("Hello\n"));
-    }
-
-    #[test]
-    fn test_special_tokens_default() {
-        let tokens = SpecialTokens::default();
-        assert!(tokens.bos_token_id.is_none());
-        assert!(tokens.eos_token_id.is_none());
-        assert!(tokens.pad_token_id.is_none());
-        assert!(tokens.unk_token_id.is_none());
     }
 
     #[test]
@@ -712,36 +443,5 @@ mod tests {
         let service = TokenizerService::new();
         let result = service.decode_with_special_tokens(ModelHandle::new(999), &[1, 2, 3]);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_apply_llama2_template_with_generation_prompt() {
-        let messages = vec![
-            ChatMessage::system("You are helpful"),
-            ChatMessage::user("Hello"),
-        ];
-
-        let result = TokenizerService::apply_llama2_template(&messages, true);
-        assert!(result.contains("[INST]"));
-        assert!(result.contains("<<SYS>>"));
-        assert!(result.contains("You are helpful"));
-        assert!(result.contains("Hello"));
-        // Should end with space after [/INST] for generation
-        assert!(result.ends_with(" [/INST] "));
-    }
-
-    #[test]
-    fn test_apply_llama2_template_multi_turn() {
-        let messages = vec![
-            ChatMessage::user("Hi"),
-            ChatMessage::assistant("Hello!"),
-            ChatMessage::user("How are you?"),
-        ];
-
-        let result = TokenizerService::apply_llama2_template(&messages, true);
-        assert!(result.contains("[INST] Hi [/INST]"));
-        assert!(result.contains(" Hello! </s><s>"));
-        assert!(result.contains("[INST] How are you? [/INST]"));
-        assert!(result.ends_with(" [/INST] "));
     }
 }
