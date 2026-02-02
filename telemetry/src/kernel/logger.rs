@@ -65,7 +65,9 @@ impl KernelLogger {
             serial::init();
         }
 
-        KERNEL_LOGGER = Some(KernelLogger::new(ring_buffer, serial_enabled));
+        unsafe {
+            KERNEL_LOGGER = Some(KernelLogger::new(ring_buffer, serial_enabled));
+        }
 
         // Note: In actual kernel, we would call log::set_logger here
         // For now, we provide manual logging functions
@@ -78,7 +80,7 @@ impl KernelLogger {
     pub fn get() -> Option<&'static Self> {
         if INITIALIZED.load(Ordering::Acquire) {
             // SAFETY: We only set KERNEL_LOGGER once during init
-            unsafe { KERNEL_LOGGER.as_ref() }
+            unsafe { (*core::ptr::addr_of!(KERNEL_LOGGER)).as_ref() }
         } else {
             None
         }

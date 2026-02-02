@@ -18,6 +18,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 /// COM1 base I/O port address.
 #[cfg(target_arch = "x86_64")]
+#[allow(dead_code)]
 const COM1_PORT: u16 = 0x3F8;
 
 /// Whether serial port has been initialized.
@@ -40,7 +41,7 @@ pub fn init() {
     // In actual kernel, we would use x86_64 port I/O here
     // For compilation in userspace tests, we skip the actual I/O
 
-    #[cfg(feature = "kernel")]
+    #[cfg(all(feature = "kernel", not(test)))]
     unsafe {
         use x86_64::instructions::port::Port;
 
@@ -83,10 +84,15 @@ pub fn init() {
 /// Writes a byte to the serial port.
 #[cfg(all(target_arch = "x86_64", feature = "kernel"))]
 pub fn write_byte(byte: u8) {
+    // Suppress unused variable warning for tests where the unsafe block is cfg-gated out
+    #[cfg(test)]
+    let _ = byte;
+
     if !SERIAL_INITIALIZED.load(Ordering::Acquire) {
         return;
     }
 
+    #[cfg(not(test))]
     unsafe {
         use x86_64::instructions::port::Port;
 

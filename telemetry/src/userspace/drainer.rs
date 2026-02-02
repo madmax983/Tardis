@@ -7,6 +7,8 @@
 //! Note: The actual ring buffer integration requires shared memory
 //! between kernel and userspace, which is not yet implemented.
 
+#![allow(dead_code)]
+
 use crate::types::{Level, TelemetryEntry};
 use std::time::Duration;
 use tokio::sync::mpsc;
