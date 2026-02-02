@@ -1,15 +1,16 @@
 //! RAG pipeline for Chronos.
 
 mod analyzer;
-mod retriever;
 mod augmenter;
+mod retriever;
 
 pub use analyzer::QueryAnalyzer;
-pub use retriever::Retriever;
 pub use augmenter::ContextAugmenter;
+pub use retriever::Retriever;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::sync::Arc;
 use tardis_common::{EntityId, SessionId};
 use tardis_gallifrey::Gallifrey;
@@ -82,11 +83,21 @@ pub struct RagResponse {
 
 /// The main Chronos RAG engine.
 pub struct Chronos {
-    vortex: Arc<Vortex>,
+    _vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
+}
+
+impl fmt::Debug for Chronos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Chronos")
+            .field("analyzer", &self.analyzer)
+            .field("retriever", &self.retriever)
+            .field("augmenter", &self.augmenter)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Chronos {
@@ -94,7 +105,7 @@ impl Chronos {
     #[must_use]
     pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
-            vortex,
+            _vortex: vortex,
             gallifrey: Arc::clone(&gallifrey),
             analyzer: QueryAnalyzer::new(),
             retriever: Retriever::new(gallifrey),
@@ -120,7 +131,7 @@ impl Chronos {
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
 
         // 4. Run inference
         // TODO: Use actual model handle
@@ -143,7 +154,11 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    pub async fn remember(&self, content: &str, category: MemoryCategory) -> ChronosResult<EntityId> {
+    pub async fn remember(
+        &self,
+        content: &str,
+        category: MemoryCategory,
+    ) -> ChronosResult<EntityId> {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
@@ -153,7 +168,10 @@ impl Chronos {
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
-                props.insert("content".to_string(), serde_json::Value::String(content.to_string()));
+                props.insert(
+                    "content".to_string(),
+                    serde_json::Value::String(content.to_string()),
+                );
                 props
             },
             embedding: None, // TODO: Generate embedding

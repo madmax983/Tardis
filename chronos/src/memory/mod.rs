@@ -5,9 +5,10 @@
 use tardis_common::SessionId;
 
 /// Memory consolidator for long-term storage.
+#[derive(Debug)]
 pub struct MemoryConsolidator {
     /// Age threshold for consolidation (in days).
-    consolidation_age_days: u32,
+    _consolidation_age_days: u32,
 }
 
 impl MemoryConsolidator {
@@ -15,7 +16,7 @@ impl MemoryConsolidator {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            consolidation_age_days: 7,
+            _consolidation_age_days: 7,
         }
     }
 
