@@ -22,7 +22,7 @@ default-members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["Tardis Contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/madmax983/tardis"
@@ -76,6 +76,7 @@ opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"] }
 # Testing
 proptest = "1"
 criterion = "0.8"
+home = "=0.5.9"
 
 # ============================================================================
 # WORKSPACE LINTS

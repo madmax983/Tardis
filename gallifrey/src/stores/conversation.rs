@@ -60,6 +60,7 @@ pub struct Session {
 }
 
 /// The conversation store.
+#[derive(Debug)]
 pub struct ConversationStore {
     /// Sessions indexed by ID.
     sessions: RwLock<HashMap<SessionId, Session>>,
@@ -151,7 +152,11 @@ impl ConversationStore {
     }
 
     /// Get recent messages from a session.
-    pub fn get_recent_messages(&self, session_id: SessionId, limit: usize) -> GallifreyResult<Vec<Message>> {
+    pub fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         let messages = self
             .messages
             .read()
@@ -183,7 +188,11 @@ impl ConversationStore {
     }
 
     /// Search messages by semantic similarity (placeholder).
-    pub fn semantic_search(&self, _embedding: &[f32], limit: usize) -> GallifreyResult<Vec<Message>> {
+    pub fn semantic_search(
+        &self,
+        _embedding: &[f32],
+        limit: usize,
+    ) -> GallifreyResult<Vec<Message>> {
         // TODO: Implement actual vector similarity search
         let messages = self
             .messages

@@ -65,9 +65,5 @@ fn bench_router_routing(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_router_creation,
-    bench_router_routing,
-);
+criterion_group!(benches, bench_router_creation, bench_router_routing,);
 criterion_main!(benches);

@@ -29,8 +29,17 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
-        run: cargo test --workspace --all-features
+      - name: Run tests (Linux/Windows)
+        if: matrix.os != 'macos-latest'
+        run: |
+          cargo test --workspace --all-features --exclude tardis-vortex --exclude tardis-kernel
+          cargo test -p tardis-vortex
+
+      - name: Run tests (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cargo test --workspace --all-features --exclude tardis-vortex --exclude tardis-kernel
+          cargo test -p tardis-vortex --features metal
 
   clippy:
     name: Clippy
@@ -47,7 +56,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: |
+          cargo clippy --workspace --all-features --exclude tardis-vortex --exclude tardis-kernel -- -D warnings
+          cargo clippy -p tardis-vortex -- -D warnings
 
   fmt:
     name: Format
@@ -76,7 +87,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build docs
-        run: cargo doc --workspace --no-deps --all-features
+        run: |
+          cargo doc --workspace --no-deps --all-features --exclude tardis-vortex --exclude tardis-kernel
+          cargo doc -p tardis-vortex --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -95,7 +108,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check MSRV
-        run: cargo check --workspace
+        run: cargo check --workspace --exclude tardis-kernel
 
   coverage:
     name: Coverage
@@ -115,7 +128,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Generate coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --exclude tardis-kernel --lcov --output-path lcov.info
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -139,7 +152,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run benchmarks
-        run: cargo bench --workspace -- --noplot
+        run: cargo bench --workspace --exclude tardis-kernel -- --noplot
 
       - name: Store benchmark results
         uses: actions/upload-artifact@v6

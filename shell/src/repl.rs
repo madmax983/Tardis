@@ -130,7 +130,11 @@ impl Repl {
             "history" => self.commands.history(&self.gallifrey, self.session_id),
             "remember" => {
                 let content = args.join(" ");
-                match self.chronos.remember(&content, tardis_chronos::MemoryCategory::Knowledge).await {
+                match self
+                    .chronos
+                    .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
+                    .await
+                {
                     Ok(id) => println!("Remembered: {}", id),
                     Err(e) => println!("Failed to remember: {}", e),
                 }
@@ -151,7 +155,10 @@ impl Repl {
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
-            _ => println!("Unknown command: {}. Type 'help' for available commands.", command),
+            _ => println!(
+                "Unknown command: {}. Type 'help' for available commands.",
+                command
+            ),
         }
     }
 
