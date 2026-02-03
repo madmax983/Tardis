@@ -91,7 +91,7 @@ pub struct RingBuffer {
     /// Write position (only producer advances).
     write_pos: AtomicUsize,
 
-    /// Padding to put read_pos on a different cache line.
+    /// Padding to put `read_pos` on a different cache line.
     _pad1: [u8; 56],
 
     /// Read position (only consumer advances).
@@ -296,6 +296,7 @@ unsafe impl Sync for RingBuffer {}
 unsafe impl Send for RingBuffer {}
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

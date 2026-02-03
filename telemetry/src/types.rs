@@ -243,6 +243,24 @@ impl Subsystem {
     /// Parses a subsystem from a target string.
     #[must_use]
     pub fn from_target(target: &str) -> Self {
+        const MAPPINGS: &[(&str, Subsystem)] = &[
+            ("kernel", Subsystem::Kernel),
+            ("memory", Subsystem::Memory),
+            ("heap", Subsystem::Memory),
+            ("scheduler", Subsystem::Scheduler),
+            ("process", Subsystem::Scheduler),
+            ("interrupt", Subsystem::Interrupt),
+            ("irq", Subsystem::Interrupt),
+            ("syscall", Subsystem::Syscall),
+            ("boot", Subsystem::Boot),
+            ("vortex", Subsystem::Vortex),
+            ("gallifrey", Subsystem::Gallifrey),
+            ("chronos", Subsystem::Chronos),
+            ("shell", Subsystem::Shell),
+            ("tardis", Subsystem::Shell),
+            ("telemetry", Subsystem::Telemetry),
+        ];
+
         // Bolt: Performance optimization to avoid allocation for common lowercase targets.
         // Most tracing targets are module paths which are lowercase.
         let target_cow = if target.chars().any(char::is_uppercase) {
@@ -252,31 +270,13 @@ impl Subsystem {
         };
         let target_lower = &*target_cow;
 
-        if target_lower.contains("kernel") {
-            Self::Kernel
-        } else if target_lower.contains("memory") || target_lower.contains("heap") {
-            Self::Memory
-        } else if target_lower.contains("scheduler") || target_lower.contains("process") {
-            Self::Scheduler
-        } else if target_lower.contains("interrupt") || target_lower.contains("irq") {
-            Self::Interrupt
-        } else if target_lower.contains("syscall") {
-            Self::Syscall
-        } else if target_lower.contains("boot") {
-            Self::Boot
-        } else if target_lower.contains("vortex") {
-            Self::Vortex
-        } else if target_lower.contains("gallifrey") {
-            Self::Gallifrey
-        } else if target_lower.contains("chronos") {
-            Self::Chronos
-        } else if target_lower.contains("shell") || target_lower.contains("tardis") {
-            Self::Shell
-        } else if target_lower.contains("telemetry") {
-            Self::Telemetry
-        } else {
-            Self::Unknown
+        for (key, subsystem) in MAPPINGS {
+            if target_lower.contains(key) {
+                return *subsystem;
+            }
         }
+
+        Self::Unknown
     }
 }
 
@@ -568,5 +568,53 @@ mod tests {
             Subsystem::Kernel
         );
         assert_eq!(Subsystem::from_target("random_crate"), Subsystem::Unknown);
+    }
+
+    #[test]
+    fn subsystem_from_target_comprehensive() {
+        let cases = [
+            ("kernel_panic", Subsystem::Kernel),
+            ("memory_alloc", Subsystem::Memory),
+            ("heap_allocator", Subsystem::Memory),
+            ("scheduler_tick", Subsystem::Scheduler),
+            ("process_manager", Subsystem::Scheduler),
+            ("interrupt_handler", Subsystem::Interrupt),
+            ("irq_controller", Subsystem::Interrupt),
+            ("syscall_dispatch", Subsystem::Syscall),
+            ("boot_loader", Subsystem::Boot),
+            ("vortex_inference", Subsystem::Vortex),
+            ("gallifrey_store", Subsystem::Gallifrey),
+            ("chronos_rag", Subsystem::Chronos),
+            ("shell_repl", Subsystem::Shell),
+            ("tardis_cli", Subsystem::Shell),
+            ("telemetry_drainer", Subsystem::Telemetry),
+            ("unknown_module", Subsystem::Unknown),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                Subsystem::from_target(input),
+                expected,
+                "Failed for input: {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn subsystem_from_target_case_insensitive() {
+        assert_eq!(Subsystem::from_target("KERNEL"), Subsystem::Kernel);
+        assert_eq!(Subsystem::from_target("MeMoRy"), Subsystem::Memory);
+        assert_eq!(Subsystem::from_target("VORtex"), Subsystem::Vortex);
+    }
+
+    #[test]
+    fn subsystem_precedence() {
+        // "kernel" is checked before "memory"
+        assert_eq!(Subsystem::from_target("kernel_memory"), Subsystem::Kernel);
+        // "telemetry" is checked last (before Unknown)
+        assert_eq!(
+            Subsystem::from_target("telemetry_kernel"),
+            Subsystem::Kernel
+        );
     }
 }

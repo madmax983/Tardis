@@ -501,7 +501,7 @@ mod tests {
 
         let (sum, count, buckets) = histogram.snapshot();
         assert_eq!(count, 3);
-        assert_eq!(sum, 12.0);
+        assert!((sum - 12.0).abs() < f64::EPSILON);
         assert_eq!(buckets, vec![0, 2, 3]); // 0 <= 1, 2 <= 5, 3 <= 10
     }
 

@@ -268,6 +268,7 @@ impl std::fmt::Debug for TelemetryStore {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::types::{Level, Subsystem};

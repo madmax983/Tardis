@@ -37,9 +37,9 @@ async fn run_inference(request: InferenceRequest) -> InferenceResponse {
     gauge!("vortex.active_inferences").inc();
 
     // Simulate tokenization
-    let _tokenize_span = info_span!("tokenize").entered();
+    let tokenize_span = info_span!("tokenize").entered();
     tokio::time::sleep(Duration::from_millis(5)).await;
-    drop(_tokenize_span);
+    drop(tokenize_span);
 
     // Simulate model forward pass
     let forward_span = info_span!("forward_pass", layers = 32).entered();

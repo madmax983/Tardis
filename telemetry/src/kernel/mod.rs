@@ -26,6 +26,8 @@
 //!            └───────────────────────────┘
 //! ```
 
+#![allow(unsafe_code)]
+
 mod logger;
 mod ring_buffer;
 pub mod serial;
