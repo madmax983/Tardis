@@ -1,4 +1,34 @@
 //! RAG pipeline for Chronos.
+//!
+//! This module provides the core orchestration logic for Retrieval-Augmented Generation.
+//! It coordinates between the LLM (Vortex) and the Temporal Knowledge Graph (Gallifrey).
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use std::sync::Arc;
+//! use tardis_chronos::{Chronos, RagConfig};
+//! use tardis_vortex::Vortex;
+//! use tardis_gallifrey::Gallifrey;
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! // Initialize dependencies
+//! let vortex = Arc::new(Vortex::new()?);
+//! let gallifrey = Arc::new(Gallifrey::new());
+//!
+//! // Create Chronos engine
+//! let chronos = Chronos::new(vortex, gallifrey);
+//!
+//! // Execute a RAG query
+//! let response = chronos.query(
+//!     "What happened in the last session?",
+//!     RagConfig::default()
+//! ).await?;
+//!
+//! println!("Response: {}", response.text);
+//! # Ok(())
+//! # }
+//! ```
 
 mod analyzer;
 mod augmenter;
@@ -106,9 +136,18 @@ impl Chronos {
 
     /// Execute a RAG query.
     ///
+    /// The query process follows this pipeline:
+    /// 1. **Analysis**: The query is analyzed for intent and temporal references (e.g., "yesterday").
+    /// 2. **Retrieval**: Relevant context is fetched from the knowledge graph and conversation history.
+    /// 3. **Augmentation**: The context is formatted into a prompt for the LLM.
+    /// 4. **Inference**: The LLM generates a response based on the augmented prompt.
+    ///
     /// # Errors
     ///
-    /// Returns an error if any stage of the pipeline fails.
+    /// Returns an error if any stage of the pipeline fails, such as:
+    /// - Vector database connection errors.
+    /// - LLM inference failures.
+    /// - Tokenization limits exceeded.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
