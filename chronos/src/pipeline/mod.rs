@@ -41,8 +41,9 @@ pub use retriever::Retriever;
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tardis_common::traits::{GallifreyService, VortexService};
 use tardis_common::{EntityId, SessionId};
+use tardis_gallifrey::Gallifrey;
+use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -113,8 +114,8 @@ pub struct RagResponse {
 #[derive(Debug)]
 pub struct Chronos {
     #[allow(dead_code)]
-    vortex: Arc<dyn VortexService>,
-    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Arc<Vortex>,
+    gallifrey: Arc<Gallifrey>,
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
@@ -123,7 +124,7 @@ pub struct Chronos {
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub fn new(vortex: Arc<dyn VortexService>, gallifrey: Arc<dyn GallifreyService>) -> Self {
+    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
             vortex,
             gallifrey: Arc::clone(&gallifrey),

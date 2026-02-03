@@ -1,7 +1,9 @@
 //! Benchmarks for Gallifrey store operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+#![allow(clippy::unwrap_used)]
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::collections::HashMap;
+use std::hint::black_box;
 use tardis_common::EntityId;
 use tardis_gallifrey::stores::{ConversationStore, Entity, KnowledgeStore};
 use tardis_gallifrey::BiTemporalInterval;

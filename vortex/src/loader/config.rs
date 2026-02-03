@@ -169,6 +169,7 @@ pub async fn parse_model_config(model_path: &Path) -> VortexResult<ModelConfig> 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

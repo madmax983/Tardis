@@ -170,6 +170,7 @@ impl fmt::Display for MessageId {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
