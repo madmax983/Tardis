@@ -1,6 +1,6 @@
 //! OTLP (OpenTelemetry Protocol) exporter.
 
-use crate::error::{TelemetryError, TelemetryResult};
+use crate::error::TelemetryResult;
 use crate::userspace::layer::SpanData;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -48,14 +48,14 @@ impl OtlpConfig {
 
     /// Sets the batch size.
     #[must_use]
-    pub fn with_batch_size(mut self, size: usize) -> Self {
+    pub const fn with_batch_size(mut self, size: usize) -> Self {
         self.batch_size = size;
         self
     }
 
     /// Sets the flush interval.
     #[must_use]
-    pub fn with_flush_interval(mut self, interval: Duration) -> Self {
+    pub const fn with_flush_interval(mut self, interval: Duration) -> Self {
         self.flush_interval = interval;
         self
     }
@@ -79,6 +79,11 @@ pub struct OtlpExporter {
 
 impl OtlpExporter {
     /// Creates and starts a new OTLP exporter.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the exporter cannot be initialized.
+    #[allow(clippy::unused_async)]
     pub async fn new(config: OtlpConfig) -> TelemetryResult<Self> {
         let (sender, receiver) = mpsc::channel(10_000);
 
@@ -135,6 +140,7 @@ impl OtlpExporter {
     }
 
     /// Flushes a batch of spans to the OTLP endpoint.
+    #[allow(clippy::unused_async)]
     async fn flush_batch(config: &OtlpConfig, batch: &mut Vec<SpanData>) {
         // TODO: Implement actual OTLP gRPC export
         // For now, just log and clear the batch
@@ -153,6 +159,6 @@ impl std::fmt::Debug for OtlpExporter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OtlpExporter")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }

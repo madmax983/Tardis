@@ -145,6 +145,7 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if storage fails.
+    #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
         content: &str,
@@ -155,7 +156,7 @@ impl Chronos {
         // Create entity in knowledge graph
         let entity = tardis_gallifrey::stores::Entity {
             id: EntityId::new(),
-            entity_type: format!("Memory:{:?}", category),
+            entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),
             properties: {
                 let mut props = std::collections::HashMap::new();
@@ -184,6 +185,7 @@ impl Chronos {
     /// # Errors
     ///
     /// Returns an error if retrieval fails.
+    #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
 

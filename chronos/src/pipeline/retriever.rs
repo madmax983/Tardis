@@ -16,7 +16,7 @@ pub struct Retriever {
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 
@@ -57,6 +57,7 @@ impl Retriever {
     }
 
     /// Retrieve from knowledge graph.
+    #[allow(clippy::unused_async)]
     async fn retrieve_knowledge(
         &self,
         _query: &AnalyzedQuery,
@@ -85,6 +86,7 @@ impl Retriever {
     }
 
     /// Retrieve from conversation history.
+    #[allow(clippy::unused_async)]
     async fn retrieve_conversation(
         &self,
         _query: &AnalyzedQuery,
@@ -133,6 +135,7 @@ impl Retriever {
     }
 
     /// Retrieve from system state.
+    #[allow(clippy::unused_async)]
     async fn retrieve_system_state(
         &self,
         query: &AnalyzedQuery,

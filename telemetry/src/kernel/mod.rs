@@ -1,6 +1,6 @@
 //! Kernel telemetry module.
 //!
-//! Provides no_std compatible telemetry for the Tardis kernel:
+//! Provides `no_std` compatible telemetry for the Tardis kernel:
 //!
 //! - [`RingBuffer`]: Lock-free SPSC ring buffer for event storage
 //! - [`KernelLogger`]: `log::Log` implementation writing to ring buffer

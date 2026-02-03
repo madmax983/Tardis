@@ -53,12 +53,18 @@ impl<T: Send + 'static> BatchProcessor<T> {
 
     /// Submits an item for batching.
     ///
+    /// # Errors
+    ///
     /// Returns an error if the channel is full.
     pub fn submit(&self, item: T) -> Result<(), mpsc::error::TrySendError<T>> {
         self.sender.try_send(item)
     }
 
     /// Submits an item for batching, waiting if necessary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the receiver dropped.
     pub async fn submit_async(&self, item: T) -> Result<(), mpsc::error::SendError<T>> {
         self.sender.send(item).await
     }
@@ -109,6 +115,6 @@ impl<T> std::fmt::Debug for BatchProcessor<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BatchProcessor")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }

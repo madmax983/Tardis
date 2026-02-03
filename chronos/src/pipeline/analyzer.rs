@@ -96,6 +96,7 @@ impl QueryAnalyzer {
     }
 
     /// Classify the intent of a query.
+    #[allow(clippy::unused_self)]
     fn classify_intent(&self, query: &str) -> QueryIntent {
         let lower = query.to_lowercase();
 
@@ -123,6 +124,7 @@ impl QueryAnalyzer {
     }
 
     /// Extract temporal references from a query.
+    #[allow(clippy::unused_self)]
     fn extract_temporal_refs(&self, query: &str) -> Vec<TemporalRef> {
         let mut refs = Vec::new();
         let lower = query.to_lowercase();
@@ -162,7 +164,8 @@ impl QueryAnalyzer {
     }
 
     /// Extract entity mentions from a query.
-    fn extract_entities(&self, query: &str) -> Vec<String> {
+    #[allow(clippy::unused_self)]
+    const fn extract_entities(&self, query: &str) -> Vec<String> {
         // TODO: Implement NER or pattern matching
         // For now, just return empty
         let _ = query;
@@ -170,6 +173,7 @@ impl QueryAnalyzer {
     }
 
     /// Generate human-readable description of temporal context.
+    #[allow(clippy::unused_self)]
     fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
         if refs.is_empty() {
             return "current time".to_string();
