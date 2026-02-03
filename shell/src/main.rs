@@ -29,7 +29,11 @@ async fn main() -> Result<()> {
     // Initialize subsystems
     let vortex = Arc::new(Vortex::new()?);
     let gallifrey = Arc::new(Gallifrey::new());
-    let chronos = Arc::new(Chronos::new(Arc::clone(&vortex), Arc::clone(&gallifrey)));
+
+    let vortex_service = vortex.clone() as Arc<dyn tardis_common::traits::VortexService>;
+    let gallifrey_service = gallifrey.clone() as Arc<dyn tardis_common::traits::GallifreyService>;
+
+    let chronos = Arc::new(Chronos::new(vortex_service, gallifrey_service));
 
     // Print banner
     print_banner();

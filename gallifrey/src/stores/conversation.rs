@@ -6,58 +6,11 @@
 //! - Session summaries
 
 use crate::error::{GallifreyError, GallifreyResult};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::RwLock;
+pub use tardis_common::domain::{Message, Role, Session};
 use tardis_common::{EntityId, SessionId};
-
-/// Role in a conversation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Role {
-    /// User message.
-    User,
-    /// Assistant response.
-    Assistant,
-    /// System message.
-    System,
-}
-
-/// A message in a conversation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Message {
-    /// Unique identifier.
-    pub id: EntityId,
-    /// Session this message belongs to.
-    pub session_id: SessionId,
-    /// Message role.
-    pub role: Role,
-    /// Message content.
-    pub content: String,
-    /// Timestamp.
-    pub timestamp: DateTime<Utc>,
-    /// Embedding for semantic search.
-    pub embedding: Option<Vec<f32>>,
-    /// References to knowledge graph entities.
-    pub entity_refs: Vec<EntityId>,
-}
-
-/// A conversation session.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Session {
-    /// Unique identifier.
-    pub id: SessionId,
-    /// Session start time.
-    pub started_at: DateTime<Utc>,
-    /// Session end time (None if active).
-    pub ended_at: Option<DateTime<Utc>>,
-    /// Session summary (generated after session ends).
-    pub summary: Option<String>,
-    /// Topics discussed.
-    pub topics: Vec<String>,
-    /// Session metadata.
-    pub metadata: HashMap<String, serde_json::Value>,
-}
 
 /// The conversation store.
 #[derive(Debug)]

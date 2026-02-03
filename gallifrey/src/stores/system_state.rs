@@ -7,106 +7,10 @@
 
 use crate::error::{GallifreyError, GallifreyResult};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
+pub use tardis_common::domain::{Change, Snapshot, SnapshotTrigger, SystemState};
 use tardis_common::SnapshotId;
-
-/// A snapshot of system state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Snapshot {
-    /// Unique identifier.
-    pub id: SnapshotId,
-    /// Snapshot name (user-provided or auto-generated).
-    pub name: String,
-    /// When the snapshot was taken.
-    pub timestamp: DateTime<Utc>,
-    /// What triggered the snapshot.
-    pub trigger: SnapshotTrigger,
-    /// Captured state.
-    pub state: SystemState,
-    /// Checksum for integrity.
-    pub checksum: String,
-}
-
-/// What triggered a snapshot.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SnapshotTrigger {
-    /// Scheduled snapshot.
-    Scheduled,
-    /// User-requested snapshot.
-    Manual,
-    /// Before a significant operation.
-    PreOperation(String),
-    /// After an error.
-    Error(String),
-}
-
-/// Captured system state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SystemState {
-    /// Process states.
-    pub processes: HashMap<u32, ProcessState>,
-    /// Configuration values.
-    pub config: HashMap<String, serde_json::Value>,
-    /// File system snapshot (paths and metadata).
-    pub files: HashMap<String, FileMetadata>,
-}
-
-/// Process state information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcessState {
-    /// Process ID.
-    pub pid: u32,
-    /// Process name.
-    pub name: String,
-    /// Process status.
-    pub status: String,
-    /// Memory usage.
-    pub memory_bytes: u64,
-    /// CPU usage percentage.
-    pub cpu_percent: f32,
-}
-
-/// File metadata.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileMetadata {
-    /// File path.
-    pub path: String,
-    /// File size.
-    pub size: u64,
-    /// Last modified time.
-    pub modified: DateTime<Utc>,
-    /// File hash (for content tracking).
-    pub hash: Option<String>,
-}
-
-/// A change between snapshots.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Change {
-    /// When the change occurred.
-    pub timestamp: DateTime<Utc>,
-    /// What changed.
-    pub path: String,
-    /// Type of change.
-    #[allow(clippy::struct_field_names)]
-    pub change_type: ChangeType,
-    /// Old value (if applicable).
-    pub old_value: Option<serde_json::Value>,
-    /// New value (if applicable).
-    pub new_value: Option<serde_json::Value>,
-}
-
-/// Type of change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ChangeType {
-    /// Created.
-    Create,
-    /// Updated.
-    Update,
-    /// Deleted.
-    Delete,
-}
 
 /// The system state store.
 #[derive(Debug)]
