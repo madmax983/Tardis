@@ -17,6 +17,10 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # 'unmaintained', 'yanked', 'notice' are deprecated in newer versions or renamed.
 # We will use the new 'ignore' list if we need to ignore specific advisories.
 # For now, default behavior is usually deny vulnerabilities.
+ignore = [
+    "RUSTSEC-2025-0119", # number_prefix unmaintained
+    "RUSTSEC-2024-0436", # paste unmaintained
+]
 
 [licenses]
 # 'unlicensed' key is deprecated
@@ -59,6 +63,4 @@ skip-tree = []
 unknown-registry = "deny"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = [
-    "https://github.com/madmax983/GallifreyDB",
-]
+allow-git = []
