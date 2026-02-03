@@ -69,7 +69,6 @@ impl Repl {
                 }
                 Err(ReadlineError::Interrupted) => {
                     println!("^C");
-                    continue;
                 }
                 Err(ReadlineError::Eof) => {
                     println!("Goodbye!");
@@ -136,8 +135,8 @@ impl Repl {
                     .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
                     .await
                 {
-                    Ok(id) => println!("Remembered: {}", id),
-                    Err(e) => println!("Failed to remember: {}", e),
+                    Ok(id) => println!("Remembered: {id}"),
+                    Err(e) => println!("Failed to remember: {e}"),
                 }
             }
             "recall" => {
@@ -148,7 +147,7 @@ impl Repl {
                             println!("- {}", result.content);
                         }
                     }
-                    Err(e) => println!("Failed to recall: {}", e),
+                    Err(e) => println!("Failed to recall: {e}"),
                 }
             }
             "models" => self.commands.list_models(),
@@ -156,16 +155,14 @@ impl Repl {
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
-            _ => println!(
-                "Unknown command: {}. Type 'help' for available commands.",
-                command
-            ),
+            _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
 
     /// Handle a shell command (prefixed with !).
+    #[allow(clippy::unused_async)]
     async fn handle_shell_command(&self, command: &str) {
-        println!("[Shell command: {}]", command);
+        println!("[Shell command: {command}]");
         println!("Shell commands not yet implemented.");
     }
 
@@ -187,20 +184,22 @@ impl Repl {
                 println!();
             }
             Err(e) => {
-                println!("Query failed: {}", e);
+                println!("Query failed: {e}");
             }
         }
     }
 
     /// Handle a time-travel query (prefixed with @).
+    #[allow(clippy::unused_async)]
     async fn handle_time_travel(&self, timestamp: &str, query: &str) {
-        println!("[Time travel to {} with query: {}]", timestamp, query);
+        println!("[Time travel to {timestamp} with query: {query}]");
         println!("Time travel not yet fully implemented.");
     }
 
     /// Handle a direct LLM query (prefixed with ?).
+    #[allow(clippy::unused_async)]
     async fn handle_direct_query(&self, query: &str) {
-        println!("[Direct query: {}]", query);
+        println!("[Direct query: {query}]");
         println!("Direct queries not yet implemented.");
     }
 }

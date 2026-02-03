@@ -33,6 +33,7 @@ static SERIAL_INITIALIZED: AtomicBool = AtomicBool::new(false);
 /// This function performs port I/O and should only be called
 /// during kernel initialization.
 #[cfg(target_arch = "x86_64")]
+#[allow(clippy::needless_return)]
 pub fn init() {
     if SERIAL_INITIALIZED.swap(true, Ordering::SeqCst) {
         return; // Already initialized
@@ -83,6 +84,7 @@ pub fn init() {
 
 /// Writes a byte to the serial port.
 #[cfg(all(target_arch = "x86_64", feature = "kernel"))]
+#[allow(clippy::needless_return)]
 pub fn write_byte(byte: u8) {
     // Suppress unused variable warning for tests where the unsafe block is cfg-gated out
     #[cfg(test)]

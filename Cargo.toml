@@ -87,7 +87,7 @@ criterion = "0.8"
 missing_docs = "warn"
 unsafe_code = "warn"
 # Rust 2024 edition lints
-rust_2024_compatibility = { level = "warn", priority = -1 }
+rust_2024_compatibility = { level = "allow", priority = -1 }
 # Additional safety
 missing_debug_implementations = "warn"
 # Disallow deprecated features

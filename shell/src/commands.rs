@@ -18,16 +18,17 @@ impl CommandHandler {
     }
 
     /// Display help information.
+    #[allow(clippy::unused_self)]
     pub fn help(&self, args: &[String]) {
         if args.is_empty() {
-            self.general_help();
+            Self::general_help();
         } else {
-            self.command_help(&args[0]);
+            Self::command_help(&args[0]);
         }
     }
 
     /// Display general help.
-    fn general_help(&self) {
+    fn general_help() {
         println!("Tardis Shell Commands:");
         println!();
         println!("  BUILT-IN COMMANDS:");
@@ -58,7 +59,7 @@ impl CommandHandler {
     }
 
     /// Display help for a specific command.
-    fn command_help(&self, command: &str) {
+    fn command_help(command: &str) {
         match command {
             "remember" => {
                 println!("remember <text>");
@@ -98,12 +99,13 @@ impl CommandHandler {
                 println!("  timeline config.toml");
             }
             _ => {
-                println!("No help available for '{}'", command);
+                println!("No help available for '{command}'");
             }
         }
     }
 
     /// Show conversation history.
+    #[allow(clippy::unused_self)]
     pub fn history(&self, gallifrey: &Arc<Gallifrey>, session_id: SessionId) {
         match gallifrey.conversation().get_messages(session_id) {
             Ok(messages) => {
@@ -136,12 +138,13 @@ impl CommandHandler {
                 }
             }
             Err(e) => {
-                println!("Failed to get history: {}", e);
+                println!("Failed to get history: {e}");
             }
         }
     }
 
     /// List available models.
+    #[allow(clippy::unused_self)]
     pub fn list_models(&self) {
         println!("Available models:");
         println!();
@@ -151,10 +154,11 @@ impl CommandHandler {
     }
 
     /// Show current session context.
+    #[allow(clippy::unused_self)]
     pub fn show_context(&self, session_id: SessionId) {
         println!("Current Context:");
         println!();
-        println!("  Session ID: {}", session_id);
+        println!("  Session ID: {session_id}");
         println!("  Model: (none loaded)");
         println!("  Project: (none set)");
         println!();
