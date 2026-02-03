@@ -41,9 +41,8 @@ pub use retriever::Retriever;
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tardis_common::traits::{GallifreyService, VortexService};
 use tardis_common::{EntityId, SessionId};
-use tardis_gallifrey::Gallifrey;
-use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -114,8 +113,8 @@ pub struct RagResponse {
 #[derive(Debug)]
 pub struct Chronos {
     #[allow(dead_code)]
-    vortex: Arc<Vortex>,
-    gallifrey: Arc<Gallifrey>,
+    vortex: Arc<dyn VortexService>,
+    gallifrey: Arc<dyn GallifreyService>,
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
@@ -124,7 +123,7 @@ pub struct Chronos {
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(vortex: Arc<dyn VortexService>, gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self {
             vortex,
             gallifrey: Arc::clone(&gallifrey),
@@ -193,7 +192,7 @@ impl Chronos {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
-        let entity = tardis_gallifrey::stores::Entity {
+        let entity = tardis_common::domain::Entity {
             id: EntityId::new(),
             entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),
@@ -206,15 +205,15 @@ impl Chronos {
                 props
             },
             embedding: None, // TODO: Generate embedding
-            temporal: tardis_gallifrey::BiTemporalInterval::now(),
+            temporal: tardis_common::temporal::BiTemporalInterval::now(),
             source: Some("user".to_string()),
         };
 
         let id = self
             .gallifrey
-            .knowledge()
-            .insert_entity(entity)
-            .map_err(ChronosError::Gallifrey)?;
+            .insert(entity)
+            .await
+            .map_err(ChronosError::Common)?;
 
         Ok(id)
     }
@@ -231,9 +230,9 @@ impl Chronos {
         // Search knowledge graph
         let results = self
             .gallifrey
-            .knowledge()
-            .semantic_search(&[], limit)
-            .map_err(ChronosError::Gallifrey)?;
+            .search_knowledge(&[], limit)
+            .await
+            .map_err(ChronosError::Common)?;
 
         Ok(results
             .into_iter()

@@ -8,46 +8,10 @@
 use crate::error::{GallifreyError, GallifreyResult};
 use crate::temporal::BiTemporalInterval;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
+pub use tardis_common::domain::{Entity, Relationship};
 use tardis_common::EntityId;
-
-/// A node in the knowledge graph.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Entity {
-    /// Unique identifier.
-    pub id: EntityId,
-    /// Entity type (e.g., "Concept", "Person", "Project").
-    pub entity_type: String,
-    /// Entity name.
-    pub name: String,
-    /// Properties as key-value pairs.
-    pub properties: HashMap<String, serde_json::Value>,
-    /// Embedding vector for semantic search.
-    pub embedding: Option<Vec<f32>>,
-    /// Temporal metadata.
-    pub temporal: BiTemporalInterval,
-    /// Source of this knowledge.
-    pub source: Option<String>,
-}
-
-/// A relationship between entities.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Relationship {
-    /// Unique identifier.
-    pub id: EntityId,
-    /// Relationship type (e.g., "KNOWS", "CONTAINS", "`DEPENDS_ON`").
-    pub relationship_type: String,
-    /// Source entity ID.
-    pub source: EntityId,
-    /// Target entity ID.
-    pub target: EntityId,
-    /// Relationship properties.
-    pub properties: HashMap<String, serde_json::Value>,
-    /// Temporal metadata.
-    pub temporal: BiTemporalInterval,
-}
 
 /// The knowledge graph store.
 #[derive(Debug)]

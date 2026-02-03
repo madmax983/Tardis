@@ -4,19 +4,19 @@ use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
-use tardis_gallifrey::Gallifrey;
+use tardis_common::traits::GallifreyService;
 use tracing::info;
 
 /// Multi-source retriever.
 #[derive(Debug)]
 pub struct Retriever {
-    gallifrey: Arc<Gallifrey>,
+    gallifrey: Arc<dyn GallifreyService>,
 }
 
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self { gallifrey }
     }
 
@@ -70,9 +70,9 @@ impl Retriever {
 
         let entities = self
             .gallifrey
-            .knowledge()
-            .semantic_search(&embedding, config.max_context_items)
-            .map_err(ChronosError::Gallifrey)?;
+            .search_knowledge(&embedding, config.max_context_items)
+            .await
+            .map_err(ChronosError::Common)?;
 
         Ok(entities
             .into_iter()
@@ -100,9 +100,9 @@ impl Retriever {
         if let Some(session_id) = config.session_id {
             let messages = self
                 .gallifrey
-                .conversation()
                 .get_recent_messages(session_id, 5)
-                .map_err(ChronosError::Gallifrey)?;
+                .await
+                .map_err(ChronosError::Common)?;
 
             for msg in messages {
                 sources.push(ContextSource {
@@ -118,9 +118,9 @@ impl Retriever {
         let embedding: Vec<f32> = Vec::new();
         let historical = self
             .gallifrey
-            .conversation()
-            .semantic_search(&embedding, config.max_context_items)
-            .map_err(ChronosError::Gallifrey)?;
+            .search_conversation(&embedding, config.max_context_items)
+            .await
+            .map_err(ChronosError::Common)?;
 
         for msg in historical {
             sources.push(ContextSource {
@@ -149,9 +149,9 @@ impl Retriever {
         for temporal_ref in &query.temporal_refs {
             if let Some(snapshot) = self
                 .gallifrey
-                .system_state()
-                .find_snapshot_at(temporal_ref.resolved)
-                .map_err(ChronosError::Gallifrey)?
+                .find_snapshot(temporal_ref.resolved)
+                .await
+                .map_err(ChronosError::Common)?
             {
                 sources.push(ContextSource {
                     source_type: ContextSourceType::SystemState,

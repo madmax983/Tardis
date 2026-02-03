@@ -36,6 +36,10 @@ pub enum ChronosError {
     /// Gallifrey error.
     #[error("gallifrey error: {0}")]
     Gallifrey(#[from] tardis_gallifrey::GallifreyError),
+
+    /// Common error.
+    #[error("common error: {0}")]
+    Common(#[from] tardis_common::Error),
 }
 
 /// Result type for Chronos operations.

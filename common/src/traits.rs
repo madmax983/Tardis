@@ -3,9 +3,10 @@
 //! These traits define the contracts between subsystems, designed to support
 //! both direct function calls (monolithic) and potential future IPC (microkernel).
 
+use crate::domain::{Change, Entity, Message, Snapshot};
 use crate::error::Result;
 use crate::id::{EntityId, ModelHandle, SessionId};
-use crate::temporal::{BiTemporalInterval, TemporalQuery};
+use crate::temporal::TemporalQuery;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +73,7 @@ pub struct ModelInfo {
 
 /// The Vortex LLM service interface.
 #[async_trait]
-pub trait VortexService: Send + Sync {
+pub trait VortexService: Send + Sync + std::fmt::Debug {
     /// Load a model from disk.
     async fn load_model(&self, path: &str, config: ModelLoadConfig) -> Result<ModelHandle>;
 
@@ -101,26 +102,11 @@ pub trait VortexService: Send + Sync {
 // Gallifrey (Database) Traits
 // ============================================================================
 
-/// A node in the knowledge graph.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphNode {
-    /// Unique identifier
-    pub id: EntityId,
-    /// Node type/label
-    pub node_type: String,
-    /// Node properties
-    pub properties: serde_json::Value,
-    /// Embedding vector (if computed)
-    pub embedding: Option<Vec<f32>>,
-    /// Temporal metadata
-    pub temporal: BiTemporalInterval,
-}
-
 /// Query results from Gallifrey.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryResult {
     /// Result nodes
-    pub nodes: Vec<GraphNode>,
+    pub nodes: Vec<Entity>,
     /// Query execution time in milliseconds
     pub execution_time_ms: u64,
     /// Whether results were truncated
@@ -129,21 +115,49 @@ pub struct QueryResult {
 
 /// The Gallifrey temporal database service interface.
 #[async_trait]
-pub trait GallifreyService: Send + Sync {
+pub trait GallifreyService: Send + Sync + std::fmt::Debug {
+    // --- Knowledge Graph ---
+
     /// Execute a query with optional temporal parameters.
     async fn query(&self, query: &str, temporal: TemporalQuery) -> Result<QueryResult>;
 
     /// Insert a node into the knowledge graph.
-    async fn insert(&self, node: GraphNode) -> Result<EntityId>;
+    async fn insert(&self, node: Entity) -> Result<EntityId>;
 
     /// Update an existing node.
     async fn update(&self, id: EntityId, properties: serde_json::Value) -> Result<()>;
 
     /// Get the history of an entity.
-    async fn get_history(&self, id: EntityId) -> Result<Vec<GraphNode>>;
+    async fn get_history(&self, id: EntityId) -> Result<Vec<Entity>>;
 
     /// Travel to a point in time and get a snapshot.
     async fn time_travel(&self, timestamp: chrono::DateTime<chrono::Utc>) -> Result<QueryResult>;
+
+    /// Semantic search for entities.
+    async fn search_knowledge(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>>;
+
+    // --- Conversation ---
+
+    /// Get recent messages from a session.
+    async fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> Result<Vec<Message>>;
+
+    /// Semantic search for messages.
+    async fn search_conversation(&self, embedding: &[f32], limit: usize) -> Result<Vec<Message>>;
+
+    // --- System State ---
+
+    /// Find a system snapshot at a specific time.
+    async fn find_snapshot(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<Snapshot>>;
+
+    /// Record a system change.
+    async fn record_change(&self, change: Change) -> Result<()>;
 }
 
 // ============================================================================
