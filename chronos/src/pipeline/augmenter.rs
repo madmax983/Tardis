@@ -77,11 +77,7 @@ impl ContextAugmenter {
             // Rough token estimate (4 chars per token)
             let source_tokens = source.content.len() / 4;
             if token_estimate + source_tokens > self.max_context_tokens {
-                let _ = writeln!(
-                    out,
-                    "\n... ({} more sources truncated)",
-                    context.len() - i
-                );
+                let _ = writeln!(out, "\n... ({} more sources truncated)", context.len() - i);
                 break;
             }
 

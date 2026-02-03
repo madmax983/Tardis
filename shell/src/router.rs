@@ -73,7 +73,7 @@ impl Router {
         }
 
         if let Some(rest) = input.strip_prefix('@') {
-            return self.parse_time_travel(rest);
+            return Self::parse_time_travel(rest);
         }
 
         if let Some(query) = input.strip_prefix('?') {
@@ -104,12 +104,12 @@ impl Router {
         // Default: Chronos query
         Intent::ChronosQuery {
             query: input.to_string(),
-            temporal_context: self.detect_temporal_context(input),
+            temporal_context: Self::detect_temporal_context(input),
         }
     }
 
     /// Parse a time-travel command.
-    fn parse_time_travel(&self, input: &str) -> Intent {
+    fn parse_time_travel(input: &str) -> Intent {
         // Expected format: @<timestamp> <query>
         // e.g., "@yesterday what did we discuss"
         // e.g., "@2024-03-15 show system state"
@@ -123,7 +123,7 @@ impl Router {
     }
 
     /// Detect temporal context in a query.
-    fn detect_temporal_context(&self, query: &str) -> Option<String> {
+    fn detect_temporal_context(query: &str) -> Option<String> {
         let lower = query.to_lowercase();
 
         let temporal_patterns = [
