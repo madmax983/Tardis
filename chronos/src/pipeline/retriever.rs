@@ -16,7 +16,7 @@ pub struct Retriever {
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 
@@ -25,6 +25,7 @@ impl Retriever {
     /// # Errors
     ///
     /// Returns an error if retrieval fails.
+    #[allow(clippy::unused_async)]
     pub async fn retrieve(
         &self,
         query: &AnalyzedQuery,
@@ -34,15 +35,15 @@ impl Retriever {
 
         // Retrieve from each source in parallel (TODO: make truly parallel)
         if config.include_knowledge {
-            sources.extend(self.retrieve_knowledge(query, config).await?);
+            sources.extend(self.retrieve_knowledge(query, config)?);
         }
 
         if config.include_conversation {
-            sources.extend(self.retrieve_conversation(query, config).await?);
+            sources.extend(self.retrieve_conversation(query, config)?);
         }
 
         if config.include_system_state {
-            sources.extend(self.retrieve_system_state(query, config).await?);
+            sources.extend(self.retrieve_system_state(query, config)?);
         }
 
         // Sort by relevance and limit
@@ -57,7 +58,7 @@ impl Retriever {
     }
 
     /// Retrieve from knowledge graph.
-    async fn retrieve_knowledge(
+    fn retrieve_knowledge(
         &self,
         _query: &AnalyzedQuery,
         config: &RagConfig,
@@ -85,7 +86,7 @@ impl Retriever {
     }
 
     /// Retrieve from conversation history.
-    async fn retrieve_conversation(
+    fn retrieve_conversation(
         &self,
         _query: &AnalyzedQuery,
         config: &RagConfig,
@@ -133,7 +134,7 @@ impl Retriever {
     }
 
     /// Retrieve from system state.
-    async fn retrieve_system_state(
+    fn retrieve_system_state(
         &self,
         query: &AnalyzedQuery,
         _config: &RagConfig,
