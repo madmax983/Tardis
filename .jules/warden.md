@@ -9,3 +9,7 @@
 2024-05-24 - [Test Stability]
 **Threat:** SIGSEGV in tests due to privileged I/O instructions execution in userspace.
 **Defense:** Gated unsafe hardware I/O blocks with `#[cfg(not(test))]`.
+
+2024-05-25 - [RingBuffer Over-read & Race]
+**Threat:** Buffer Over-read in `RingBuffer::try_read` allowed reading past the end of the slot if `payload_len` was corrupted (e.g., to 65535), leaking information from adjacent slots. Also, race conditions allowed torn reads.
+**Defense:** Capped `payload_len` to `MAX_PAYLOAD_SIZE` before allocation/copy. Implemented full Seqlock retry logic (check sequence before & after read) to prevent torn reads. Fixed `dropped_count` logic to use `write_pos - read_pos` distance.

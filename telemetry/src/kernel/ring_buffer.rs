@@ -156,15 +156,15 @@ impl RingBuffer {
         // Get the slot
         let slot = &self.slots[index];
 
-        // Check if slot is available (not being read)
-        // We use the sequence number to track this
-        let expected_seq = pos.wrapping_mul(2);
-        let current_seq = slot.sequence.load(Ordering::Acquire);
-
-        // If the slot is too far behind, we're overwriting unread data
-        if current_seq != expected_seq && current_seq != 0 {
+        // Check if we are overwriting unread data
+        // If the write position is more than buffer size ahead of read position,
+        // we are overwriting an unread slot.
+        let read_pos = self.read_pos.load(Ordering::Acquire);
+        if pos.wrapping_sub(read_pos) >= RING_BUFFER_SIZE {
             self.dropped_count.fetch_add(1, Ordering::Relaxed);
         }
+
+        let expected_seq = pos.wrapping_mul(2);
 
         // Mark slot as being written (odd sequence)
         slot.sequence.store(expected_seq | 1, Ordering::Release);
@@ -219,10 +219,29 @@ impl RingBuffer {
             let expected_seq = read_pos.wrapping_mul(2).wrapping_add(2);
             let current_seq = slot.sequence.load(Ordering::Acquire);
 
-            if current_seq != expected_seq {
-                // Slot not ready yet, spin or return
-                // In practice, this rarely happens
+            // If sequence is odd, writing is in progress.
+            if current_seq & 1 != 0 {
                 core::hint::spin_loop();
+                continue;
+            }
+
+            // If sequence is less than expected, writer hasn't finished updating this slot yet.
+            // (write_pos incremented but sequence not yet updated)
+            #[allow(clippy::cast_possible_wrap)]
+            if (current_seq.wrapping_sub(expected_seq) as isize) < 0 {
+                core::hint::spin_loop();
+                continue;
+            }
+
+            // If sequence is greater than expected, we were overwritten.
+            if current_seq != expected_seq {
+                // Lost event. Advance read_pos to skip.
+                let _ = self.read_pos.compare_exchange(
+                    read_pos,
+                    read_pos + 1,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                );
                 continue;
             }
 
@@ -236,14 +255,26 @@ impl RingBuffer {
                 continue;
             }
 
+            // Re-check sequence to ensure we didn't get overwritten while claiming
+            if slot.sequence.load(Ordering::Acquire) != expected_seq {
+                continue;
+            }
+
             // Read the entry
-            // SAFETY: We have exclusive read access via compare_exchange
-            let entry = unsafe {
+            // SAFETY: We have exclusive read access via compare_exchange AND seqlock check
+            let mut entry = unsafe {
                 let entry_ptr = slot.entry.get();
                 core::ptr::read_volatile(entry_ptr)
             };
 
-            let payload_len = entry.payload_len as usize;
+            // CAPTURE: Cap the payload length to avoid buffer overflow/DoS.
+            // Even if the entry says 65535, we only allocate/copy what the slot can hold.
+            let payload_len = (entry.payload_len as usize).min(MAX_PAYLOAD_SIZE);
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                entry.payload_len = payload_len as u16;
+            }
+
             let mut payload = alloc::vec![0u8; payload_len];
 
             unsafe {
@@ -252,6 +283,12 @@ impl RingBuffer {
                     payload.as_mut_ptr(),
                     payload_len,
                 );
+            }
+
+            // Final Seqlock check: verify sequence hasn't changed during read
+            if slot.sequence.load(Ordering::Acquire) != expected_seq {
+                // Torn read - writer overwrote us during read
+                continue;
             }
 
             return Some((entry, payload));
@@ -332,5 +369,54 @@ mod tests {
         static BUFFER: RingBuffer = RingBuffer::new();
         assert!(BUFFER.is_empty());
         assert!(BUFFER.try_read().is_none());
+    }
+
+    #[test]
+    fn test_exploit_payload_len_overflow() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+
+        // Write a valid entry first
+        let entry = TelemetryEntry {
+            timestamp_ns: 1,
+            level: Level::Info,
+            subsystem: Subsystem::Kernel,
+            event_type: EventType::Boot,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
+            parent_span_id: SpanId::NONE,
+            payload_len: 0, // Initial valid length
+        };
+        assert!(BUFFER.try_write(&entry, b"small"));
+
+        // Manually corrupt the slot to have invalid payload_len
+        // The writer has advanced to index 0.
+        // We need to find where it wrote.
+        // try_write uses fetch_add. First write is at index 0.
+
+        let slot = &BUFFER.slots[0];
+        unsafe {
+            let entry_ptr = slot.entry.get();
+            (*entry_ptr).payload_len = 65535; // Corrupt length
+        }
+
+        // Now try to read
+        // This should panic or return an error if we add checks.
+        // Currently it will try to allocate 65535 bytes and copy garbage.
+        // We want to assert that it DOES NOT crash or read out of bounds.
+        // Since we can't easily detect out-of-bounds read in a unit test without ASAN,
+        // we can check if it returns a huge vector.
+
+        let result = BUFFER.try_read();
+        assert!(result.is_some());
+        let (_, payload) = result.unwrap();
+
+        // If the bug is present, payload.len() will be 65535.
+        // We now assert that the fix caps the length.
+        assert_eq!(
+            payload.len(),
+            MAX_PAYLOAD_SIZE,
+            "Payload length should be capped at MAX_PAYLOAD_SIZE"
+        );
     }
 }
