@@ -30,10 +30,7 @@ async fn main() -> Result<()> {
     let vortex = Arc::new(Vortex::new()?);
     let gallifrey = Arc::new(Gallifrey::new());
 
-    let vortex_service = vortex.clone() as Arc<dyn tardis_common::traits::VortexService>;
-    let gallifrey_service = gallifrey.clone() as Arc<dyn tardis_common::traits::GallifreyService>;
-
-    let chronos = Arc::new(Chronos::new(vortex_service, gallifrey_service));
+    let chronos = Arc::new(Chronos::new(vortex.clone(), gallifrey.clone()));
 
     // Print banner
     print_banner();

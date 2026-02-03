@@ -1,6 +1,7 @@
 //! Benchmarks for Vortex inference operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 use tardis_vortex::model::{ModelHandle, ModelRegistry};
 
 fn bench_model_registry(c: &mut Criterion) {
@@ -37,7 +38,7 @@ fn bench_model_handle(c: &mut Criterion) {
     });
 
     group.bench_function("ModelHandle::display", |b| {
-        b.iter(|| black_box(format!("{}", handle)));
+        b.iter(|| black_box(format!("{handle}")));
     });
 
     group.finish();

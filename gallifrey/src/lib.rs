@@ -25,12 +25,11 @@ pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
-use async_trait::async_trait;
 use std::sync::Arc;
 use tardis_common::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
-use tardis_common::traits::{GallifreyService, QueryResult};
+use tardis_common::traits::QueryResult;
 
 /// The main Gallifrey database instance.
 #[derive(Debug)]
@@ -68,19 +67,16 @@ impl Gallifrey {
     pub fn system_state(&self) -> Arc<SystemStateStore> {
         Arc::clone(&self.system_state)
     }
-}
 
-impl Default for Gallifrey {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl GallifreyService for Gallifrey {
     // --- Knowledge Graph ---
 
-    async fn query(
+    /// Execute a query with optional temporal parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query parsing or execution fails.
+    #[allow(clippy::unused_async)]
+    pub async fn query(
         &self,
         _query: &str,
         _temporal: TemporalQuery,
@@ -93,13 +89,25 @@ impl GallifreyService for Gallifrey {
         })
     }
 
-    async fn insert(&self, node: Entity) -> tardis_common::Result<EntityId> {
+    /// Insert a node into the knowledge graph.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node cannot be inserted.
+    #[allow(clippy::unused_async)]
+    pub async fn insert(&self, node: Entity) -> tardis_common::Result<EntityId> {
         self.knowledge
             .insert_entity(node)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
-    async fn update(
+    /// Update an existing node.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node cannot be updated or properties are invalid.
+    #[allow(clippy::unused_async)]
+    pub async fn update(
         &self,
         id: EntityId,
         properties: serde_json::Value,
@@ -113,13 +121,25 @@ impl GallifreyService for Gallifrey {
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
-    async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
+    /// Get the history of an entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if history cannot be retrieved.
+    #[allow(clippy::unused_async)]
+    pub async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
         self.knowledge
             .get_entity_history(id)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
-    async fn time_travel(
+    /// Travel to a point in time and get a snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if time travel fails.
+    #[allow(clippy::unused_async)]
+    pub async fn time_travel(
         &self,
         _timestamp: chrono::DateTime<chrono::Utc>,
     ) -> tardis_common::Result<QueryResult> {
@@ -131,7 +151,13 @@ impl GallifreyService for Gallifrey {
         })
     }
 
-    async fn search_knowledge(
+    /// Semantic search for entities.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the search fails.
+    #[allow(clippy::unused_async)]
+    pub async fn search_knowledge(
         &self,
         embedding: &[f32],
         limit: usize,
@@ -143,7 +169,13 @@ impl GallifreyService for Gallifrey {
 
     // --- Conversation ---
 
-    async fn get_recent_messages(
+    /// Get recent messages from a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if messages cannot be retrieved.
+    #[allow(clippy::unused_async)]
+    pub async fn get_recent_messages(
         &self,
         session_id: SessionId,
         limit: usize,
@@ -153,7 +185,13 @@ impl GallifreyService for Gallifrey {
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
-    async fn search_conversation(
+    /// Semantic search for messages.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the search fails.
+    #[allow(clippy::unused_async)]
+    pub async fn search_conversation(
         &self,
         embedding: &[f32],
         limit: usize,
@@ -165,7 +203,13 @@ impl GallifreyService for Gallifrey {
 
     // --- System State ---
 
-    async fn find_snapshot(
+    /// Find a system snapshot at a specific time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the snapshot cannot be found.
+    #[allow(clippy::unused_async)]
+    pub async fn find_snapshot(
         &self,
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> tardis_common::Result<Option<Snapshot>> {
@@ -174,9 +218,21 @@ impl GallifreyService for Gallifrey {
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
-    async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
+    /// Record a system change.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the change cannot be recorded.
+    #[allow(clippy::unused_async)]
+    pub async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
         self.system_state
             .record_change(change)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+}
+
+impl Default for Gallifrey {
+    fn default() -> Self {
+        Self::new()
     }
 }
