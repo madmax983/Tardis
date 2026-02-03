@@ -163,15 +163,15 @@ mod tests {
         let analysis = create_analysis(QueryIntent::Question);
         let source = create_source("test content");
 
-        let result = augmenter.augment("test query", &[source], &analysis)?;
+        let augmented = augmenter.augment("test query", &[source], &analysis)?;
 
-        assert!(result.contains("# Tardis AI Assistant"));
-        assert!(result.contains("## Retrieved Context"));
-        assert!(result.contains("### Knowledge 1 (relevance: 1.00)"));
-        assert!(result.contains("test content"));
-        assert!(result.contains("## User Query"));
-        assert!(result.contains("test query"));
-        assert!(result.contains("## Instructions"));
+        assert!(augmented.contains("# Tardis AI Assistant"));
+        assert!(augmented.contains("## Retrieved Context"));
+        assert!(augmented.contains("### Knowledge 1 (relevance: 1.00)"));
+        assert!(augmented.contains("test content"));
+        assert!(augmented.contains("## User Query"));
+        assert!(augmented.contains("test query"));
+        assert!(augmented.contains("## Instructions"));
         Ok(())
     }
 
@@ -180,10 +180,10 @@ mod tests {
         let augmenter = ContextAugmenter::new();
         let analysis = create_analysis(QueryIntent::Question);
 
-        let result = augmenter.augment("test query", &[], &analysis)?;
+        let augmented = augmenter.augment("test query", &[], &analysis)?;
 
-        assert!(!result.contains("## Retrieved Context"));
-        assert!(result.contains("## User Query"));
+        assert!(!augmented.contains("## Retrieved Context"));
+        assert!(augmented.contains("## User Query"));
         Ok(())
     }
 
@@ -198,12 +198,12 @@ mod tests {
         let source1 = create_source(&big_content);
         let source2 = create_source("should be truncated");
 
-        let result = augmenter.augment("test query", &[source1, source2], &analysis)?;
+        let augmented = augmenter.augment("test query", &[source1, source2], &analysis)?;
 
-        assert!(result.contains("more sources truncated"));
+        assert!(augmented.contains("more sources truncated"));
 
-        assert!(result.contains("2 more sources truncated"));
-        assert!(!result.contains(&big_content));
+        assert!(augmented.contains("2 more sources truncated"));
+        assert!(!augmented.contains(&big_content));
         Ok(())
     }
 
@@ -220,14 +220,14 @@ mod tests {
         let content2 = "b".repeat(12000);
         let source2 = create_source(&content2);
 
-        let result = augmenter.augment("test query", &[source1, source2], &analysis)?;
+        let augmented = augmenter.augment("test query", &[source1, source2], &analysis)?;
 
         // Source 1 should be present
-        assert!(result.contains("### Knowledge 1"));
+        assert!(augmented.contains("### Knowledge 1"));
 
         // Source 2 should be truncated
-        assert!(result.contains("1 more sources truncated"));
-        assert!(!result.contains(&content2));
+        assert!(augmented.contains("1 more sources truncated"));
+        assert!(!augmented.contains(&content2));
         Ok(())
     }
 
@@ -243,10 +243,10 @@ mod tests {
 
         for (intent, expected_phrase) in intents {
             let analysis = create_analysis(intent);
-            let result = augmenter.augment("test query", &[], &analysis)?;
+            let augmented = augmenter.augment("test query", &[], &analysis)?;
 
             assert!(
-                result.contains(expected_phrase),
+                augmented.contains(expected_phrase),
                 "Intent {:?} did not produce phrase '{}'",
                 analysis.intent,
                 expected_phrase
@@ -261,10 +261,10 @@ mod tests {
         let mut analysis = create_analysis(QueryIntent::Question);
         analysis.temporal_description = Some("yesterday".to_string());
 
-        let result = augmenter.augment("test query", &[], &analysis)?;
+        let augmented = augmenter.augment("test query", &[], &analysis)?;
 
-        assert!(result.contains("Current time:"));
-        assert!(result.contains("Query temporal context: yesterday"));
+        assert!(augmented.contains("Current time:"));
+        assert!(augmented.contains("Query temporal context: yesterday"));
         Ok(())
     }
 }

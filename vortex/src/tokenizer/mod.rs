@@ -205,7 +205,7 @@ impl TokenizerService {
 
     /// Encode text, ensuring a BOS token is present at the start.
     ///
-    /// This method calls [`Self::encode`] and then ensures the BOS token is at the
+    /// This method calls [`encode`] and then ensures the BOS token is at the
     /// start of the sequence. If the tokenizer already added a BOS token
     /// (based on its configuration), no duplicate is added.
     ///
@@ -258,7 +258,7 @@ impl TokenizerService {
 
     /// Decode tokens, including special tokens in the output.
     ///
-    /// Unlike [`Self::decode`], this preserves special tokens (BOS, EOS, etc.) in the
+    /// Unlike [`decode`], this preserves special tokens (BOS, EOS, etc.) in the
     /// output string. Useful for debugging or when you need to see the raw
     /// token sequence.
     ///

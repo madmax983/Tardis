@@ -1,9 +1,6 @@
 //! Benchmarks for Chronos RAG pipeline operations.
 
-#![allow(clippy::unwrap_used)]
-
-use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tardis_chronos::pipeline::{ContextAugmenter, QueryAnalyzer};
 
 fn bench_query_analyzer(c: &mut Criterion) {

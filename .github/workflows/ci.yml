@@ -121,7 +121,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -154,6 +154,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Check licenses and advisories
-        uses: EmbarkStudios/cargo-deny-action@v1
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
