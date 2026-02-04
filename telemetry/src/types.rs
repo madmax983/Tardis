@@ -3,7 +3,6 @@
 //! All types in this module are `no_std` compatible and can be used
 //! in both kernel and userspace contexts.
 
-use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -220,6 +219,24 @@ pub enum Subsystem {
     Unknown = 255,
 }
 
+/// Helper for case-insensitive substring check without allocation.
+fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    let needle_len = needle.len();
+    if haystack.len() < needle_len {
+        return false;
+    }
+
+    haystack.as_bytes().windows(needle_len).any(|window| {
+        window
+            .iter()
+            .zip(needle.as_bytes())
+            .all(|(h, n)| h.eq_ignore_ascii_case(n))
+    })
+}
+
 impl Subsystem {
     /// Returns the subsystem as a static string.
     #[must_use]
@@ -261,17 +278,10 @@ impl Subsystem {
             ("telemetry", Subsystem::Telemetry),
         ];
 
-        // Bolt: Performance optimization to avoid allocation for common lowercase targets.
-        // Most tracing targets are module paths which are lowercase.
-        let target_cow = if target.chars().any(char::is_uppercase) {
-            Cow::Owned(target.to_lowercase())
-        } else {
-            Cow::Borrowed(target)
-        };
-        let target_lower = &*target_cow;
-
+        // Warden: Zero-allocation case-insensitive search.
+        // Critical for safety in restricted contexts (interrupts, no_std).
         for (key, subsystem) in MAPPINGS {
-            if target_lower.contains(key) {
+            if contains_ignore_case(target, key) {
                 return *subsystem;
             }
         }

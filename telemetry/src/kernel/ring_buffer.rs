@@ -260,7 +260,8 @@ impl RingBuffer {
                 core::ptr::read_volatile(entry_ptr)
             };
 
-            let payload_len = entry.payload_len as usize;
+            // Cap payload length to prevent buffer overread/overflow if header is corrupted
+            let payload_len = (entry.payload_len as usize).min(MAX_PAYLOAD_SIZE);
             let mut payload = alloc::vec![0u8; payload_len];
 
             unsafe {
@@ -269,6 +270,16 @@ impl RingBuffer {
                     payload.as_mut_ptr(),
                     payload_len,
                 );
+            }
+
+            // Verify sequence hasn't changed (Seqlock check)
+            // If it has, the writer overwrote the slot while we were reading
+            let post_seq = slot.sequence.load(Ordering::Acquire);
+            if post_seq != expected_seq {
+                // Corruption detected, retry
+                // Note: We already incremented read_pos, so we effectively dropped this message.
+                // But returning corrupted data is worse.
+                continue;
             }
 
             return Some((entry, payload));
@@ -394,6 +405,44 @@ mod tests {
             // Or just the next valid read_pos (1).
             // Let's just assert we got something and it didn't hang.
             assert!(read_entry.timestamp_ns > 0);
+        } else {
+            panic!("Should have returned an entry");
+        }
+    }
+
+    #[test]
+    fn ring_buffer_corrupted_header_safety() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+
+        // Write a valid entry
+        let entry = TelemetryEntry {
+            timestamp_ns: 1,
+            level: Level::Info,
+            subsystem: Subsystem::Kernel,
+            event_type: EventType::Log,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
+            parent_span_id: SpanId::NONE,
+            payload_len: 10,
+        };
+        BUFFER.try_write(&entry, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+        // Manually corrupt the entry in the slot to have a huge payload_len
+        // This simulates a bit flip or race condition corruption
+        // SAFETY: We are in a test and accessing the slot directly
+        unsafe {
+            // Accessing private field 'slots' - allowed in child module
+            let slot = &BUFFER.slots[0];
+            // Accessing private field 'entry' - allowed in child module
+            (*slot.entry.get()).payload_len = 65535;
+        }
+
+        // Try to read. It should NOT panic or crash.
+        // It should return a payload capped at MAX_PAYLOAD_SIZE.
+        if let Some((read_entry, payload)) = BUFFER.try_read() {
+            assert_eq!(read_entry.payload_len, 65535); // The entry itself has the corrupted value
+            assert_eq!(payload.len(), MAX_PAYLOAD_SIZE); // The payload vector is capped
         } else {
             panic!("Should have returned an entry");
         }
