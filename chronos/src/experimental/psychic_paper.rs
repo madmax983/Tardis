@@ -1,0 +1,263 @@
+//! Psychic Paper: The Universal Interpreter.
+//!
+//! "It shows you what you want to see."
+//!
+//! This module provides robust parsing for unstructured text, designed to handle
+//! the messy output of LLMs or user input.
+
+use serde_json::{Value, json};
+
+/// The intent of the interpretation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Intent {
+    /// Try to infer the format.
+    Auto,
+    /// Expect JSON (strips markdown code blocks).
+    Json,
+    /// Expect a list (bullets, numbered, or comma-separated).
+    List,
+    /// Expect Key-Value pairs (e.g., "Name: Doctor").
+    KeyValue,
+}
+
+/// The Psychic Paper interpreter.
+#[derive(Debug, Default)]
+pub struct PsychicPaper;
+
+impl PsychicPaper {
+    /// Create a new PsychicPaper instance.
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Interpret text based on the given intent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if parsing fails.
+    pub fn interpret(&self, text: &str, intent: Intent) -> Result<Value, String> {
+        match intent {
+            Intent::Auto => self.interpret_auto(text),
+            Intent::Json => self.interpret_json(text),
+            Intent::List => self.interpret_list(text),
+            Intent::KeyValue => self.interpret_kv(text),
+        }
+    }
+
+    fn interpret_auto(&self, text: &str) -> Result<Value, String> {
+        // Simple heuristics
+        let trimmed = text.trim();
+        if trimmed.starts_with('{') || trimmed.starts_with('[') {
+             // If it looks like JSON, try JSON first
+             if let Ok(v) = self.interpret_json(text) {
+                 return Ok(v);
+             }
+        }
+
+        // Check for Markdown code block with json
+        if trimmed.contains("```json") {
+            if let Ok(v) = self.interpret_json(text) {
+                return Ok(v);
+            }
+        }
+
+        if trimmed.contains('\n') && (trimmed.contains("- ") || trimmed.contains("* ")) {
+            return self.interpret_list(text);
+        }
+
+        if trimmed.contains(':') {
+             // Check if it looks like KV lines
+             // Heuristic: majority of lines have ':'
+             let lines: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
+             if !lines.is_empty() {
+                 let colon_count = lines.iter().filter(|l| l.contains(':')).count();
+                 if colon_count >= lines.len() / 2 {
+                     return self.interpret_kv(text);
+                 }
+             }
+        }
+
+        // Fallback: just a string
+        Ok(Value::String(text.to_string()))
+    }
+
+    fn interpret_json(&self, text: &str) -> Result<Value, String> {
+        // 1. Try direct parse
+        if let Ok(v) = serde_json::from_str(text) {
+            return Ok(v);
+        }
+
+        // 2. Try to find JSON block
+        // Find the outermost braces or brackets
+        let start_obj = text.find('{');
+        let start_arr = text.find('[');
+
+        let start = match (start_obj, start_arr) {
+            (Some(o), Some(a)) => Some(o.min(a)),
+            (Some(o), None) => Some(o),
+            (None, Some(a)) => Some(a),
+            (None, None) => None,
+        };
+
+        let end_obj = text.rfind('}');
+        let end_arr = text.rfind(']');
+
+        let end = match (end_obj, end_arr) {
+            (Some(o), Some(a)) => Some(o.max(a)),
+            (Some(o), None) => Some(o),
+            (None, Some(a)) => Some(a),
+            (None, None) => None,
+        };
+
+        if let (Some(s), Some(e)) = (start, end) {
+            if s <= e {
+                let candidate = &text[s..=e];
+                if let Ok(v) = serde_json::from_str(candidate) {
+                    return Ok(v);
+                }
+            }
+        }
+
+        Err("Could not find valid JSON".to_string())
+    }
+
+    fn interpret_list(&self, text: &str) -> Result<Value, String> {
+        let items: Vec<String> = text
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .map(|line| {
+                // Strip bullets
+                if let Some(stripped) = line.strip_prefix("- ") { return stripped.to_string(); }
+                if let Some(stripped) = line.strip_prefix("* ") { return stripped.to_string(); }
+                // Strip numbers "1. "
+                if let Some(idx) = line.find(". ") {
+                    if idx > 0 && line[..idx].chars().all(|c| c.is_numeric()) {
+                         return line[idx+2..].to_string();
+                    }
+                }
+                line.to_string()
+            })
+            .collect();
+
+        if items.is_empty() {
+             // Try comma separation if single line
+             if !text.contains('\n') && text.contains(',') {
+                 let items: Vec<String> = text.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                 return Ok(json!(items));
+             }
+        }
+
+        Ok(json!(items))
+    }
+
+    fn interpret_kv(&self, text: &str) -> Result<Value, String> {
+        let mut map = serde_json::Map::new();
+
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() { continue; }
+
+            if let Some((key, value)) = line.split_once(':') {
+                let key = key.trim().to_string();
+                let value = value.trim();
+
+                // Try to parse value as JSON (number, boolean, null), else string
+                let json_val = if let Ok(v) = serde_json::from_str(value) {
+                    v
+                } else {
+                    Value::String(value.to_string())
+                };
+
+                map.insert(key, json_val);
+            }
+        }
+
+        Ok(Value::Object(map))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_interpret_json_clean() {
+        let text = r#"{"name": "Doctor", "age": 900}"#;
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::Json).unwrap();
+        assert_eq!(result, json!({"name": "Doctor", "age": 900}));
+    }
+
+    #[test]
+    fn test_interpret_json_markdown() {
+        let text = r#"Here is the JSON:
+```json
+{
+  "name": "Master",
+  "plan": "Conquest"
+}
+```
+Hope that helps."#;
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::Json).unwrap();
+        assert_eq!(result, json!({"name": "Master", "plan": "Conquest"}));
+    }
+
+    #[test]
+    fn test_interpret_list_bullets() {
+        let text = "- Sonic Screwdriver\n- TARDIS Key\n- Psychic Paper";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::List).unwrap();
+        assert_eq!(result, json!(["Sonic Screwdriver", "TARDIS Key", "Psychic Paper"]));
+    }
+
+    #[test]
+    fn test_interpret_list_numbered() {
+        let text = "1. Run\n2. Hide\n3. Save the world";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::List).unwrap();
+        assert_eq!(result, json!(["Run", "Hide", "Save the world"]));
+    }
+
+    #[test]
+    fn test_interpret_kv() {
+        let text = "Species: Time Lord\nOrigin: Gallifrey\nRegenerations: 12";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::KeyValue).unwrap();
+        assert_eq!(result, json!({
+            "Species": "Time Lord",
+            "Origin": "Gallifrey",
+            "Regenerations": 12
+        }));
+    }
+
+    #[test]
+    fn test_interpret_auto_json() {
+        let text = r#"{"type": "TARDIS"}"#;
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::Auto).unwrap();
+        assert_eq!(result, json!({"type": "TARDIS"}));
+    }
+
+    #[test]
+    fn test_interpret_auto_list() {
+        let text = "* Dalek\n* Cyberman";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::Auto).unwrap();
+        assert_eq!(result, json!(["Dalek", "Cyberman"]));
+    }
+
+    #[test]
+    fn test_interpret_auto_kv() {
+        let text = "Enemy: Weeping Angel\nDon't: Blink";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::Auto).unwrap();
+        assert_eq!(result, json!({"Enemy": "Weeping Angel", "Don't": "Blink"}));
+    }
+}
