@@ -1,3 +1,3 @@
-**[Cow Optimization for Case-Insensitive Parsing]
-**Learning:** `str::to_lowercase()` creates a heap allocation every time. In hot paths like telemetry target parsing where inputs are predominantly lowercase (e.g., module paths), this overhead is significant.
-**Action:** Use `Cow<'a, str>` combined with a check like `target.chars().any(char::is_uppercase)` to borrow the original string in the common case, allocating only when necessary.
+**Iterator Overhead on Hot Paths
+**Learning:** `haystack.as_bytes().windows(n).any(...)` is elegant but introduces significant overhead for short strings compared to manual loops, especially when checking against multiple needles.
+**Action:** Use manual byte loops with a "first-byte fast check" for high-frequency string matching in `no_std` or performance-critical contexts.
