@@ -52,3 +52,18 @@ pub enum GallifreyError {
 
 /// Result type for Gallifrey operations.
 pub type GallifreyResult<T> = Result<T, GallifreyError>;
+
+impl From<GallifreyError> for tardis_common::Error {
+    fn from(err: GallifreyError) -> Self {
+        match err {
+            GallifreyError::QueryParseError(msg) => Self::QueryParseError(msg),
+            GallifreyError::QueryExecutionFailed(msg) => Self::QueryExecutionFailed(msg),
+            GallifreyError::EntityNotFound(msg) => Self::EntityNotFound(msg),
+            GallifreyError::InvalidTemporalReference(msg) => Self::InvalidTemporalReference(msg),
+            GallifreyError::TimeTravelFailed(msg) => Self::TimeTravelFailed { reason: msg },
+            GallifreyError::Serialization(e) => Self::Serialization(e),
+            GallifreyError::Io(e) => Self::Io(e),
+            _ => Self::Internal(err.to_string()),
+        }
+    }
+}

@@ -12,3 +12,12 @@
 2.  Updated `GallifreyService` trait in `common` to include methods for conversation and system state.
 3.  Refactored `Chronos` to use `Arc<dyn VortexService>` and `Arc<dyn GallifreyService>`.
 **Stability:** `Chronos` is now decoupled from specific implementations, allowing for easier mocking and substitution.
+
+**[Architect] Enforce Chronos Decoupling via Traits**
+**Tangle:** `Chronos` was still coupled to concrete `Vortex` and `Gallifrey` structs despite previous plans. `Vortex` defined its own `ModelHandle`, causing type mismatches.
+**Blueprint:**
+1. Moved `ModelLoadConfig` and `InferenceParams` to `common::llm`.
+2. Defined `VortexService` and `GallifreyService` in `common::traits`.
+3. Refactored `vortex` to use `common::id::ModelHandle`.
+4. Updated `Chronos` to use `Arc<dyn Service>`.
+**Stability:** `Chronos` is now truly decoupled. `ModelHandle` is unified.

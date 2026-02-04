@@ -38,7 +38,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod config;
 pub mod error;
 pub mod inference;
 pub mod loader;
@@ -46,8 +45,8 @@ pub mod model;
 pub mod tokenizer;
 
 // Re-export main types
-pub use config::{InferenceParams, ModelLoadConfig};
 pub use error::{VortexError, VortexResult};
+pub use tardis_common::llm::{InferenceParams, ModelLoadConfig};
 pub use inference::Vortex;
 pub use loader::ModelPreset;
 pub use model::{ModelHandle, ModelInfo, ModelRegistry};

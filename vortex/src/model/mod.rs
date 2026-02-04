@@ -7,7 +7,8 @@
 
 mod registry;
 
-pub use registry::{ModelHandle, ModelInfo, ModelRegistry};
+pub use registry::{ModelInfo, ModelRegistry};
+pub use tardis_common::id::ModelHandle;
 
 use serde::{Deserialize, Serialize};
 
