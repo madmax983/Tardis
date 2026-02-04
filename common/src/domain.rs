@@ -46,6 +46,17 @@ pub struct Relationship {
     pub temporal: BiTemporalInterval,
 }
 
+/// Query results from Gallifrey.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResult {
+    /// Result nodes.
+    pub nodes: Vec<Entity>,
+    /// Query execution time in milliseconds.
+    pub execution_time_ms: u64,
+    /// Whether results were truncated.
+    pub truncated: bool,
+}
+
 // ============================================================================
 // Conversation
 // ============================================================================

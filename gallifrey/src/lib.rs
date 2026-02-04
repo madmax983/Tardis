@@ -16,7 +16,6 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
-pub mod query;
 pub mod stores;
 pub mod temporal;
 
@@ -26,10 +25,9 @@ pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
 use std::sync::Arc;
-use tardis_common::domain::{Change, Entity, Message, Snapshot};
+use tardis_common::domain::{Change, Entity, Message, QueryResult, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
-use tardis_common::traits::QueryResult;
 
 /// The main Gallifrey database instance.
 #[derive(Debug)]

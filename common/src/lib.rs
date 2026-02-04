@@ -16,7 +16,6 @@ pub mod domain;
 pub mod error;
 pub mod id;
 pub mod temporal;
-pub mod traits;
 
 // Re-export commonly used items
 pub use error::{Error, Result};
