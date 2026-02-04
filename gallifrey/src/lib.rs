@@ -16,6 +16,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+/// Experimental features (Nova).
+pub mod experimental;
 pub mod query;
 pub mod stores;
 pub mod temporal;

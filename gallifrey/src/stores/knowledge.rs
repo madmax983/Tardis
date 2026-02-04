@@ -208,6 +208,24 @@ impl KnowledgeStore {
             .cloned()
             .collect())
     }
+
+    /// Scan all history of all entities.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn scan_history(&self) -> GallifreyResult<Vec<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities
+            .values()
+            .flat_map(|versions| versions.iter())
+            .cloned()
+            .collect())
+    }
 }
 
 impl Default for KnowledgeStore {
