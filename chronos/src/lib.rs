@@ -19,3 +19,6 @@ pub mod pipeline;
 // Re-export main types
 pub use error::{ChronosError, ChronosResult};
 pub use pipeline::{Chronos, MemoryCategory, RagConfig, RagResponse};
+
+#[cfg(feature = "nova")]
+pub mod experimental;
