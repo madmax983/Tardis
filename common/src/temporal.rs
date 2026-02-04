@@ -82,7 +82,31 @@ impl Default for TimeRange {
 
 /// Bi-temporal interval tracking both valid and transaction time.
 ///
-/// This is the core temporal primitive used throughout Gallifrey.
+/// This is the core temporal primitive used throughout Gallifrey. It allows answering two types of questions:
+/// 1. **History**: "What was true at 10 AM yesterday?" (Valid Time)
+/// 2. **Audit**: "What did we *believe* was true at 10 AM yesterday?" (Transaction Time)
+///
+/// # Examples
+///
+/// Correcting a mistake in the past:
+///
+/// ```
+/// use tardis_common::temporal::BiTemporalInterval;
+///
+/// // 1. We record a fact (Transaction Time starts now)
+/// //    Belief: "It is raining" (Valid Time starts now)
+/// let original_fact = BiTemporalInterval::now();
+///
+/// // 2. Later, we realize it actually started raining an hour ago.
+/// //    We "supersede" the old fact (close its Transaction Time).
+/// let old_version = original_fact.supersede();
+///
+/// // 3. We create a new version with the corrected Valid Time.
+/// //    Transaction Time starts NOW (we just learned this).
+/// //    Valid Time starts 1 hour ago (when it actually happened).
+/// //    The system now knows that "it was raining an hour ago",
+/// //    but also remembers that "we didn't know that until now".
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BiTemporalInterval {
     /// When the fact was/is true in the real world.
