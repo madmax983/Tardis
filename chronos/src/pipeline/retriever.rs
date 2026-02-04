@@ -30,19 +30,25 @@ impl Retriever {
         query: &AnalyzedQuery,
         config: &RagConfig,
     ) -> ChronosResult<Vec<ContextSource>> {
-        let mut sources = Vec::new();
+        // Pre-allocate to avoid resizing.
+        // We expect up to max_context_items from each source plus some recent messages.
+        // 3 sources * max_context_items + 5 (recent messages padding)
+        let capacity = config.max_context_items * 3 + 5;
+        let mut sources = Vec::with_capacity(capacity);
 
         // Retrieve from each source in parallel (TODO: make truly parallel)
         if config.include_knowledge {
-            sources.extend(self.retrieve_knowledge(query, config).await?);
+            self.retrieve_knowledge(query, config, &mut sources).await?;
         }
 
         if config.include_conversation {
-            sources.extend(self.retrieve_conversation(query, config).await?);
+            self.retrieve_conversation(query, config, &mut sources)
+                .await?;
         }
 
         if config.include_system_state {
-            sources.extend(self.retrieve_system_state(query, config).await?);
+            self.retrieve_system_state(query, config, &mut sources)
+                .await?;
         }
 
         // Sort by relevance and limit
@@ -62,7 +68,8 @@ impl Retriever {
         &self,
         _query: &AnalyzedQuery,
         config: &RagConfig,
-    ) -> ChronosResult<Vec<ContextSource>> {
+        sources: &mut Vec<ContextSource>,
+    ) -> ChronosResult<()> {
         info!("Retrieving from knowledge graph");
 
         // TODO: Generate embedding for query
@@ -74,15 +81,16 @@ impl Retriever {
             .await
             .map_err(ChronosError::Common)?;
 
-        Ok(entities
-            .into_iter()
-            .map(|e| ContextSource {
+        for e in entities {
+            sources.push(ContextSource {
                 source_type: ContextSourceType::Knowledge,
                 content: format!("{}: {:?}", e.name, e.properties),
                 relevance: 0.8, // TODO: Actual relevance score
                 entity_id: Some(e.id),
-            })
-            .collect())
+            });
+        }
+
+        Ok(())
     }
 
     /// Retrieve from conversation history.
@@ -91,10 +99,9 @@ impl Retriever {
         &self,
         _query: &AnalyzedQuery,
         config: &RagConfig,
-    ) -> ChronosResult<Vec<ContextSource>> {
+        sources: &mut Vec<ContextSource>,
+    ) -> ChronosResult<()> {
         info!("Retrieving from conversation history");
-
-        let mut sources = Vec::new();
 
         // Get recent messages from current session
         if let Some(session_id) = config.session_id {
@@ -131,7 +138,7 @@ impl Retriever {
             });
         }
 
-        Ok(sources)
+        Ok(())
     }
 
     /// Retrieve from system state.
@@ -140,10 +147,9 @@ impl Retriever {
         &self,
         query: &AnalyzedQuery,
         _config: &RagConfig,
-    ) -> ChronosResult<Vec<ContextSource>> {
+        sources: &mut Vec<ContextSource>,
+    ) -> ChronosResult<()> {
         info!("Retrieving from system state");
-
-        let mut sources = Vec::new();
 
         // If query has temporal references, find relevant snapshots
         for temporal_ref in &query.temporal_refs {
@@ -168,6 +174,36 @@ impl Retriever {
             }
         }
 
-        Ok(sources)
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
+    use std::sync::Arc;
+    use tardis_gallifrey::Gallifrey;
+
+    #[tokio::test]
+    async fn test_retrieve() {
+        let gallifrey = Arc::new(Gallifrey::new());
+        let retriever = Retriever::new(gallifrey);
+
+        let query = AnalyzedQuery {
+            text: "test query".to_string(),
+            intent: QueryIntent::Question,
+            temporal_refs: Vec::new(),
+            temporal_description: None,
+            entities: Vec::new(),
+        };
+
+        let config = RagConfig::default();
+
+        let result = retriever.retrieve(&query, &config).await;
+        assert!(result.is_ok());
+        let sources = result.unwrap();
+        // Even if empty, it should work
+        assert!(sources.len() <= config.max_context_items);
     }
 }
