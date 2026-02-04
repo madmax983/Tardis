@@ -7,30 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
-
-/// A handle to a loaded model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ModelHandle(u64);
-
-impl ModelHandle {
-    /// Create a new model handle from a raw value.
-    #[must_use]
-    pub const fn new(value: u64) -> Self {
-        Self(value)
-    }
-
-    /// Get the raw handle value.
-    #[must_use]
-    pub const fn raw(&self) -> u64 {
-        self.0
-    }
-}
-
-impl std::fmt::Display for ModelHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "model:{}", self.0)
-    }
-}
+use tardis_common::id::ModelHandle;
 
 /// Information about a model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,7 +97,7 @@ impl ModelRegistry {
     ///
     /// Returns an error if the registry lock is poisoned.
     pub fn mark_loaded(&self, path: &PathBuf, memory_bytes: u64) -> VortexResult<ModelHandle> {
-        let handle = ModelHandle(self.next_handle.fetch_add(1, Ordering::SeqCst));
+        let handle = ModelHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
 
         // Update model info
         {

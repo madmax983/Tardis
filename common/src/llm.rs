@@ -1,4 +1,7 @@
-//! Configuration types for Vortex.
+//! LLM Configuration types shared across Tardis OS.
+//!
+//! Provides configuration structs for model loading and inference,
+//! used by both Vortex (inference engine) and Chronos (RAG orchestrator).
 
 use serde::{Deserialize, Serialize};
 

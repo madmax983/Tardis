@@ -4,19 +4,19 @@ use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
-use tardis_gallifrey::Gallifrey;
+use tardis_common::traits::GallifreyService;
 use tracing::info;
 
 /// Multi-source retriever.
 #[derive(Debug)]
 pub struct Retriever {
-    gallifrey: Arc<Gallifrey>,
+    gallifrey: Arc<dyn GallifreyService>,
 }
 
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self { gallifrey }
     }
 

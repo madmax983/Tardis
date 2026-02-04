@@ -1,6 +1,5 @@
 //! Main Vortex inference runtime.
 
-use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
 use crate::loader::{
     download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
@@ -10,7 +9,10 @@ use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
 use std::collections::HashMap;
 use std::path::Path;
+use async_trait::async_trait;
 use std::sync::{Arc, RwLock};
+use tardis_common::llm::{InferenceParams, ModelLoadConfig};
+use tardis_common::traits::VortexService;
 use tokio::task;
 use tracing::{info, instrument};
 
@@ -341,6 +343,34 @@ impl Vortex {
             .read()
             .map(|models| models.contains_key(&handle))
             .unwrap_or(false)
+    }
+}
+
+#[async_trait]
+impl VortexService for Vortex {
+    async fn load_model(
+        &self,
+        path: &str,
+        config: ModelLoadConfig,
+    ) -> tardis_common::Result<ModelHandle> {
+        self.load_model(path, config).await.map_err(Into::into)
+    }
+
+    async fn unload_model(&self, handle: ModelHandle) -> tardis_common::Result<()> {
+        self.unload_model(handle).await.map_err(Into::into)
+    }
+
+    async fn infer(
+        &self,
+        handle: ModelHandle,
+        prompt: &str,
+        params: InferenceParams,
+    ) -> tardis_common::Result<String> {
+        self.infer(handle, prompt, params).await.map_err(Into::into)
+    }
+
+    async fn embed(&self, handle: ModelHandle, text: &str) -> tardis_common::Result<Vec<f32>> {
+        self.embed(handle, text).await.map_err(Into::into)
     }
 }
 
