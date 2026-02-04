@@ -14,6 +14,14 @@ pub use tardis_common::domain::{Entity, Relationship};
 use tardis_common::EntityId;
 
 /// The knowledge graph store.
+///
+/// This store manages the lifecycle of entities and relationships, ensuring
+/// thread safety via [`RwLock`]s and history tracking via bi-temporal intervals.
+///
+/// # Concurrency
+///
+/// - **Reads**: Concurrent readers are allowed.
+/// - **Writes**: Exclusive write access is required for inserts and updates.
 #[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
@@ -33,6 +41,28 @@ impl KnowledgeStore {
     }
 
     /// Insert an entity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::{KnowledgeStore, Entity};
+    /// use tardis_common::id::EntityId;
+    /// use tardis_common::temporal::BiTemporalInterval;
+    /// use std::collections::HashMap;
+    ///
+    /// let store = KnowledgeStore::new();
+    /// let entity = Entity {
+    ///     id: EntityId::new(),
+    ///     entity_type: "Test".to_string(),
+    ///     name: "Test Entity".to_string(),
+    ///     properties: HashMap::new(),
+    ///     embedding: None,
+    ///     temporal: BiTemporalInterval::now(),
+    ///     source: None,
+    /// };
+    ///
+    /// assert!(store.insert_entity(entity).is_ok());
+    /// ```
     ///
     /// # Errors
     ///
@@ -106,6 +136,40 @@ impl KnowledgeStore {
     }
 
     /// Update an entity (creates new version).
+    ///
+    /// This operation is **non-destructive**. It:
+    /// 1. Finds the current version.
+    /// 2. Marks it as superseded (closing its transaction time).
+    /// 3. Creates a new version with the updates and a new transaction start time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::{KnowledgeStore, Entity};
+    /// use tardis_common::id::EntityId;
+    /// use tardis_common::temporal::BiTemporalInterval;
+    /// use std::collections::HashMap;
+    /// use serde_json::json;
+    ///
+    /// let store = KnowledgeStore::new();
+    /// let id = EntityId::new();
+    /// let entity = Entity {
+    ///     id,
+    ///     entity_type: "Person".to_string(),
+    ///     name: "Rose".to_string(),
+    ///     properties: HashMap::new(),
+    ///     embedding: None,
+    ///     temporal: BiTemporalInterval::now(),
+    ///     source: None,
+    /// };
+    /// store.insert_entity(entity).unwrap();
+    ///
+    /// // Update a property
+    /// let mut updates = HashMap::new();
+    /// updates.insert("status".to_string(), json!("Bad Wolf"));
+    ///
+    /// assert!(store.update_entity(id, updates).is_ok());
+    /// ```
     ///
     /// # Errors
     ///
