@@ -50,7 +50,7 @@ const-literal-digits-threshold = 4
 # ============================================================================
 
 # Known MSRV - enables/disables lints based on minimum Rust version
-msrv = "1.83"
+msrv = "1.85"
 
 # Paths to consider as standard library (for path lints)
 # Adding our common crate so `common::Error` is treated like std types

@@ -151,8 +151,18 @@ impl TemporalHeatmap {
         let max_val = self.grid.iter().flatten().max().copied().unwrap_or(0);
 
         writeln!(&mut output, "Temporal Heatmap (Y: Transaction, X: Valid)").ok();
-        writeln!(&mut output, "Y-Range: {} to {}", self.transaction_range.0, self.transaction_range.1).ok();
-        writeln!(&mut output, "X-Range: {} to {}", self.valid_range.0, self.valid_range.1).ok();
+        writeln!(
+            &mut output,
+            "Y-Range: {} to {}",
+            self.transaction_range.0, self.transaction_range.1
+        )
+        .ok();
+        writeln!(
+            &mut output,
+            "X-Range: {} to {}",
+            self.valid_range.0, self.valid_range.1
+        )
+        .ok();
         writeln!(&mut output, "Max Count: {}", max_val).ok();
         writeln!(&mut output, "┌{}┐", "─".repeat(self.x_bins)).ok();
 
@@ -179,9 +189,9 @@ impl TemporalHeatmap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
-    use tardis_common::id::EntityId;
     use std::collections::HashMap;
+    use tardis_common::id::EntityId;
+    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 
     fn create_entity(
         valid_start: DateTime<Utc>,
@@ -217,7 +227,12 @@ mod tests {
         // Entity 1: Hour 0-1 valid, recorded at Hour 0-1
         let e1 = create_entity(now, Some(now + hour), now, Some(now + hour));
         // Entity 2: Hour 1-2 valid, recorded at Hour 1-2
-        let e2 = create_entity(now + hour, Some(now + hour * 2), now + hour, Some(now + hour * 2));
+        let e2 = create_entity(
+            now + hour,
+            Some(now + hour * 2),
+            now + hour,
+            Some(now + hour * 2),
+        );
 
         let history = vec![e1, e2];
         let heatmap = TemporalHeatmap::new(&history, 2, 2);

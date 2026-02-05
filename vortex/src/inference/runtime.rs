@@ -7,9 +7,9 @@ use crate::loader::{
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
-use async_trait::async_trait;
 use std::sync::{Arc, RwLock};
 use tardis_common::llm::{InferenceParams, ModelLoadConfig};
 use tardis_common::traits::VortexService;

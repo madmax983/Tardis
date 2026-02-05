@@ -5,7 +5,7 @@
 //! This module provides robust parsing for unstructured text, designed to handle
 //! the messy output of LLMs or user input.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 /// The intent of the interpretation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,10 +49,10 @@ impl PsychicPaper {
         // Simple heuristics
         let trimmed = text.trim();
         if trimmed.starts_with('{') || trimmed.starts_with('[') {
-             // If it looks like JSON, try JSON first
-             if let Ok(v) = self.interpret_json(text) {
-                 return Ok(v);
-             }
+            // If it looks like JSON, try JSON first
+            if let Ok(v) = self.interpret_json(text) {
+                return Ok(v);
+            }
         }
 
         // Check for Markdown code block with json
@@ -67,15 +67,15 @@ impl PsychicPaper {
         }
 
         if trimmed.contains(':') {
-             // Check if it looks like KV lines
-             // Heuristic: majority of lines have ':'
-             let lines: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
-             if !lines.is_empty() {
-                 let colon_count = lines.iter().filter(|l| l.contains(':')).count();
-                 if colon_count >= lines.len() / 2 {
-                     return self.interpret_kv(text);
-                 }
-             }
+            // Check if it looks like KV lines
+            // Heuristic: majority of lines have ':'
+            let lines: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
+            if !lines.is_empty() {
+                let colon_count = lines.iter().filter(|l| l.contains(':')).count();
+                if colon_count >= lines.len() / 2 {
+                    return self.interpret_kv(text);
+                }
+            }
         }
 
         // Fallback: just a string
@@ -129,12 +129,16 @@ impl PsychicPaper {
             .filter(|line| !line.is_empty())
             .map(|line| {
                 // Strip bullets
-                if let Some(stripped) = line.strip_prefix("- ") { return stripped.to_string(); }
-                if let Some(stripped) = line.strip_prefix("* ") { return stripped.to_string(); }
+                if let Some(stripped) = line.strip_prefix("- ") {
+                    return stripped.to_string();
+                }
+                if let Some(stripped) = line.strip_prefix("* ") {
+                    return stripped.to_string();
+                }
                 // Strip numbers "1. "
                 if let Some(idx) = line.find(". ") {
                     if idx > 0 && line[..idx].chars().all(|c| c.is_numeric()) {
-                         return line[idx+2..].to_string();
+                        return line[idx + 2..].to_string();
                     }
                 }
                 line.to_string()
@@ -142,14 +146,15 @@ impl PsychicPaper {
             .collect();
 
         if items.is_empty() {
-             // Try comma separation if single line
-             if !text.contains('\n') && text.contains(',') {
-                 let items: Vec<String> = text.split(',')
+            // Try comma separation if single line
+            if !text.contains('\n') && text.contains(',') {
+                let items: Vec<String> = text
+                    .split(',')
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect();
-                 return Ok(json!(items));
-             }
+                return Ok(json!(items));
+            }
         }
 
         Ok(json!(items))
@@ -160,7 +165,9 @@ impl PsychicPaper {
 
         for line in text.lines() {
             let line = line.trim();
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
 
             if let Some((key, value)) = line.split_once(':') {
                 let key = key.trim().to_string();
@@ -214,7 +221,10 @@ Hope that helps."#;
         let text = "- Sonic Screwdriver\n- TARDIS Key\n- Psychic Paper";
         let paper = PsychicPaper::new();
         let result = paper.interpret(text, Intent::List).unwrap();
-        assert_eq!(result, json!(["Sonic Screwdriver", "TARDIS Key", "Psychic Paper"]));
+        assert_eq!(
+            result,
+            json!(["Sonic Screwdriver", "TARDIS Key", "Psychic Paper"])
+        );
     }
 
     #[test]
@@ -230,11 +240,14 @@ Hope that helps."#;
         let text = "Species: Time Lord\nOrigin: Gallifrey\nRegenerations: 12";
         let paper = PsychicPaper::new();
         let result = paper.interpret(text, Intent::KeyValue).unwrap();
-        assert_eq!(result, json!({
-            "Species": "Time Lord",
-            "Origin": "Gallifrey",
-            "Regenerations": 12
-        }));
+        assert_eq!(
+            result,
+            json!({
+                "Species": "Time Lord",
+                "Origin": "Gallifrey",
+                "Regenerations": 12
+            })
+        );
     }
 
     #[test]
