@@ -281,6 +281,7 @@ impl TemporalReference {
 mod tests {
     use super::*;
     use chrono::Duration;
+    use proptest::prelude::*;
 
     #[test]
     fn time_range_contains() {
@@ -315,5 +316,118 @@ mod tests {
 
         assert!(interval.is_current());
         assert!(!superseded.transaction_time.is_current());
+    }
+
+    #[test]
+    fn time_range_edge_cases() {
+        let now = Utc::now();
+
+        // Start > End (Empty)
+        let invalid_range = TimeRange::bounded(now, now - Duration::hours(1));
+        assert!(!invalid_range.contains(now));
+        assert!(!invalid_range.contains(now - Duration::minutes(30)));
+
+        // Start == End (Empty)
+        let empty_range = TimeRange::bounded(now, now);
+        assert!(!empty_range.contains(now));
+    }
+
+    #[test]
+    fn bi_temporal_checks() {
+        let now = Utc::now();
+        let valid_time = TimeRange::bounded(now - Duration::hours(2), now - Duration::hours(1));
+        let interval = BiTemporalInterval::with_valid_time(valid_time);
+
+        // Valid at
+        assert!(interval.valid_at(now - Duration::minutes(90)));
+        assert!(!interval.valid_at(now));
+
+        // Known at (transaction time starts at creation, so 'now')
+        assert!(interval.known_at(Utc::now()));
+
+        // Active at
+        assert!(interval.active_at(now - Duration::minutes(90), Utc::now()));
+    }
+
+    #[test]
+    fn temporal_query_builders() {
+        let now = Utc::now();
+
+        let q_current = TemporalQuery::current();
+        assert!(q_current.valid_at.is_none());
+        assert!(q_current.transaction_at.is_none());
+        assert!(!q_current.include_history);
+
+        let q_valid = TemporalQuery::as_of_valid(now);
+        assert_eq!(q_valid.valid_at, Some(now));
+        assert!(q_valid.transaction_at.is_none());
+
+        let q_trans = TemporalQuery::as_of_transaction(now);
+        assert!(q_trans.valid_at.is_none());
+        assert_eq!(q_trans.transaction_at, Some(now));
+
+        let q_both = TemporalQuery::as_of_both(now, now);
+        assert_eq!(q_both.valid_at, Some(now));
+        assert_eq!(q_both.transaction_at, Some(now));
+
+        let q_history = q_current.with_history();
+        assert!(q_history.include_history);
+    }
+
+    #[test]
+    fn temporal_reference_resolved() {
+        let now = Utc::now();
+
+        let rel = TemporalReference::Relative {
+            text: "yesterday".into(),
+            resolved: now,
+        };
+        assert_eq!(rel.resolved(), Some(now));
+
+        let abs = TemporalReference::Absolute(now);
+        assert_eq!(abs.resolved(), Some(now));
+
+        let event = TemporalReference::EventBased {
+            event: "boom".into(),
+            resolved: Some(now),
+        };
+        assert_eq!(event.resolved(), Some(now));
+
+        let event_unresolved = TemporalReference::EventBased {
+            event: "boom".into(),
+            resolved: None,
+        };
+        assert_eq!(event_unresolved.resolved(), None);
+
+        // Implicit returns current time, so we just check it returns Some
+        assert!(TemporalReference::Implicit.resolved().is_some());
+    }
+
+    proptest! {
+        #[test]
+        fn prop_time_range_contains(
+            start_offset in -10000i64..10000,
+            end_offset in -10000i64..10000,
+            check_offset in -10000i64..10000
+        ) {
+            let now = Utc::now();
+            let start = now + Duration::seconds(start_offset);
+            let end = now + Duration::seconds(end_offset);
+            let check = now + Duration::seconds(check_offset);
+
+            let range = TimeRange::bounded(start, end);
+            let contained = range.contains(check);
+
+            if start >= end {
+                assert!(!contained, "Range with start >= end should be empty");
+            } else {
+                // start < end
+                if check >= start && check < end {
+                    assert!(contained, "Should contain timestamp within bounds");
+                } else {
+                    assert!(!contained, "Should not contain timestamp outside bounds");
+                }
+            }
+        }
     }
 }
