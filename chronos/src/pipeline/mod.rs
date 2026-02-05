@@ -34,7 +34,7 @@ mod analyzer;
 mod augmenter;
 mod retriever;
 
-pub use analyzer::QueryAnalyzer;
+pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
 pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
 
