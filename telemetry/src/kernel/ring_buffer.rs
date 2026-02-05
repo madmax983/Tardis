@@ -178,7 +178,10 @@ impl RingBuffer {
             // Write payload
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
             let payload_ptr = slot.payload.get().cast::<u8>();
-            core::ptr::copy_nonoverlapping(payload.as_ptr(), payload_ptr, payload_len);
+            // Use volatile write to avoid data races with concurrent readers (Seqlock)
+            for i in 0..payload_len {
+                core::ptr::write_volatile(payload_ptr.add(i), payload[i]);
+            }
 
             // Update payload length
             #[allow(clippy::cast_possible_truncation)]
@@ -203,8 +206,18 @@ impl RingBuffer {
     /// Returns `Some((entry, payload))` if an entry is available,
     /// `None` if the buffer is empty.
     pub fn try_read(&self) -> Option<(TelemetryEntry, alloc::vec::Vec<u8>)> {
+        let mut spins = 0;
+        let mut last_read_pos = self.read_pos.load(Ordering::Relaxed);
+
         loop {
             let read_pos = self.read_pos.load(Ordering::Relaxed);
+
+            // Reset spin count if we moved to a new slot
+            if read_pos != last_read_pos {
+                spins = 0;
+                last_read_pos = read_pos;
+            }
+
             let write_pos = self.write_pos.load(Ordering::Acquire);
 
             // Check if buffer is empty
@@ -237,8 +250,28 @@ impl RingBuffer {
             let current_seq = slot.sequence.load(Ordering::Acquire);
 
             if current_seq != expected_seq {
+                spins += 1;
+                if spins > 10_000 {
+                    // Writer stuck or crashed? Skip this slot.
+                    // Try to advance read_pos past this bad slot.
+                    if self
+                        .read_pos
+                        .compare_exchange(
+                            read_pos,
+                            read_pos.wrapping_add(1),
+                            Ordering::Relaxed,
+                            Ordering::Relaxed,
+                        )
+                        .is_ok()
+                    {
+                        self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    }
+                    // Regardless of who advanced it, we retry the loop to get next slot
+                    // (spins will reset at top of loop)
+                    continue;
+                }
+
                 // Slot not ready yet, spin or return
-                // In practice, this rarely happens
                 core::hint::spin_loop();
                 continue;
             }
@@ -246,7 +279,12 @@ impl RingBuffer {
             // Try to claim this slot
             if self
                 .read_pos
-                .compare_exchange(read_pos, read_pos + 1, Ordering::AcqRel, Ordering::Relaxed)
+                .compare_exchange(
+                    read_pos,
+                    read_pos.wrapping_add(1),
+                    Ordering::AcqRel,
+                    Ordering::Relaxed,
+                )
                 .is_err()
             {
                 // Another reader got it, retry
@@ -264,12 +302,14 @@ impl RingBuffer {
             let payload_len = (entry.payload_len as usize).min(MAX_PAYLOAD_SIZE);
             let mut payload = alloc::vec![0u8; payload_len];
 
+            // Use volatile read to avoid data races with concurrent writers (Seqlock)
             unsafe {
-                core::ptr::copy_nonoverlapping(
-                    slot.payload.get().cast::<u8>(),
-                    payload.as_mut_ptr(),
-                    payload_len,
-                );
+                let src_ptr = slot.payload.get().cast::<u8>();
+                let dst_ptr = payload.as_mut_ptr();
+                for i in 0..payload_len {
+                    let byte = core::ptr::read_volatile(src_ptr.add(i));
+                    core::ptr::write(dst_ptr.add(i), byte);
+                }
             }
 
             // Verify sequence hasn't changed (Seqlock check)
@@ -446,5 +486,74 @@ mod tests {
         } else {
             panic!("Should have returned an entry");
         }
+    }
+
+    #[test]
+    fn ring_buffer_stuck_writer() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+
+        // 1. Write a normal entry
+        let entry = TelemetryEntry {
+            timestamp_ns: 1,
+            level: Level::Info,
+            subsystem: Subsystem::Kernel,
+            event_type: EventType::Log,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
+            parent_span_id: SpanId::NONE,
+            payload_len: 0,
+        };
+        BUFFER.try_write(&entry, &[]);
+
+        // 2. Simulate a stuck writer for the next slot
+        // write_pos is 1. Next write will be at index 1.
+        // We manually advance write_pos to 2, but we DON'T update slot 1's sequence to "ready".
+        // Instead, we set it to "writing" (odd) and leave it there.
+
+        // Advance write_pos (returns previous value 1, sets to 2)
+        BUFFER.write_pos.fetch_add(1, Ordering::Relaxed);
+
+        // Set slot 1 sequence to "writing" (odd)
+        // expected_seq for slot 1 (index 1) is: pos=1 -> seq=2*1 = 2.
+        // Writing state is 2 | 1 = 3.
+        // SAFETY: Test code accessing private field for simulation
+        BUFFER.slots[1].sequence.store(3, Ordering::Release);
+
+        // 3. Write another normal entry at slot 2
+        // write_pos is 2. Next write is at index 2.
+        let entry2 = TelemetryEntry {
+            timestamp_ns: 3,
+            level: Level::Info,
+            subsystem: Subsystem::Kernel,
+            event_type: EventType::Log,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
+            parent_span_id: SpanId::NONE,
+            payload_len: 0,
+        };
+        BUFFER.try_write(&entry2, &[]);
+
+        // Now buffer state:
+        // Slot 0: Valid (seq 2)
+        // Slot 1: Stuck (seq 3) - write_pos is past it
+        // Slot 2: Valid (seq 6) - write_pos is past it
+
+        // 4. Read slot 0
+        let (read_entry, _) = BUFFER.try_read().expect("Should read slot 0");
+        assert_eq!(read_entry.timestamp_ns, 1);
+
+        // 5. Read slot 1 - This should timeout and skip!
+        // It shouldn't return slot 1 data (because it's stuck).
+        // It should eventually skip to slot 2?
+        // My implementation says: "continue". So it will loop again, find slot 2 is ready, and return slot 2.
+
+        let (read_entry2, _) = BUFFER
+            .try_read()
+            .expect("Should return slot 2 after skipping slot 1");
+        assert_eq!(read_entry2.timestamp_ns, 3);
+
+        // Verify we dropped 1
+        assert_eq!(BUFFER.dropped_count(), 1);
     }
 }
