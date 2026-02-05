@@ -69,6 +69,16 @@ struct TemporalRule {
     ref_type: TemporalRefType,
 }
 
+impl TemporalRule {
+    fn resolve(&self, now: DateTime<Utc>) -> DateTime<Utc> {
+        match self.offset {
+            TimeOffset::Days(d) => now - Duration::days(d),
+            TimeOffset::Weeks(w) => now - Duration::weeks(w),
+            TimeOffset::None => now,
+        }
+    }
+}
+
 const TEMPORAL_RULES: &[TemporalRule] = &[
     TemporalRule {
         keyword: "yesterday",
@@ -91,6 +101,14 @@ struct IntentRule {
     required: &'static [&'static str],
     any: &'static [&'static str],
     intent: QueryIntent,
+}
+
+impl IntentRule {
+    fn matches(&self, query_lower: &str) -> bool {
+        let has_required = self.required.iter().all(|k| query_lower.contains(k));
+        let has_any = self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k));
+        has_required && has_any
+    }
 }
 
 const INTENT_RULES: &[IntentRule] = &[
@@ -136,7 +154,7 @@ impl QueryAnalyzer {
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
         let intent = self.classify_intent(query);
-        let temporal_refs = self.extract_temporal_refs(query);
+        let temporal_refs = self.extract_temporal_refs(query, Utc::now());
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -160,10 +178,7 @@ impl QueryAnalyzer {
         let lower = query.to_lowercase();
 
         for rule in INTENT_RULES {
-            let has_required = rule.required.iter().all(|k| lower.contains(k));
-            let has_any = rule.any.is_empty() || rule.any.iter().any(|k| lower.contains(k));
-
-            if has_required && has_any {
+            if rule.matches(&lower) {
                 return rule.intent.clone();
             }
         }
@@ -177,18 +192,13 @@ impl QueryAnalyzer {
 
     /// Extract temporal references from a query.
     #[allow(clippy::unused_self)]
-    fn extract_temporal_refs(&self, query: &str) -> Vec<TemporalRef> {
+    fn extract_temporal_refs(&self, query: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
         let mut refs = Vec::new();
         let lower = query.to_lowercase();
-        let now = Utc::now();
 
         for rule in TEMPORAL_RULES {
             if lower.contains(rule.keyword) {
-                let resolved = match rule.offset {
-                    TimeOffset::Days(d) => now - Duration::days(d),
-                    TimeOffset::Weeks(w) => now - Duration::weeks(w),
-                    TimeOffset::None => now,
-                };
+                let resolved = rule.resolve(now);
 
                 refs.push(TemporalRef {
                     text: rule.keyword.to_string(),
@@ -286,28 +296,50 @@ mod tests {
     #[test]
     fn test_extract_temporal_refs() {
         let analyzer = QueryAnalyzer::new();
+        let now = Utc::now();
 
-        let refs = analyzer.extract_temporal_refs("What happened yesterday?");
+        let refs = analyzer.extract_temporal_refs("What happened yesterday?", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "yesterday");
         assert_eq!(refs[0].ref_type, TemporalRefType::Relative);
 
-        let refs = analyzer.extract_temporal_refs("Check last week logs");
+        let refs = analyzer.extract_temporal_refs("Check last week logs", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "last week");
 
-        let refs = analyzer.extract_temporal_refs("Do it today");
+        let refs = analyzer.extract_temporal_refs("Do it today", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "today");
 
-        let refs = analyzer.extract_temporal_refs("Yesterday and today");
+        let refs = analyzer.extract_temporal_refs("Yesterday and today", now);
         assert_eq!(refs.len(), 2);
+    }
+
+    #[test]
+    fn test_extract_temporal_refs_resolved() {
+        let analyzer = QueryAnalyzer::new();
+        // Use a fixed date for deterministic testing
+        // 2024-03-15 12:00:00 UTC
+        let now = DateTime::parse_from_rfc3339("2024-03-15T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        // "yesterday" should be 2024-03-14 12:00:00 UTC
+        let refs = analyzer.extract_temporal_refs("yesterday", now);
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].resolved.to_rfc3339(), "2024-03-14T12:00:00+00:00");
+
+        // "last week" should be 2024-03-08 12:00:00 UTC
+        let refs = analyzer.extract_temporal_refs("last week", now);
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].resolved.to_rfc3339(), "2024-03-08T12:00:00+00:00");
     }
 
     #[test]
     fn test_describe_temporal_context() {
         let analyzer = QueryAnalyzer::new();
-        let refs = analyzer.extract_temporal_refs("yesterday");
+        let now = Utc::now();
+        let refs = analyzer.extract_temporal_refs("yesterday", now);
         let desc = analyzer.describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
     }

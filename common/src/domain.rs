@@ -63,7 +63,7 @@ pub struct Entity {
     ///
     /// See [`BiTemporalInterval`] for details on how history is tracked.
     pub temporal: BiTemporalInterval,
-    /// Source of this knowledge (e.g., "user", "file_import", "inference").
+    /// Source of this knowledge (e.g., "user", "`file_import`", "inference").
     pub source: Option<String>,
 }
 

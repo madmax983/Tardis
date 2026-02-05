@@ -32,7 +32,12 @@ pub trait VortexService: Send + Sync + std::fmt::Debug {
     async fn unload_model(&self, handle: ModelHandle) -> Result<()>;
 
     /// Run inference.
-    async fn infer(&self, handle: ModelHandle, prompt: &str, params: InferenceParams) -> Result<String>;
+    async fn infer(
+        &self,
+        handle: ModelHandle,
+        prompt: &str,
+        params: InferenceParams,
+    ) -> Result<String>;
 
     /// Generate embeddings.
     async fn embed(&self, handle: ModelHandle, text: &str) -> Result<Vec<f32>>;
@@ -51,13 +56,20 @@ pub trait GallifreyService: Send + Sync + std::fmt::Debug {
     async fn query(&self, query: &str, temporal: TemporalQuery) -> Result<QueryResult>;
 
     /// Get recent messages from a session.
-    async fn get_recent_messages(&self, session_id: SessionId, limit: usize) -> Result<Vec<Message>>;
+    async fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> Result<Vec<Message>>;
 
     /// Semantic search in conversation history.
     async fn search_conversation(&self, embedding: &[f32], limit: usize) -> Result<Vec<Message>>;
 
     /// Find a system snapshot at a specific time.
-    async fn find_snapshot(&self, timestamp: chrono::DateTime<chrono::Utc>) -> Result<Option<Snapshot>>;
+    async fn find_snapshot(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<Snapshot>>;
 
     /// Record a system change.
     async fn record_change(&self, change: Change) -> Result<()>;
