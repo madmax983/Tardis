@@ -7,3 +7,6 @@ pub mod dreamer;
 
 #[cfg(feature = "nova")]
 pub mod psychic_paper;
+
+#[cfg(feature = "nova")]
+pub mod prophecy;

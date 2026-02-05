@@ -24,10 +24,15 @@ pub enum Intent {
 #[derive(Debug, Default)]
 pub struct PsychicPaper;
 
+#[allow(
+    clippy::unused_self,
+    clippy::unnecessary_wraps,
+    clippy::redundant_closure_for_method_calls
+)]
 impl PsychicPaper {
-    /// Create a new PsychicPaper instance.
+    /// Create a new `PsychicPaper` instance.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
