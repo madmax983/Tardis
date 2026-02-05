@@ -19,3 +19,8 @@
 **Concept:** A "deja vu" module that listens to current context and surfaces resonant events (Echoes) from the Knowledge Graph and Conversation History.
 **Fate:** Merged (Experimental)
 **Lesson:** Connecting the current moment to the past via semantic similarity creates a sense of "system intuition" or "memory" that proactive search doesn't capture.
+
+## The Historian
+**Concept:** A module that analyzes entity history to identify "Retcons" (we learned it late) and "Prophecies" (we predicted it early) by comparing Valid Time and Transaction Time.
+**Fate:** Merged (Experimental)
+**Lesson:** Bi-temporal data isn't just for audit logs; it can be used to detect "Revisionist History" attacks or validate predictive models.
