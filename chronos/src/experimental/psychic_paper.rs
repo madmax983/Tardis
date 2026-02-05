@@ -10,7 +10,12 @@ use serde_json::{json, Value};
 /// The intent of the interpretation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
-    /// Try to infer the format.
+    /// Try to infer the format using a best-effort heuristic:
+    /// 1. Check for JSON start characters `{` or `[`.
+    /// 2. Check for Markdown code blocks (````json`).
+    /// 3. Check for list markers (`-` or `*`).
+    /// 4. Check for Key-Value pairs (majority of lines have `:`).
+    /// 5. Fallback to raw string.
     Auto,
     /// Expect JSON (strips markdown code blocks).
     Json,
@@ -37,6 +42,22 @@ impl PsychicPaper {
     }
 
     /// Interpret text based on the given intent.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_chronos::experimental::psychic_paper::{PsychicPaper, Intent};
+    /// use serde_json::json;
+    ///
+    /// let paper = PsychicPaper::new();
+    ///
+    /// // A messy LLM response
+    /// let text = "Here is the data:\n```json\n{\"answer\": 42}\n```";
+    ///
+    /// // Auto-detect extracts the JSON inside the code block
+    /// let result = paper.interpret(text, Intent::Auto).unwrap();
+    /// assert_eq!(result, json!({"answer": 42}));
+    /// ```
     ///
     /// # Errors
     ///

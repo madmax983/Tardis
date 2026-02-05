@@ -1,4 +1,11 @@
 //! Query analysis for Chronos.
+//!
+//! This module handles the interpretation of natural language queries into structured [`AnalyzedQuery`] objects.
+//! It uses a rule-based approach to:
+//! 1. **Classify Intent**: Determines what the user wants (e.g., [`QueryIntent::Recall`], [`QueryIntent::Remember`]).
+//!    - Uses keyword matching defined in internal rules (e.g., "remember" -> `Remember`).
+//! 2. **Extract Temporal References**: Finds time-related terms (e.g., "yesterday", "last week").
+//!    - Resolves relative times to absolute UTC timestamps.
 
 use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
@@ -148,6 +155,21 @@ impl QueryAnalyzer {
     }
 
     /// Analyze a query.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
+    /// use chrono::Utc;
+    ///
+    /// let analyzer = QueryAnalyzer::new();
+    /// let query = "What did we do yesterday?";
+    /// let analysis = analyzer.analyze(query).unwrap();
+    ///
+    /// assert_eq!(analysis.intent, QueryIntent::Recall);
+    /// assert!(!analysis.temporal_refs.is_empty());
+    /// assert_eq!(analysis.temporal_refs[0].text, "yesterday");
+    /// ```
     ///
     /// # Errors
     ///

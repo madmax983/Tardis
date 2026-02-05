@@ -99,6 +99,38 @@ impl KnowledgeStore {
 
     /// Get entity at a specific point in time.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::{KnowledgeStore, Entity};
+    /// use tardis_common::id::EntityId;
+    /// use tardis_common::temporal::BiTemporalInterval;
+    /// use chrono::{Utc, Duration};
+    /// use std::collections::HashMap;
+    ///
+    /// let store = KnowledgeStore::new();
+    /// let id = EntityId::new();
+    /// # let entity = Entity {
+    /// #    id,
+    /// #    entity_type: "Test".to_string(),
+    /// #    name: "Test Entity".to_string(),
+    /// #    properties: HashMap::new(),
+    /// #    embedding: None,
+    /// #    temporal: BiTemporalInterval::now(),
+    /// #    source: None,
+    /// # };
+    /// # store.insert_entity(entity).unwrap();
+    ///
+    /// let now = Utc::now();
+    /// // Query as of now (Valid Time) and as we know it now (Transaction Time)
+    /// let current = store.get_entity_at(id, now, now).unwrap();
+    /// assert!(current.is_some());
+    ///
+    /// // Query as of yesterday (Valid Time)
+    /// let yesterday = now - Duration::days(1);
+    /// let past = store.get_entity_at(id, yesterday, now).unwrap();
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
@@ -137,10 +169,15 @@ impl KnowledgeStore {
 
     /// Update an entity (creates new version).
     ///
-    /// This operation is **non-destructive**. It:
-    /// 1. Finds the current version.
-    /// 2. Marks it as superseded (closing its transaction time).
-    /// 3. Creates a new version with the updates and a new transaction start time.
+    /// This operation is **non-destructive** (bi-temporal). It:
+    /// 1. Finds the current version of the entity.
+    /// 2. Marks it as superseded by closing its **Transaction Time** end date to `now`.
+    ///    - This preserves the record that "we *used* to believe X was true until now".
+    /// 3. Creates a new version with the updates.
+    ///    - **Transaction Time** starts `now` (we are recording this change now).
+    ///    - **Valid Time** is reset to `now` (the new fact is true from now on).
+    ///
+    /// The result is a complete audit trail of every change and correction.
     ///
     /// # Examples
     ///
