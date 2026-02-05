@@ -135,6 +135,20 @@ impl KnowledgeStore {
         Ok(entities.get(&id).cloned().unwrap_or_default())
     }
 
+    /// Get all versions of all entities.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn scan_history(&self) -> GallifreyResult<Vec<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        Ok(entities.values().flatten().cloned().collect())
+    }
+
     /// Update an entity (creates new version).
     ///
     /// This operation is **non-destructive**. It:

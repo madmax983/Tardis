@@ -19,3 +19,8 @@
 **Concept:** A "deja vu" module that listens to current context and surfaces resonant events (Echoes) from the Knowledge Graph and Conversation History.
 **Fate:** Merged (Experimental)
 **Lesson:** Connecting the current moment to the past via semantic similarity creates a sense of "system intuition" or "memory" that proactive search doesn't capture.
+
+## The Historian
+**Concept:** A temporal anomaly detector that analyzes the Knowledge Graph to identify "Retcons" (changes to the past) and "Prophecies" (predictions of the future) by comparing Valid Time vs Transaction Time.
+**Fate:** Merged (Experimental)
+**Lesson:** Bi-temporal data is useless if you don't analyze the delta between the two timelines. This module turns that delta into actionable "Integrity Reports".

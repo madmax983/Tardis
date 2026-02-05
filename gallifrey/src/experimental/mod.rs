@@ -5,3 +5,5 @@
 
 /// Temporal heatmap visualization.
 pub mod heatmap;
+/// Temporal anomaly detection.
+pub mod historian;
