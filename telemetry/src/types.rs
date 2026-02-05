@@ -221,20 +221,39 @@ pub enum Subsystem {
 
 /// Helper for case-insensitive substring check without allocation.
 fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
-    if needle.is_empty() {
+    let n_len = needle.len();
+    if n_len == 0 {
         return true;
     }
-    let needle_len = needle.len();
-    if haystack.len() < needle_len {
+    let h_len = haystack.len();
+    if h_len < n_len {
         return false;
     }
 
-    haystack.as_bytes().windows(needle_len).any(|window| {
-        window
-            .iter()
-            .zip(needle.as_bytes())
-            .all(|(h, n)| h.eq_ignore_ascii_case(n))
-    })
+    let haystack_bytes = haystack.as_bytes();
+    let needle_bytes = needle.as_bytes();
+
+    // Bolt: Manual loop optimization to avoid iterator overhead in hot path.
+    // This is O(N*M) worst case but faster than iterator chain for small strings.
+    let first_needle_byte = needle_bytes[0];
+    for i in 0..=(h_len - n_len) {
+        // Fast check for first byte to avoid inner loop setup
+        if !haystack_bytes[i].eq_ignore_ascii_case(&first_needle_byte) {
+            continue;
+        }
+
+        let mut match_found = true;
+        for j in 1..n_len {
+            if !haystack_bytes[i + j].eq_ignore_ascii_case(&needle_bytes[j]) {
+                match_found = false;
+                break;
+            }
+        }
+        if match_found {
+            return true;
+        }
+    }
+    false
 }
 
 impl Subsystem {
