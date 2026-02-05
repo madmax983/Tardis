@@ -1,0 +1,30 @@
+   Compiling tardis-chronos v0.1.0 (/app/chronos)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.74s
+     Running unittests src/lib.rs (target/debug/deps/tardis_chronos-23666b97c545ae0e)
+
+running 16 tests
+test experimental::psychic_paper::tests::test_interpret_auto_json ... ok
+test experimental::dreamer::tests::test_dream_cycle ... ok
+test experimental::echoes::tests::test_echoes ... ok
+test experimental::prophecy::tests::test_foresee ... ok
+test experimental::psychic_paper::tests::test_interpret_auto_kv ... ok
+test experimental::psychic_paper::tests::test_interpret_auto_list ... ok
+test experimental::psychic_paper::tests::test_interpret_json_clean ... ok
+test experimental::psychic_paper::tests::test_interpret_json_markdown ... ok
+test experimental::psychic_paper::tests::test_interpret_kv ... ok
+test experimental::psychic_paper::tests::test_interpret_list_numbered ... ok
+test experimental::psychic_paper::tests::test_interpret_list_bullets ... ok
+test pipeline::analyzer::tests::test_classify_intent ... ok
+test pipeline::analyzer::tests::test_describe_temporal_context ... ok
+test pipeline::analyzer::tests::test_extract_temporal_refs_resolved ... ok
+test pipeline::analyzer::tests::test_extract_temporal_refs ... ok
+test pipeline::retriever::tests::test_retrieve ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tardis_chronos
+
+running 1 test
+test chronos/src/pipeline/mod.rs - pipeline (line 8) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s

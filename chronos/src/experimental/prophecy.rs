@@ -13,20 +13,20 @@ use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, ModelHandle};
 use tardis_common::llm::InferenceParams;
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
-use tardis_common::traits::VortexService;
+use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// The Prophet engine.
 #[derive(Debug)]
 pub struct Prophet {
-    vortex: Arc<dyn VortexService>,
+    vortex: Arc<Vortex>,
     paper: PsychicPaper,
 }
 
 impl Prophet {
     /// Create a new Prophet.
     #[must_use]
-    pub fn new(vortex: Arc<dyn VortexService>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>) -> Self {
         Self {
             vortex,
             paper: PsychicPaper::new(),
@@ -67,6 +67,7 @@ impl Prophet {
                 },
             )
             .await
+            .map_err(tardis_common::Error::from)
             .map_err(ChronosError::Common)?;
 
         let parsed = self
@@ -133,28 +134,12 @@ impl Prophet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
     use serde_json::json;
-    use tardis_common::llm::ModelLoadConfig;
-    use tardis_common::Result;
 
-    #[derive(Debug)]
-    struct MockVortex;
-
-    #[async_trait]
-    impl VortexService for MockVortex {
-        async fn load_model(&self, _path: &str, _config: ModelLoadConfig) -> Result<ModelHandle> {
-            Ok(ModelHandle::new(1))
-        }
-        async fn unload_model(&self, _handle: ModelHandle) -> Result<()> {
-            Ok(())
-        }
-        async fn infer(
-            &self,
-            _handle: ModelHandle,
-            _prompt: &str,
-            _params: InferenceParams,
-        ) -> Result<String> {
+    #[tokio::test]
+    async fn test_foresee() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        vortex.set_mock_inference(|_| {
             // Return a simulated prediction
             let response = json!([
                 {
@@ -169,15 +154,8 @@ mod tests {
                 }
             ]);
             Ok(response.to_string())
-        }
-        async fn embed(&self, _handle: ModelHandle, _text: &str) -> Result<Vec<f32>> {
-            Ok(vec![])
-        }
-    }
+        });
 
-    #[tokio::test]
-    async fn test_foresee() {
-        let vortex = Arc::new(MockVortex);
         let prophet = Prophet::new(vortex);
         let model = ModelHandle::new(1);
 

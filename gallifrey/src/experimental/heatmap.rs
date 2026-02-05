@@ -124,7 +124,9 @@ impl TemporalHeatmap {
             let y_start = y_start_idx.clamp(0, y_bins - 1);
             let y_end = y_end_idx.clamp(1, y_bins);
 
+            #[allow(clippy::needless_range_loop)]
             for y in y_start..y_end {
+                #[allow(clippy::needless_range_loop)]
                 for x in x_start..x_end {
                     grid[y][x] += 1;
                 }
@@ -142,6 +144,9 @@ impl TemporalHeatmap {
 
     /// Render the heatmap as an ASCII string.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
     pub fn render_ascii(&self) -> String {
         let mut output = String::new();
         // Symbols from low density to high
@@ -163,7 +168,7 @@ impl TemporalHeatmap {
             self.valid_range.0, self.valid_range.1
         )
         .ok();
-        writeln!(&mut output, "Max Count: {}", max_val).ok();
+        writeln!(&mut output, "Max Count: {max_val}").ok();
         writeln!(&mut output, "┌{}┐", "─".repeat(self.x_bins)).ok();
 
         // Render rows (reversed Y to have time go up)

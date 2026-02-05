@@ -7,14 +7,17 @@ use crate::loader::{
 };
 use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
 use crate::tokenizer::TokenizerService;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tardis_common::llm::{InferenceParams, ModelLoadConfig};
-use tardis_common::traits::VortexService;
 use tokio::task;
 use tracing::{info, instrument};
+
+type InferenceCallback = Box<dyn Fn(&str) -> VortexResult<String> + Send + Sync>;
+type EmbeddingCallback = Box<dyn Fn(&str) -> VortexResult<Vec<f32>> + Send + Sync>;
+type LoadModelCallback =
+    Box<dyn Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync>;
 
 /// The main Vortex inference engine.
 pub struct Vortex {
@@ -26,6 +29,12 @@ pub struct Vortex {
     loaded_models: RwLock<HashMap<ModelHandle, LoadedModel>>,
     /// Model configurations by handle.
     model_configs: RwLock<HashMap<ModelHandle, ModelConfig>>,
+    /// Mock inference callback.
+    mock_inference: RwLock<Option<InferenceCallback>>,
+    /// Mock embedding callback.
+    mock_embedding: RwLock<Option<EmbeddingCallback>>,
+    /// Mock load model callback.
+    mock_load_model: RwLock<Option<LoadModelCallback>>,
 }
 
 impl std::fmt::Debug for Vortex {
@@ -40,6 +49,30 @@ impl std::fmt::Debug for Vortex {
             .field(
                 "model_configs_count",
                 &self.model_configs.read().map(|c| c.len()).unwrap_or(0),
+            )
+            .field(
+                "mock_inference",
+                &self
+                    .mock_inference
+                    .read()
+                    .map(|m| m.is_some())
+                    .unwrap_or(false),
+            )
+            .field(
+                "mock_embedding",
+                &self
+                    .mock_embedding
+                    .read()
+                    .map(|m| m.is_some())
+                    .unwrap_or(false),
+            )
+            .field(
+                "mock_load_model",
+                &self
+                    .mock_load_model
+                    .read()
+                    .map(|m| m.is_some())
+                    .unwrap_or(false),
             )
             .finish()
     }
@@ -59,6 +92,9 @@ impl Vortex {
             tokenizers: Arc::new(TokenizerService::new()),
             loaded_models: RwLock::new(HashMap::new()),
             model_configs: RwLock::new(HashMap::new()),
+            mock_inference: RwLock::new(None),
+            mock_embedding: RwLock::new(None),
+            mock_load_model: RwLock::new(None),
         })
     }
 
@@ -73,6 +109,17 @@ impl Vortex {
         path: &str,
         config: ModelLoadConfig,
     ) -> VortexResult<ModelHandle> {
+        if let Some(mock) = self
+            .mock_load_model
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "mock_load_model",
+            })?
+            .as_ref()
+        {
+            return mock(path, config);
+        }
+
         let path_buf = std::path::PathBuf::from(path);
 
         if !path_buf.exists() {
@@ -273,6 +320,17 @@ impl Vortex {
         prompt: &str,
         params: InferenceParams,
     ) -> VortexResult<String> {
+        if let Some(mock) = self
+            .mock_inference
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "mock_inference",
+            })?
+            .as_ref()
+        {
+            return mock(prompt);
+        }
+
         if !self.registry.is_valid(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
         }
@@ -298,6 +356,17 @@ impl Vortex {
     /// Returns an error if embedding generation fails.
     #[allow(clippy::unused_async)] // Will use async when embedding is truly async
     pub async fn embed(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<f32>> {
+        if let Some(mock) = self
+            .mock_embedding
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "mock_embedding",
+            })?
+            .as_ref()
+        {
+            return mock(text);
+        }
+
         if !self.registry.is_valid(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
         }
@@ -346,31 +415,62 @@ impl Vortex {
     }
 }
 
-#[async_trait]
-impl VortexService for Vortex {
-    async fn load_model(
+impl Vortex {
+    /// Set a mock inference callback.
+    ///
+    /// This is used for testing without loading a real model.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lock is poisoned.
+    #[doc(hidden)]
+    #[allow(clippy::expect_used)]
+    pub fn set_mock_inference(
         &self,
-        path: &str,
-        config: ModelLoadConfig,
-    ) -> tardis_common::Result<ModelHandle> {
-        self.load_model(path, config).await.map_err(Into::into)
+        callback: impl Fn(&str) -> VortexResult<String> + Send + Sync + 'static,
+    ) {
+        *self
+            .mock_inference
+            .write()
+            .expect("mock_inference lock poisoned") = Some(Box::new(callback));
     }
 
-    async fn unload_model(&self, handle: ModelHandle) -> tardis_common::Result<()> {
-        self.unload_model(handle).await.map_err(Into::into)
-    }
-
-    async fn infer(
+    /// Set a mock embedding callback.
+    ///
+    /// This is used for testing without loading a real model.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lock is poisoned.
+    #[doc(hidden)]
+    #[allow(clippy::expect_used)]
+    pub fn set_mock_embedding(
         &self,
-        handle: ModelHandle,
-        prompt: &str,
-        params: InferenceParams,
-    ) -> tardis_common::Result<String> {
-        self.infer(handle, prompt, params).await.map_err(Into::into)
+        callback: impl Fn(&str) -> VortexResult<Vec<f32>> + Send + Sync + 'static,
+    ) {
+        *self
+            .mock_embedding
+            .write()
+            .expect("mock_embedding lock poisoned") = Some(Box::new(callback));
     }
 
-    async fn embed(&self, handle: ModelHandle, text: &str) -> tardis_common::Result<Vec<f32>> {
-        self.embed(handle, text).await.map_err(Into::into)
+    /// Set a mock load model callback.
+    ///
+    /// This is used for testing without loading a real model.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lock is poisoned.
+    #[doc(hidden)]
+    #[allow(clippy::expect_used)]
+    pub fn set_mock_load_model(
+        &self,
+        callback: impl Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync + 'static,
+    ) {
+        *self
+            .mock_load_model
+            .write()
+            .expect("mock_load_model lock poisoned") = Some(Box::new(callback));
     }
 }
 
