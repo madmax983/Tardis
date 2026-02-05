@@ -9,3 +9,8 @@
 **Concept:** A 2D ASCII heatmap visualization of entity history, plotting Valid Time vs Transaction Time.
 **Fate:** Merged (Experimental)
 **Lesson:** Visualizing bitemporal data reveals patterns like "retroactive corrections" (changes to past valid time recorded in recent transaction time) that are otherwise invisible in linear logs.
+
+## Prophecy
+**Concept:** A module that uses Vortex (LLM) to "foresee" future system states based on current context, storing them as entities with future `Valid Time` but current `Transaction Time`.
+**Fate:** Merged (Experimental)
+**Lesson:** Using the bitemporal model for future predictions allows the system to distinguish between "what we know is true now" and "what we predict will be true later", enabling proactive system management.
