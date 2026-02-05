@@ -13,3 +13,6 @@ pub mod prophecy;
 
 #[cfg(feature = "nova")]
 pub mod echoes;
+
+#[cfg(feature = "nova")]
+pub mod historian;

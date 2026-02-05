@@ -241,6 +241,10 @@ impl GallifreyService for Gallifrey {
         self.insert(entity).await
     }
 
+    async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
+        self.get_history(id).await
+    }
+
     async fn search_knowledge(
         &self,
         embedding: &[f32],
