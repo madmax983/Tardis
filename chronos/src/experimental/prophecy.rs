@@ -149,7 +149,12 @@ mod tests {
         async fn unload_model(&self, _handle: ModelHandle) -> Result<()> {
             Ok(())
         }
-        async fn infer(&self, _handle: ModelHandle, _prompt: &str, _params: InferenceParams) -> Result<String> {
+        async fn infer(
+            &self,
+            _handle: ModelHandle,
+            _prompt: &str,
+            _params: InferenceParams,
+        ) -> Result<String> {
             // Return a simulated prediction
             let response = json!([
                 {
@@ -177,7 +182,11 @@ mod tests {
         let model = ModelHandle::new(1);
 
         let predictions = prophet
-            .foresee("System load is increasing.", Duration::from_secs(300), model)
+            .foresee(
+                "System load is increasing.",
+                Duration::from_secs(300),
+                model,
+            )
             .await
             .unwrap();
 
@@ -198,6 +207,9 @@ mod tests {
             .signed_duration_since(expected_future)
             .num_seconds()
             .abs();
-        assert!(diff < 5, "Prediction time should be ~5 minutes in the future");
+        assert!(
+            diff < 5,
+            "Prediction time should be ~5 minutes in the future"
+        );
     }
 }

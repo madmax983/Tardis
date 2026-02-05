@@ -10,3 +10,6 @@ pub mod psychic_paper;
 
 #[cfg(feature = "nova")]
 pub mod prophecy;
+
+#[cfg(feature = "nova")]
+pub mod echoes;
