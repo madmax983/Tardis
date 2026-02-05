@@ -129,6 +129,9 @@ mod tests {
         async fn insert(&self, _entity: Entity) -> Result<EntityId> {
             Ok(EntityId::new())
         }
+        async fn get_history(&self, _id: EntityId) -> Result<Vec<Entity>> {
+            Ok(vec![])
+        }
         async fn search_knowledge(&self, _embedding: &[f32], _limit: usize) -> Result<Vec<Entity>> {
             Ok(vec![Entity {
                 id: EntityId::new(),

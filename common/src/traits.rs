@@ -49,6 +49,9 @@ pub trait GallifreyService: Send + Sync + std::fmt::Debug {
     /// Insert an entity into the knowledge graph.
     async fn insert(&self, entity: Entity) -> Result<EntityId>;
 
+    /// Get the history of an entity.
+    async fn get_history(&self, id: EntityId) -> Result<Vec<Entity>>;
+
     /// Semantic search in knowledge graph.
     async fn search_knowledge(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>>;
 
