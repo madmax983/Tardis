@@ -20,7 +20,8 @@
 //! histogram!("request_latency_ms").record(150);
 //! ```
 
-use crate::types::{MetricSample, MetricValue, Subsystem};
+use crate::meta::Subsystem;
+use crate::metrics_types::{MetricSample, MetricValue};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};

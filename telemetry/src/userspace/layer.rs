@@ -4,7 +4,9 @@
 //! that captures spans and events for storage in Gallifrey and export
 //! via OpenTelemetry.
 
-use crate::types::{Level, SpanId, Subsystem, TraceId};
+use crate::log::Level;
+use crate::meta::Subsystem;
+use crate::trace::{SpanId, TraceId};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;

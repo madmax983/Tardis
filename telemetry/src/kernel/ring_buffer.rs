@@ -29,7 +29,10 @@
 //! └────────────────────────────────────────────────────────────────┘
 //! ```
 
-use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
+use crate::log::Level;
+use crate::meta::{EventType, Subsystem};
+use crate::trace::{SpanId, TraceId};
+use crate::wire::TelemetryEntry;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 

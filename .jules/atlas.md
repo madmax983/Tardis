@@ -21,3 +21,10 @@
 3. Refactored `vortex` to use `common::id::ModelHandle`.
 4. Updated `Chronos` to use `Arc<dyn Service>`.
 **Stability:** `Chronos` is now truly decoupled. `ModelHandle` is unified.
+
+**[Refactor] Telemetry Types De-Blob**
+**Tangle:** `telemetry/src/types.rs` was a "Blob" (649 lines) mixing Tracing, Logging, Metrics, and Routing concerns.
+**Blueprint:**
+1. Extracted `trace.rs` (IDs), `log.rs` (Level), `meta.rs` (Subsystem), `wire.rs` (TelemetryEntry), and `metrics_types.rs`.
+2. Converted `types.rs` into a Facade re-exporting these modules.
+**Stability:** Improved cohesion. `no_std` compatibility preserved.

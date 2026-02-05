@@ -60,6 +60,11 @@
 extern crate alloc;
 
 pub mod types;
+pub mod trace;
+pub mod log;
+pub mod meta;
+pub mod wire;
+pub mod metrics_types;
 
 #[cfg(feature = "kernel")]
 pub mod kernel;
