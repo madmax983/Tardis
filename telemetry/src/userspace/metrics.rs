@@ -106,7 +106,13 @@ impl MetricsRegistry {
     /// Collects all metrics for export.
     #[must_use]
     pub fn collect(&self) -> Vec<MetricSample> {
-        let mut samples = Vec::new();
+        // Bolt optimization: Pre-allocate vector to avoid reallocations.
+        // We acquire read locks briefly to check size, which is cheaper than reallocating.
+        let capacity = self.counters.read().len()
+            + self.gauges.read().len()
+            + self.histograms.read().len();
+
+        let mut samples = Vec::with_capacity(capacity);
         let timestamp_ns = u64::try_from(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -364,7 +370,11 @@ impl Histogram {
         let value_f64 = value as f64;
         for (i, boundary) in self.buckets.iter().enumerate() {
             if value_f64 <= *boundary {
+                // Bolt optimization: Only increment the first matching bucket (non-cumulative).
+                // This reduces atomic operations from O(N) to O(1).
+                // The snapshot() method will reconstruct cumulative counts.
                 self.counts[i].fetch_add(1, Ordering::Relaxed);
+                return;
             }
         }
     }
@@ -382,10 +392,17 @@ impl Histogram {
         #[allow(clippy::cast_precision_loss)]
         let sum = self.sum.load(Ordering::Relaxed) as f64;
         let count = self.count.load(Ordering::Relaxed);
+
+        // Bolt optimization: Accumulate counts to restore cumulative buckets.
+        // This ensures monotonic snapshots even under concurrent updates.
+        let mut accumulated = 0;
         let buckets: Vec<u64> = self
             .counts
             .iter()
-            .map(|c| c.load(Ordering::Relaxed))
+            .map(|c| {
+                accumulated += c.load(Ordering::Relaxed);
+                accumulated
+            })
             .collect();
         (sum, count, buckets)
     }

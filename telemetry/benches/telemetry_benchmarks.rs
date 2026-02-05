@@ -2,7 +2,21 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
+use tardis_telemetry::metrics::Histogram;
 use tardis_telemetry::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
+
+fn bench_histogram_record(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Histogram");
+    let histogram = Histogram::new("bench_hist", Subsystem::Vortex);
+
+    group.bench_function("record", |b| {
+        b.iter(|| {
+            histogram.record(black_box(42));
+        });
+    });
+
+    group.finish();
+}
 
 fn bench_trace_id_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("TraceId");
@@ -72,5 +86,6 @@ criterion_group!(
     bench_span_id_generation,
     bench_telemetry_entry,
     bench_subsystem_parsing,
+    bench_histogram_record,
 );
 criterion_main!(benches);
