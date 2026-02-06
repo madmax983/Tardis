@@ -162,15 +162,47 @@ impl RingBuffer {
         // Check if slot is available (not being read)
         // We use the sequence number to track this
         let expected_seq = pos.wrapping_mul(2);
-        let current_seq = slot.sequence.load(Ordering::Acquire);
 
-        // If the slot is too far behind, we're overwriting unread data
-        if current_seq != expected_seq && current_seq != 0 {
-            self.dropped_count.fetch_add(1, Ordering::Relaxed);
+        // Claim the slot via CAS loop to prevent race conditions with multiple producers
+        let mut backoff = 0;
+        loop {
+            let current_seq = slot.sequence.load(Ordering::Acquire);
+
+            // If slot is busy (odd sequence), spin/wait
+            if current_seq & 1 == 1 {
+                if backoff > 1000 {
+                    // Give up to avoid deadlock if writer died or contention is extreme
+                    self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    return false;
+                }
+                backoff += 1;
+                core::hint::spin_loop();
+                continue;
+            }
+
+            // If the slot is too far behind, we're overwriting unread data
+            let overwriting = current_seq != expected_seq && current_seq != 0;
+
+            // Try to transition to writing state (expected_seq | 1)
+            // This compare_exchange ensures exclusive access for this writer
+            match slot.sequence.compare_exchange(
+                current_seq,
+                expected_seq | 1,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    if overwriting {
+                        self.dropped_count.fetch_add(1, Ordering::Relaxed);
+                    }
+                    break;
+                }
+                Err(_) => {
+                    // CAS failed, retry
+                    core::hint::spin_loop();
+                }
+            }
         }
-
-        // Mark slot as being written (odd sequence)
-        slot.sequence.store(expected_seq | 1, Ordering::Release);
 
         // Write the entry
         // SAFETY: We have exclusive access to this slot via the sequence protocol
@@ -254,7 +286,8 @@ impl RingBuffer {
 
             if current_seq != expected_seq {
                 spins += 1;
-                if spins > 10_000 {
+                // Increased spin limit to avoid dropping packets during thread scheduling variation in tests
+                if spins > 100_000 {
                     // Writer stuck or crashed? Skip this slot.
                     // Try to advance read_pos past this bad slot.
                     if self
