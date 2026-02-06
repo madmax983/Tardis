@@ -155,6 +155,17 @@ impl Repl {
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
+            #[cfg(feature = "nova")]
+            "dashboard" => {
+                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey)) {
+                    Ok(mut dashboard) => {
+                        if let Err(e) = dashboard.run() {
+                            println!("Dashboard failed: {e}");
+                        }
+                    }
+                    Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
