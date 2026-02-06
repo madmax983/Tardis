@@ -248,6 +248,30 @@ impl KnowledgeStore {
         Ok(())
     }
 
+    /// Scan the entire history of all entities.
+    ///
+    /// Executes the callback for each entity's history (all versions).
+    /// This allows analyzing the entire knowledge graph without cloning it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn scan_history<F>(&self, mut callback: F) -> GallifreyResult<()>
+    where
+        F: FnMut(&[Entity]),
+    {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        for versions in entities.values() {
+            callback(versions);
+        }
+
+        Ok(())
+    }
+
     /// Insert a relationship.
     ///
     /// # Errors
