@@ -106,7 +106,6 @@ impl MetricsRegistry {
     /// Collects all metrics for export.
     #[must_use]
     pub fn collect(&self) -> Vec<MetricSample> {
-        let mut samples = Vec::new();
         let timestamp_ns = u64::try_from(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -115,42 +114,46 @@ impl MetricsRegistry {
         )
         .unwrap_or_default();
 
-        // Collect counters
-        for counter in self.counters.read().values() {
+        let counters = self.counters.read();
+        let gauges = self.gauges.read();
+        let histograms = self.histograms.read();
+
+        let cap = counters.len() + gauges.len() + histograms.len();
+        let mut samples = Vec::with_capacity(cap);
+
+        let mut add_sample = |name: &str, subsystem: Subsystem, value: MetricValue| {
             samples.push(MetricSample {
-                name: counter.name.to_string(),
-                subsystem: counter.subsystem,
+                name: name.to_string(),
+                subsystem,
                 timestamp_ns,
-                value: MetricValue::Counter(counter.get()),
+                value,
                 labels: Vec::new(),
             });
+        };
+
+        for counter in counters.values() {
+            add_sample(
+                counter.name,
+                counter.subsystem,
+                MetricValue::Counter(counter.get()),
+            );
         }
 
-        // Collect gauges
-        for gauge in self.gauges.read().values() {
-            samples.push(MetricSample {
-                name: gauge.name.to_string(),
-                subsystem: gauge.subsystem,
-                timestamp_ns,
-                value: MetricValue::Gauge(gauge.get()),
-                labels: Vec::new(),
-            });
+        for gauge in gauges.values() {
+            add_sample(gauge.name, gauge.subsystem, MetricValue::Gauge(gauge.get()));
         }
 
-        // Collect histograms
-        for histogram in self.histograms.read().values() {
+        for histogram in histograms.values() {
             let (sum, count, buckets) = histogram.snapshot();
-            samples.push(MetricSample {
-                name: histogram.name.to_string(),
-                subsystem: histogram.subsystem,
-                timestamp_ns,
-                value: MetricValue::Histogram {
+            add_sample(
+                histogram.name,
+                histogram.subsystem,
+                MetricValue::Histogram {
                     sum,
                     count,
                     buckets,
                 },
-                labels: Vec::new(),
-            });
+            );
         }
 
         samples
@@ -365,6 +368,7 @@ impl Histogram {
         for (i, boundary) in self.buckets.iter().enumerate() {
             if value_f64 <= *boundary {
                 self.counts[i].fetch_add(1, Ordering::Relaxed);
+                return;
             }
         }
     }
@@ -382,11 +386,14 @@ impl Histogram {
         #[allow(clippy::cast_precision_loss)]
         let sum = self.sum.load(Ordering::Relaxed) as f64;
         let count = self.count.load(Ordering::Relaxed);
-        let buckets: Vec<u64> = self
-            .counts
-            .iter()
-            .map(|c| c.load(Ordering::Relaxed))
-            .collect();
+
+        let mut buckets = Vec::with_capacity(self.counts.len());
+        let mut cumulative = 0;
+        for c in &self.counts {
+            cumulative += c.load(Ordering::Relaxed);
+            buckets.push(cumulative);
+        }
+
         (sum, count, buckets)
     }
 
