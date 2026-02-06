@@ -175,6 +175,9 @@ mod tests {
         async fn find_snapshot(&self, _timestamp: DateTime<Utc>) -> Result<Option<Snapshot>> {
             Ok(None)
         }
+        async fn get_snapshot_history(&self, _limit: usize) -> Result<Vec<Snapshot>> {
+            Ok(vec![])
+        }
         async fn record_change(&self, _change: Change) -> Result<()> {
             Ok(())
         }

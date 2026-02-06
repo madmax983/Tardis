@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## Prophet: Metric Forecasting
+**Concept:** Extended the `Prophet` module to predict future CPU and Memory usage for specific processes. It mashes up `Gallifrey`'s system history with `Vortex`'s LLM inference.
+**Fate:** Merged
+**Lesson:** Adding history retrieval to the core `GallifreyService` trait was necessary to enable this, proving that cross-module data flow opens up powerful new features.

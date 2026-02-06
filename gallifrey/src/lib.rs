@@ -339,6 +339,19 @@ impl GallifreyService for Gallifrey {
         self.find_snapshot(timestamp).await
     }
 
+    async fn get_snapshot_history(&self, limit: usize) -> tardis_common::Result<Vec<Snapshot>> {
+        let mut snaps = self
+            .system_state
+            .list_snapshots()
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))?;
+
+        if snaps.len() > limit {
+            Ok(snaps.split_off(snaps.len() - limit))
+        } else {
+            Ok(snaps)
+        }
+    }
+
     async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
         self.record_change(change).await
     }

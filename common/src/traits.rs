@@ -74,6 +74,9 @@ pub trait GallifreyService: Send + Sync + std::fmt::Debug {
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<Option<Snapshot>>;
 
+    /// Get history of system snapshots.
+    async fn get_snapshot_history(&self, limit: usize) -> Result<Vec<Snapshot>>;
+
     /// Record a system change.
     async fn record_change(&self, change: Change) -> Result<()>;
 }
