@@ -309,6 +309,31 @@ impl KnowledgeStore {
             .cloned()
             .collect())
     }
+
+    /// Scan all entity histories.
+    ///
+    /// This method allows iterating over the entire knowledge graph's history
+    /// without cloning the underlying storage structure.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    #[cfg(feature = "nova")]
+    pub fn scan_history<F>(&self, mut visitor: F) -> GallifreyResult<()>
+    where
+        F: FnMut(&[Entity]),
+    {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        for history in entities.values() {
+            visitor(history);
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for KnowledgeStore {

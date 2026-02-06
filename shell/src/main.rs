@@ -10,6 +10,8 @@ use tardis_vortex::Vortex;
 use tracing::info;
 
 mod commands;
+#[cfg(feature = "nova")]
+mod dashboard;
 mod repl;
 mod router;
 

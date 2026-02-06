@@ -14,12 +14,19 @@ workspace = true
 name = "tardis"
 path = "src/main.rs"
 
+[features]
+nova = ["dep:ratatui", "dep:crossterm", "tardis-gallifrey/nova"]
+
 [dependencies]
 # Internal
 tardis-common = { path = "../common" }
 tardis-vortex = { path = "../vortex" }
 tardis-gallifrey = { path = "../gallifrey" }
 tardis-chronos = { path = "../chronos" }
+
+# TUI (Nova)
+ratatui = { version = "0.30", optional = true }
+crossterm = { version = "0.29", optional = true }
 
 # Async runtime
 tokio = { workspace = true }

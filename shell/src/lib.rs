@@ -30,5 +30,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod commands;
+#[cfg(feature = "nova")]
+/// The TUI dashboard.
+pub mod dashboard;
 pub mod repl;
 pub mod router;
