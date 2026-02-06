@@ -74,12 +74,11 @@ pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
-use async_trait::async_trait;
 use std::sync::Arc;
 use tardis_common::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
-use tardis_common::traits::{GallifreyService, QueryResult};
+use tardis_common::traits::QueryResult;
 
 /// The main Gallifrey database instance.
 ///
@@ -287,60 +286,6 @@ impl Gallifrey {
         self.system_state
             .record_change(change)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
-    }
-}
-
-#[async_trait]
-impl GallifreyService for Gallifrey {
-    async fn insert(&self, entity: Entity) -> tardis_common::Result<EntityId> {
-        self.insert(entity).await
-    }
-
-    async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
-        self.get_history(id).await
-    }
-
-    async fn search_knowledge(
-        &self,
-        embedding: &[f32],
-        limit: usize,
-    ) -> tardis_common::Result<Vec<Entity>> {
-        self.search_knowledge(embedding, limit).await
-    }
-
-    async fn query(
-        &self,
-        query: &str,
-        temporal: TemporalQuery,
-    ) -> tardis_common::Result<QueryResult> {
-        self.query(query, temporal).await
-    }
-
-    async fn get_recent_messages(
-        &self,
-        session_id: SessionId,
-        limit: usize,
-    ) -> tardis_common::Result<Vec<Message>> {
-        self.get_recent_messages(session_id, limit).await
-    }
-
-    async fn search_conversation(
-        &self,
-        embedding: &[f32],
-        limit: usize,
-    ) -> tardis_common::Result<Vec<Message>> {
-        self.search_conversation(embedding, limit).await
-    }
-
-    async fn find_snapshot(
-        &self,
-        timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> tardis_common::Result<Option<Snapshot>> {
-        self.find_snapshot(timestamp).await
-    }
-
-    async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
-        self.record_change(change).await
     }
 }
 

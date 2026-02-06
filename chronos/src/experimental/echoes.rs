@@ -7,7 +7,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tardis_common::traits::{GallifreyService, VortexService};
+use tardis_gallifrey::Gallifrey;
+use tardis_vortex::Vortex;
 
 /// An echo from the past.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -25,14 +26,14 @@ pub struct Echo {
 /// The Echo Chamber service.
 #[derive(Debug)]
 pub struct EchoChamber {
-    vortex: Arc<dyn VortexService>,
-    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Arc<Vortex>,
+    gallifrey: Arc<Gallifrey>,
 }
 
 impl EchoChamber {
     /// Create a new `EchoChamber`.
     #[must_use]
-    pub fn new(vortex: Arc<dyn VortexService>, gallifrey: Arc<dyn GallifreyService>) -> Self {
+    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
@@ -89,101 +90,40 @@ impl EchoChamber {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
-    use tardis_common::domain::{Change, Entity, Message, Snapshot};
+    use tardis_common::domain::{Entity, Message};
     use tardis_common::id::{EntityId, ModelHandle, SessionId};
-    use tardis_common::llm::{InferenceParams, ModelLoadConfig};
-    use tardis_common::temporal::{BiTemporalInterval, TemporalQuery};
-    use tardis_common::traits::QueryResult;
-    use tardis_common::Result;
-
-    #[derive(Debug)]
-    struct MockVortex;
-
-    #[async_trait]
-    impl VortexService for MockVortex {
-        async fn load_model(&self, _path: &str, _config: ModelLoadConfig) -> Result<ModelHandle> {
-            Ok(ModelHandle::new(0))
-        }
-        async fn unload_model(&self, _handle: ModelHandle) -> Result<()> {
-            Ok(())
-        }
-        async fn infer(
-            &self,
-            _handle: ModelHandle,
-            _prompt: &str,
-            _params: InferenceParams,
-        ) -> Result<String> {
-            Ok("inference".to_string())
-        }
-        async fn embed(&self, _handle: ModelHandle, _text: &str) -> Result<Vec<f32>> {
-            Ok(vec![0.1, 0.2, 0.3])
-        }
-    }
-
-    #[derive(Debug)]
-    struct MockGallifrey;
-
-    #[async_trait]
-    impl GallifreyService for MockGallifrey {
-        async fn insert(&self, _entity: Entity) -> Result<EntityId> {
-            Ok(EntityId::new())
-        }
-        async fn get_history(&self, _id: EntityId) -> Result<Vec<Entity>> {
-            Ok(vec![])
-        }
-        async fn search_knowledge(&self, _embedding: &[f32], _limit: usize) -> Result<Vec<Entity>> {
-            Ok(vec![Entity {
-                id: EntityId::new(),
-                entity_type: "Fact".to_string(),
-                name: "Previous System Crash".to_string(),
-                properties: std::collections::HashMap::new(),
-                embedding: None,
-                temporal: BiTemporalInterval::now(),
-                source: None,
-            }])
-        }
-        async fn query(&self, _query: &str, _temporal: TemporalQuery) -> Result<QueryResult> {
-            Ok(QueryResult {
-                nodes: vec![],
-                execution_time_ms: 0,
-                truncated: false,
-            })
-        }
-        async fn get_recent_messages(
-            &self,
-            _session_id: SessionId,
-            _limit: usize,
-        ) -> Result<Vec<Message>> {
-            Ok(vec![])
-        }
-        async fn search_conversation(
-            &self,
-            _embedding: &[f32],
-            _limit: usize,
-        ) -> Result<Vec<Message>> {
-            Ok(vec![Message {
-                id: EntityId::new(),
-                session_id: SessionId::new(),
-                role: tardis_common::domain::Role::User,
-                content: "I remember when the system crashed".to_string(),
-                timestamp: Utc::now(),
-                embedding: None,
-                entity_refs: vec![],
-            }])
-        }
-        async fn find_snapshot(&self, _timestamp: DateTime<Utc>) -> Result<Option<Snapshot>> {
-            Ok(None)
-        }
-        async fn record_change(&self, _change: Change) -> Result<()> {
-            Ok(())
-        }
-    }
+    use tardis_common::temporal::BiTemporalInterval;
 
     #[tokio::test]
     async fn test_echoes() {
-        let vortex = Arc::new(MockVortex);
-        let gallifrey = Arc::new(MockGallifrey);
+        let vortex = Arc::new(Vortex::new().unwrap());
+        vortex.set_mock_load_model(Box::new(|_, _| Ok(ModelHandle::new(0))));
+        vortex.set_mock_embedding(Box::new(|_, _| Ok(vec![0.1, 0.2, 0.3])));
+
+        let gallifrey = Arc::new(Gallifrey::new());
+
+        // Setup Knowledge
+        gallifrey.knowledge().insert_entity(Entity {
+            id: EntityId::new(),
+            entity_type: "Fact".to_string(),
+            name: "Previous System Crash".to_string(),
+            properties: std::collections::HashMap::new(),
+            embedding: Some(vec![0.1, 0.2, 0.3]),
+            temporal: BiTemporalInterval::now(),
+            source: None,
+        }).unwrap();
+
+        // Setup Conversation
+        gallifrey.conversation().add_message(Message {
+            id: EntityId::new(),
+            session_id: SessionId::new(),
+            role: tardis_common::domain::Role::User,
+            content: "I remember when the system crashed".to_string(),
+            timestamp: Utc::now(),
+            embedding: Some(vec![0.1, 0.2, 0.3]),
+            entity_refs: vec![],
+        }).unwrap();
+
         let echo_chamber = EchoChamber::new(vortex, gallifrey);
 
         let echoes = echo_chamber.listen("system crash").await.unwrap();

@@ -15,7 +15,9 @@ use std::sync::Arc;
 #[cfg(feature = "nova")]
 use tardis_common::id::EntityId;
 #[cfg(feature = "nova")]
-use tardis_common::traits::{GallifreyService, VortexService};
+use tardis_gallifrey::Gallifrey;
+#[cfg(feature = "nova")]
+use tardis_vortex::Vortex;
 
 #[cfg(feature = "nova")]
 /// A detected anomaly in the timeline.
@@ -61,15 +63,15 @@ struct HistorySegment {
 /// The Historian service.
 #[derive(Debug)]
 pub struct Historian {
-    vortex: Arc<dyn VortexService>,
-    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Arc<Vortex>,
+    gallifrey: Arc<Gallifrey>,
 }
 
 #[cfg(feature = "nova")]
 impl Historian {
     /// Create a new `Historian`.
     #[must_use]
-    pub fn new(vortex: Arc<dyn VortexService>, gallifrey: Arc<dyn GallifreyService>) -> Self {
+    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
@@ -156,153 +158,84 @@ impl Historian {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
-    use tardis_common::domain::{Change, Entity, Message, Snapshot};
-    use tardis_common::id::{EntityId, ModelHandle, SessionId};
-    use tardis_common::llm::{InferenceParams, ModelLoadConfig};
-    use tardis_common::temporal::{BiTemporalInterval, TemporalQuery, TimeRange};
-    use tardis_common::traits::QueryResult;
-    use tardis_common::Result;
+    use tardis_common::domain::Entity;
+    use tardis_common::id::{EntityId, ModelHandle};
+    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 
-    #[derive(Debug)]
-    struct MockVortex;
-
-    #[async_trait]
-    impl VortexService for MockVortex {
-        async fn load_model(&self, _path: &str, _config: ModelLoadConfig) -> Result<ModelHandle> {
-            Ok(ModelHandle::new(0))
-        }
-        async fn unload_model(&self, _handle: ModelHandle) -> Result<()> {
-            Ok(())
-        }
-        async fn infer(
-            &self,
-            _handle: ModelHandle,
-            prompt: &str,
-            _params: InferenceParams,
-        ) -> Result<String> {
-            // Check if prompt contains the retcon detection
+    #[tokio::test]
+    async fn test_historian_narrative() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        vortex.set_mock_inference(Box::new(|_, prompt, _| {
             if prompt.contains("Retcon") && prompt.contains("delay_seconds") {
                 return Ok("Narrative: We realized late that the system was offline.".to_string());
             }
             Ok("Default narrative".to_string())
-        }
-        async fn embed(&self, _handle: ModelHandle, _text: &str) -> Result<Vec<f32>> {
-            Ok(vec![])
-        }
-    }
+        }));
+        vortex.set_mock_load_model(Box::new(|_, _| Ok(ModelHandle::new(0))));
 
-    #[derive(Debug)]
-    struct MockGallifrey;
+        let gallifrey = Arc::new(Gallifrey::new());
+        let id = EntityId::new();
+        setup_history(&gallifrey, id).await;
 
-    #[async_trait]
-    impl GallifreyService for MockGallifrey {
-        async fn insert(&self, _entity: Entity) -> Result<EntityId> {
-            Ok(EntityId::new())
-        }
-        async fn get_history(&self, _id: EntityId) -> Result<Vec<Entity>> {
-            let now = Utc::now();
-            let ten_mins_ago = now - chrono::Duration::seconds(600);
-            let five_mins_ago = now - chrono::Duration::seconds(300);
-
-            // Record 1: Normal (Trans=10 mins ago, Valid=10 mins ago)
-            let e1 = Entity {
-                id: EntityId::new(),
-                entity_type: "Test".to_string(),
-                name: "Test Entity".to_string(),
-                properties: std::collections::HashMap::new(),
-                embedding: None,
-                temporal: BiTemporalInterval {
-                    valid_time: TimeRange {
-                        start: ten_mins_ago,
-                        end: None,
-                    },
-                    transaction_time: TimeRange {
-                        start: ten_mins_ago,
-                        end: None,
-                    },
-                },
-                source: None,
-            };
-
-            // Record 2: Retcon (Trans=Now, Valid=5 mins ago) -> Trans > Valid by 300s
-            // Wait, Retcon definition: Recorded > Actual + 5s.
-            // Trans=Now, Valid=5 mins ago. Diff = 300s. Correct.
-            let e2 = Entity {
-                id: EntityId::new(),
-                entity_type: "Test".to_string(),
-                name: "Test Entity".to_string(),
-                properties: std::collections::HashMap::new(),
-                embedding: None,
-                temporal: BiTemporalInterval {
-                    valid_time: TimeRange {
-                        start: five_mins_ago,
-                        end: None,
-                    },
-                    transaction_time: TimeRange {
-                        start: now,
-                        end: None,
-                    },
-                },
-                source: None,
-            };
-
-            Ok(vec![e1, e2])
-        }
-        async fn search_knowledge(&self, _embedding: &[f32], _limit: usize) -> Result<Vec<Entity>> {
-            Ok(vec![])
-        }
-        async fn query(&self, _query: &str, _temporal: TemporalQuery) -> Result<QueryResult> {
-            Ok(QueryResult {
-                nodes: vec![],
-                execution_time_ms: 0,
-                truncated: false,
-            })
-        }
-        async fn get_recent_messages(&self, _id: SessionId, _limit: usize) -> Result<Vec<Message>> {
-            Ok(vec![])
-        }
-        async fn search_conversation(
-            &self,
-            _embedding: &[f32],
-            _limit: usize,
-        ) -> Result<Vec<Message>> {
-            Ok(vec![])
-        }
-        async fn find_snapshot(&self, _ts: DateTime<Utc>) -> Result<Option<Snapshot>> {
-            Ok(None)
-        }
-        async fn record_change(&self, _change: Change) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    #[tokio::test]
-    async fn test_historian_narrative() {
-        let vortex = Arc::new(MockVortex);
-        let gallifrey = Arc::new(MockGallifrey);
         let historian = Historian::new(vortex, gallifrey);
 
-        let story = historian.tell_story(EntityId::new()).await.unwrap();
+        let story = historian.tell_story(id).await.unwrap();
         assert!(story.contains("Narrative"));
+    }
+
+    // Helper to setup history
+    async fn setup_history(gallifrey: &Gallifrey, id: EntityId) {
+        let now = Utc::now();
+        let ten_mins_ago = now - chrono::Duration::seconds(600);
+        let five_mins_ago = now - chrono::Duration::seconds(300);
+
+        let e1 = Entity {
+            id,
+            entity_type: "Test".to_string(),
+            name: "Test Entity".to_string(),
+            properties: std::collections::HashMap::new(),
+            embedding: None,
+            temporal: BiTemporalInterval {
+                valid_time: TimeRange { start: ten_mins_ago, end: None },
+                transaction_time: TimeRange { start: ten_mins_ago, end: None },
+            },
+            source: None,
+        };
+
+        let e2 = Entity {
+            id,
+            entity_type: "Test".to_string(),
+            name: "Test Entity".to_string(),
+            properties: std::collections::HashMap::new(),
+            embedding: None,
+            temporal: BiTemporalInterval {
+                valid_time: TimeRange { start: five_mins_ago, end: None },
+                transaction_time: TimeRange { start: now, end: None },
+            },
+            source: None,
+        };
+
+        gallifrey.knowledge().insert_entity(e1).unwrap();
+        gallifrey.knowledge().insert_entity(e2).unwrap();
     }
 
     #[tokio::test]
     async fn test_analyze_logic() {
-        let vortex = Arc::new(MockVortex);
-        let gallifrey = Arc::new(MockGallifrey);
+        let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let id = EntityId::new();
+        setup_history(&gallifrey, id).await;
+
         let historian = Historian::new(vortex, gallifrey);
 
-        let segments = historian.analyze_history(EntityId::new()).await.unwrap();
+        let segments = historian.analyze_history(id).await.unwrap();
         assert_eq!(segments.len(), 2);
 
-        // First segment (sorted by transaction time, which was 10 mins ago)
         match segments[0].anomaly {
             TemporalAnomaly::Normal => {}
             _ => panic!("Expected Normal, got {:?}", segments[0].anomaly),
         }
 
-        // Second segment (Trans=Now, Valid=5 mins ago -> Retcon)
         match segments[1].anomaly {
             TemporalAnomaly::Retcon { delay_seconds, .. } => {
                 assert!(delay_seconds >= 299);
