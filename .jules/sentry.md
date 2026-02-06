@@ -1,7 +1,7 @@
-## 2024-05-22 - [RingBuffer Live Lock on Overwrite]
-**Learning:** `RingBuffer::try_read` assumed strict consistency and looped infinitely when `write_pos` lapped `read_pos` because sequence numbers never matched expectation. Lossy buffers must explicitly check for "lapping" and fast-forward the reader.
-**Action:** When testing lock-free ring buffers, always include a "wrap around" test case where the writer overwrites unread data to verify reader recovery.
+**[RingBuffer Atomic Wrapping Bug]
+**Learning:** `AtomicUsize` wrapping behavior combined with `saturating_sub` caused incorrect `available()` counts when `write_pos` wrapped but `read_pos` hadn't. Lock-free ring buffers must use `wrapping_sub` for position arithmetic to respect the circular nature of the sequence.
+**Action:** Always test wrapping arithmetic with explicit `usize::MAX` boundary conditions using `unsafe` pointer manipulation if necessary to simulate long-running states.
 
-**[Property Testing Temporal Ranges]
-**Learning:** `proptest` proved highly effective for verifying `TimeRange` invariants (like `start > end` implies empty), which manual edge cases might miss. It confirmed that the existing `contains` logic robustly handles invalid ranges without panicking.
-**Action:** Use property-based testing for any range-based or interval logic (e.g., `BiTemporalInterval`) to exhaustively cover boundary conditions.
+**[Large Struct Testing]
+**Learning:** `Box::new(LargeStruct::new())` often overflows the stack because Rust constructs the value on the stack before moving it. For large structs like `RingBuffer` (1MB), using `static` with a `reset()` helper is a reliable pattern for property-based testing.
+**Action:** Use `static` buffers + reset logic instead of heap allocation for testing large `const fn` initialized structs.
