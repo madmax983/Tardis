@@ -334,7 +334,8 @@ impl RingBuffer {
     pub fn available(&self) -> usize {
         let write_pos = self.write_pos.load(Ordering::Acquire);
         let read_pos = self.read_pos.load(Ordering::Relaxed);
-        write_pos.saturating_sub(read_pos)
+        // Use wrapping_sub to handle potential usize wrapping correctly
+        write_pos.wrapping_sub(read_pos)
     }
 
     /// Returns the number of dropped entries.
@@ -367,9 +368,26 @@ unsafe impl Sync for RingBuffer {}
 unsafe impl Send for RingBuffer {}
 
 #[cfg(test)]
+impl RingBuffer {
+    /// Resets the buffer for testing purposes.
+    ///
+    /// This is necessary because `RingBuffer` is too large to allocate on the stack
+    /// for every test iteration (causing stack overflow), so we reuse a `static` instance.
+    pub fn reset(&self) {
+        self.write_pos.store(0, Ordering::Relaxed);
+        self.read_pos.store(0, Ordering::Relaxed);
+        self.dropped_count.store(0, Ordering::Relaxed);
+        for slot in self.slots.iter() {
+            slot.sequence.store(0, Ordering::Relaxed);
+        }
+    }
+}
+
+#[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn ring_buffer_write_read() {
@@ -558,5 +576,116 @@ mod tests {
 
         // Verify we dropped 1
         assert_eq!(BUFFER.dropped_count(), 1);
+    }
+
+    #[test]
+    fn concurrent_write_read_no_overwrite() {
+        use std::thread;
+
+        static BUFFER: RingBuffer = RingBuffer::new();
+        // Ring buffer size is 4096. Writing 2000 ensures no overwrite.
+        const COUNT: u64 = 2000;
+
+        let producer = thread::spawn(move || {
+            for i in 0..COUNT {
+                let entry = TelemetryEntry {
+                    timestamp_ns: i,
+                    level: Level::Info,
+                    subsystem: Subsystem::Kernel,
+                    event_type: EventType::Log,
+                    span_id: SpanId::NONE,
+                    trace_id: TraceId::NONE,
+                    parent_span_id: SpanId::NONE,
+                    payload_len: 0,
+                };
+                BUFFER.try_write(&entry, &i.to_le_bytes());
+            }
+        });
+
+        let mut received = 0;
+        while received < COUNT {
+            if let Some((entry, payload)) = BUFFER.try_read() {
+                assert_eq!(entry.timestamp_ns, received);
+                assert_eq!(payload[..8], received.to_le_bytes());
+                received += 1;
+            } else {
+                thread::yield_now();
+            }
+        }
+
+        producer.join().unwrap();
+        assert_eq!(received, COUNT);
+        assert_eq!(BUFFER.dropped_count(), 0);
+    }
+
+    #[test]
+    fn available_wrapping_correctness() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+
+        // SAFETY: We modify private atomic fields via pointer magic to test wrapping
+        // Layout: write_pos (0), read_pos (64 due to padding)
+        unsafe {
+            let base = &BUFFER as *const RingBuffer as *mut u8;
+            let write_pos_ptr = base.cast::<AtomicUsize>();
+            // read_pos is at offset 64: write_pos (8) + _pad1 (56) = 64
+            let read_pos_ptr = base.add(64).cast::<AtomicUsize>();
+
+            // Case 1: Normal
+            (*write_pos_ptr).store(10, Ordering::Relaxed);
+            (*read_pos_ptr).store(5, Ordering::Relaxed);
+            assert_eq!(BUFFER.available(), 5);
+
+            // Case 2: Wrap around
+            // write_pos wraps to 5. read_pos is usize::MAX - 4.
+            // valid items = 10.
+            // write - read = 5 - (MAX - 4) = 5 - (-5) = 10.
+            let max = usize::MAX;
+            (*read_pos_ptr).store(max - 4, Ordering::Relaxed);
+            (*write_pos_ptr).store(5, Ordering::Relaxed);
+
+            // This assertion checks if available() handles usize wrapping correctly
+            // saturating_sub would return 0 here
+            assert_eq!(
+                BUFFER.available(),
+                10,
+                "available() should handle wrapping arithmetic"
+            );
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn prop_payload_integrity(
+            payload_content in proptest::collection::vec(any::<u8>(), 0..500)
+        ) {
+            // Use static to avoid stack overflow (Box::new still constructs on stack)
+            static BUFFER: RingBuffer = RingBuffer::new();
+            BUFFER.reset();
+            let buffer = &BUFFER;
+
+            let entry = TelemetryEntry {
+                timestamp_ns: 1,
+                level: Level::Info,
+                subsystem: Subsystem::Kernel,
+                event_type: EventType::Log,
+                span_id: SpanId::NONE,
+                trace_id: TraceId::NONE,
+                parent_span_id: SpanId::NONE,
+                payload_len: 0,
+            };
+
+            buffer.try_write(&entry, &payload_content);
+
+            if let Some((read_entry, read_payload)) = buffer.try_read() {
+                // Check payload length capping
+                let expected_len = payload_content.len().min(MAX_PAYLOAD_SIZE);
+                assert_eq!(read_payload.len(), expected_len);
+                assert_eq!(&read_payload[..], &payload_content[..expected_len]);
+                assert_eq!(read_entry.payload_len, expected_len as u16);
+            } else {
+                panic!("Buffer should not be empty");
+            }
+        }
     }
 }
