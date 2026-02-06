@@ -285,6 +285,30 @@ impl KnowledgeStore {
             .collect())
     }
 
+    /// Scan the entire history of the knowledge graph.
+    ///
+    /// Applies the provided closure to the history (list of versions) of every entity.
+    /// This allows calculating global statistics without cloning the entire dataset.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn scan_history<F>(&self, mut f: F) -> GallifreyResult<()>
+    where
+        F: FnMut(&[Entity]),
+    {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        for versions in entities.values() {
+            f(versions);
+        }
+
+        Ok(())
+    }
+
     /// Find entities by semantic similarity (placeholder for vector search).
     ///
     /// # Errors

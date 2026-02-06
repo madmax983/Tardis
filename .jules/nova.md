@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## The Entropy Gauge
+**Concept:** A system stability metric based on the ratio of "Retcons" (changing the past) and "Prophecies" (predicting the future) to normal events.
+**Fate:** Merged (Experimental)
+**Lesson:** Measuring the "Timey Wimey" instability gives us a quantifiable metric for system health beyond just "uptime". It turns the abstract concept of bi-temporality into a concrete KPI.
