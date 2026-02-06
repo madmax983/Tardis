@@ -1,4 +1,19 @@
 //! Context augmentation for Chronos.
+//!
+//! This module acts as the "Prompt Engineer" of the RAG pipeline. It takes the
+//! raw user query and the retrieved context (facts, conversation history) and
+//! assembles them into a structured prompt that guides the LLM to provide
+//! accurate, grounded responses.
+//!
+//! # The Augmentation Strategy
+//!
+//! 1.  **System Context**: Sets the persona ("Tardis AI Assistant") and injects
+//!     the current system time. This is critical for the LLM to understand "now".
+//! 2.  **Retrieved Context**: Formats the retrieved documents into a labeled
+//!     section, including source type (Knowledge, Conversation) and relevance scores.
+//! 3.  **User Query**: The original question.
+//! 4.  **Instructions**: Dynamic instructions based on the query intent (e.g.,
+//!     "Focus on recall" vs "Compare states").
 
 use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;
@@ -7,6 +22,8 @@ use chrono::Utc;
 use std::fmt::Write;
 
 /// Context augmenter for building RAG prompts.
+///
+/// This struct manages token limits and formatting logic for prompt construction.
 #[derive(Debug)]
 pub struct ContextAugmenter {
     /// Maximum tokens for context.
@@ -24,9 +41,49 @@ impl ContextAugmenter {
 
     /// Augment a prompt with retrieved context.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_chronos::pipeline::{ContextAugmenter, ContextSource, ContextSourceType};
+    /// use tardis_chronos::pipeline::{QueryAnalyzer, AnalyzedQuery, QueryIntent};
+    /// use chrono::Utc;
+    ///
+    /// // 1. Setup the input data
+    /// let augmenter = ContextAugmenter::new();
+    /// let prompt = "Who is the Doctor?";
+    ///
+    /// // Mock an analyzed query
+    /// let analysis = AnalyzedQuery {
+    ///     text: prompt.to_string(),
+    ///     intent: QueryIntent::Question,
+    ///     temporal_refs: vec![],
+    ///     temporal_description: None,
+    ///     entities: vec![],
+    /// };
+    ///
+    /// // Mock retrieved context
+    /// let context = vec![
+    ///     ContextSource {
+    ///         source_type: ContextSourceType::Knowledge,
+    ///         content: "The Doctor is a Time Lord from Gallifrey.".to_string(),
+    ///         relevance: 0.95,
+    ///         entity_id: None,
+    ///     }
+    /// ];
+    ///
+    /// // 2. Generate the augmented prompt
+    /// let result = augmenter.augment(prompt, &context, &analysis).unwrap();
+    ///
+    /// // 3. Verify the structure
+    /// assert!(result.contains("# Tardis AI Assistant"));
+    /// assert!(result.contains("## Retrieved Context"));
+    /// assert!(result.contains("The Doctor is a Time Lord"));
+    /// assert!(result.contains("## User Query"));
+    /// ```
+    ///
     /// # Errors
     ///
-    /// Returns an error if augmentation fails.
+    /// Returns an error if augmentation fails (e.g., formatting errors).
     pub fn augment(
         &self,
         prompt: &str,

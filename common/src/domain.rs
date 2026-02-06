@@ -145,6 +145,27 @@ pub struct Message {
 }
 
 /// A conversation session.
+///
+/// Tracks the lifecycle of a user interaction, including topics discussed
+/// and metadata for context retrieval.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::domain::Session;
+/// use tardis_common::id::SessionId;
+/// use chrono::Utc;
+/// use std::collections::HashMap;
+///
+/// let session = Session {
+///     id: SessionId::new(),
+///     started_at: Utc::now(),
+///     ended_at: None,
+///     summary: None,
+///     topics: vec!["Physics".to_string(), "Time Travel".to_string()],
+///     metadata: HashMap::new(),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// Unique identifier.
@@ -166,6 +187,31 @@ pub struct Session {
 // ============================================================================
 
 /// A snapshot of system state.
+///
+/// Captures a frozen point-in-time view of the OS, allowing for
+/// time-travel debugging and rollback.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::domain::{Snapshot, SnapshotTrigger, SystemState};
+/// use tardis_common::id::SnapshotId;
+/// use chrono::Utc;
+/// use std::collections::HashMap;
+///
+/// let snapshot = Snapshot {
+///     id: SnapshotId::new(),
+///     name: "Pre-Update Backup".to_string(),
+///     timestamp: Utc::now(),
+///     trigger: SnapshotTrigger::Manual,
+///     state: SystemState {
+///         processes: HashMap::new(),
+///         config: HashMap::new(),
+///         files: HashMap::new(),
+///     },
+///     checksum: "sha256:abc123...".to_string(),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     /// Unique identifier.
@@ -235,6 +281,25 @@ pub struct FileMetadata {
 }
 
 /// A change between snapshots.
+///
+/// Represents a diff operation on the system state, used for
+/// audit logging and visualizing evolution over time.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::domain::{Change, ChangeType};
+/// use chrono::Utc;
+/// use serde_json::json;
+///
+/// let change = Change {
+///     timestamp: Utc::now(),
+///     path: "/etc/tardis/config.toml".to_string(),
+///     change_type: ChangeType::Update,
+///     old_value: Some(json!({ "debug": false })),
+///     new_value: Some(json!({ "debug": true })),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Change {
     /// When the change occurred.
