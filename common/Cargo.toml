@@ -24,9 +24,6 @@ chrono = { workspace = true }
 # Identifiers
 uuid = { workspace = true }
 
-# Async support
-async-trait = { workspace = true }
-
 [dev-dependencies]
 proptest = { workspace = true }
 criterion = { workspace = true }
