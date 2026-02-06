@@ -5,3 +5,7 @@
 ## 2024-05-24 - The Time Travel Paradox
 **Confusion:** The difference between `valid_time` and `transaction_time` in `BiTemporalInterval` was opaque, leading to confusion about how to "correct" history versus "record" it.
 **Clarification:** Added a dedicated "Bi-temporality Explained" section with a concrete example of `supersede()` showing how to correct a past mistake without losing the audit trail.
+
+## 2024-05-25 - The Hidden Chronos
+**Confusion:** Users exploring the `chronos` crate had no entry point (`README.md`) to understand the RAG pipeline architecture, making the orchestration logic feel like a black box.
+**Clarification:** Added `chronos/README.md` with an ASCII architecture diagram and detailed pipeline stage explanations to map the flow from query to response.
