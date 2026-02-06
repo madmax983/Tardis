@@ -28,3 +28,11 @@
 1. Extracted `trace.rs` (IDs), `log.rs` (Level), `meta.rs` (Subsystem), `wire.rs` (TelemetryEntry), and `metrics_types.rs`.
 2. Converted `types.rs` into a Facade re-exporting these modules.
 **Stability:** Improved cohesion. `no_std` compatibility preserved.
+
+**[Refactor] Vortex Weights Loader De-Bloat**
+**Tangle:** `vortex/src/loader/weights.rs` was a "Blob" (788 lines) handling SafeTensors, GGUF, and type definitions.
+**Blueprint:**
+1. Extracted `types.rs` for `ModelFormat`, `LoadedModel`.
+2. Extracted `safetensors_loader.rs` and `gguf_loader.rs` for format-specific logic.
+3. Retained `weights.rs` as a lightweight facade/dispatcher.
+**Stability:** Reduced `weights.rs` to <100 lines. Improved separation of concerns.

@@ -9,7 +9,10 @@
 
 mod config;
 mod device;
+pub(crate) mod gguf_loader;
 mod hub;
+pub(crate) mod safetensors_loader;
+pub mod types;
 mod weights;
 
 use std::path::{Path, PathBuf};
@@ -17,7 +20,8 @@ use std::path::{Path, PathBuf};
 pub use config::{parse_model_config, ModelConfig};
 pub use device::{create_device, DeviceSpec};
 pub use hub::{download_model, download_preset, get_cached_model, is_preset_cached, ModelPreset};
-pub use weights::{load_model_weights, LoadedModel, ModelFormat};
+pub use types::{LoadedModel, ModelFormat};
+pub use weights::load_model_weights;
 
 /// Resolve a sibling file path relative to a model path.
 ///
