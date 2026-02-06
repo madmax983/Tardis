@@ -21,3 +21,7 @@
 2026-02-23 - [RingBuffer UB & Stuck Writer]
 **Threat:** 1. `bytes` 1.11.0 Integer Overflow (DoS). 2. `RingBuffer` UB (Data Race in `copy_nonoverlapping` on shared memory). 3. `RingBuffer` Reader Livelock (infinite spin on stuck writer).
 **Defense:** 1. Updated `bytes` to 1.11.1. 2. Replaced `copy_nonoverlapping` with `volatile` read/write loops. 3. Added retry limit and skip logic to `try_read`.
+
+2026-03-01 - [RingBuffer Race Condition]
+**Threat:** MPSC usage of SPSC RingBuffer allowed multiple producers to race on slot claiming, leading to concurrent writes to `UnsafeCell` (UB) and data corruption.
+**Defense:** Implemented CAS (Compare-And-Swap) loop in `try_write` to enforce exclusive slot access, with spin-wait backoff for contention handling.
