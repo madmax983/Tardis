@@ -7,28 +7,43 @@
 
 use crate::error::{ChronosError, ChronosResult};
 use crate::experimental::psychic_paper::{Intent, PsychicPaper};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, ModelHandle};
 use tardis_common::llm::InferenceParams;
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
+use tardis_gallifrey::Gallifrey;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
+
+/// Predicted system metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PredictedMetrics {
+    /// Time of prediction.
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Predicted CPU usage (percent).
+    pub cpu_percent: f32,
+    /// Predicted memory usage (bytes).
+    pub memory_bytes: u64,
+}
 
 /// The Prophet engine.
 #[derive(Debug)]
 pub struct Prophet {
     vortex: Arc<Vortex>,
+    gallifrey: Arc<Gallifrey>,
     paper: PsychicPaper,
 }
 
 impl Prophet {
     /// Create a new Prophet.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
             vortex,
+            gallifrey,
             paper: PsychicPaper::new(),
         }
     }
@@ -127,6 +142,109 @@ impl Prophet {
         info!("Prophet foresaw {} events.", predictions.len());
         Ok(predictions)
     }
+
+    /// Forecast future system metrics.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if history cannot be retrieved or inference fails.
+    #[instrument(skip(self))]
+    pub async fn forecast_metrics(
+        &self,
+        minutes: u32,
+        model: ModelHandle,
+    ) -> ChronosResult<Vec<PredictedMetrics>> {
+        info!("Forecasting metrics for the next {} minutes", minutes);
+
+        // 1. Fetch history
+        let snapshots = self
+            .gallifrey
+            .system_state()
+            .list_snapshots()
+            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+
+        // Take last 20 snapshots
+        let recent: Vec<_> = snapshots.iter().rev().take(20).rev().collect();
+
+        if recent.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // 2. Build time series prompt
+        let series: Vec<_> = recent
+            .iter()
+            .map(|s| {
+                // Aggregate CPU/Memory from all processes
+                let total_cpu: f32 = s.state.processes.values().map(|p| p.cpu_percent).sum();
+                let total_mem: u64 = s.state.processes.values().map(|p| p.memory_bytes).sum();
+
+                serde_json::json!({
+                    "timestamp": s.timestamp,
+                    "cpu": total_cpu,
+                    "memory": total_mem
+                })
+            })
+            .collect();
+
+        let prompt = format!(
+            "History:\n{}\n\nPredict the next {} data points (1 minute interval). Return strictly a JSON list of objects with 'timestamp', 'cpu', 'memory'.",
+            serde_json::to_string_pretty(&series).unwrap_or_default(),
+            minutes
+        );
+
+        // 3. Infer
+        let response = self
+            .vortex
+            .infer(
+                model,
+                &prompt,
+                InferenceParams {
+                    max_tokens: 1024,
+                    temperature: 0.2, // Lower temp for logic/numbers
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        // 4. Parse
+        let parsed = self
+            .paper
+            .interpret(&response, Intent::Json)
+            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e)))?;
+
+        let mut metrics = Vec::new();
+        if let Some(array) = parsed.as_array() {
+            for item in array {
+                #[allow(clippy::cast_possible_truncation)]
+                let cpu = item
+                    .get("cpu")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0) as f32;
+                let memory = item
+                    .get("memory")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+
+                // Handle timestamp parsing
+                let timestamp = if let Some(ts_str) =
+                    item.get("timestamp").and_then(serde_json::Value::as_str)
+                {
+                    chrono::DateTime::parse_from_rfc3339(ts_str)
+                        .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc))
+                } else {
+                    chrono::Utc::now()
+                };
+
+                metrics.push(PredictedMetrics {
+                    timestamp,
+                    cpu_percent: cpu,
+                    memory_bytes: memory,
+                });
+            }
+        }
+
+        Ok(metrics)
+    }
 }
 
 #[cfg(test)]
@@ -137,6 +255,7 @@ mod tests {
     #[tokio::test]
     async fn test_foresee() {
         let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
         vortex.set_mock_inference(Box::new(|_, _, _| {
             let response = json!([
                 {
@@ -153,7 +272,7 @@ mod tests {
             Ok(response.to_string())
         }));
 
-        let prophet = Prophet::new(vortex);
+        let prophet = Prophet::new(vortex, gallifrey);
         let model = ModelHandle::new(1);
 
         let predictions = prophet
@@ -186,5 +305,54 @@ mod tests {
             diff < 5,
             "Prediction time should be ~5 minutes in the future"
         );
+    }
+
+    #[tokio::test]
+    async fn test_forecast_metrics() {
+        let vortex = Arc::new(Vortex::new().unwrap());
+        let gallifrey = Arc::new(Gallifrey::new());
+
+        // Mock Vortex response
+        vortex.set_mock_inference(Box::new(|_, _, _| {
+            // Generate some dummy predictions
+            let predictions = vec![
+                json!({
+                    "timestamp": "2024-01-01T12:01:00Z",
+                    "cpu": 50.5,
+                    "memory": 102400
+                }),
+                json!({
+                    "timestamp": "2024-01-01T12:02:00Z",
+                    "cpu": 60.0,
+                    "memory": 204800
+                }),
+            ];
+            Ok(json!(predictions).to_string())
+        }));
+
+        // Populate Gallifrey with some data
+        let state = tardis_common::domain::SystemState {
+            processes: std::collections::HashMap::new(),
+            config: std::collections::HashMap::new(),
+            files: std::collections::HashMap::new(),
+        };
+
+        gallifrey
+            .system_state()
+            .take_snapshot(
+                "test_snapshot",
+                tardis_common::domain::SnapshotTrigger::Manual,
+                state,
+            )
+            .unwrap();
+
+        let prophet = Prophet::new(vortex, gallifrey);
+        let model = ModelHandle::new(1);
+
+        let predictions = prophet.forecast_metrics(2, model).await.unwrap();
+
+        assert_eq!(predictions.len(), 2);
+        assert!((predictions[0].cpu_percent - 50.5).abs() < f32::EPSILON);
+        assert_eq!(predictions[1].memory_bytes, 204800);
     }
 }

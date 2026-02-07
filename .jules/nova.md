@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## Prophet Metrics Forecasting
+**Concept:** Extending the Prophet module to forecast numerical system metrics (CPU, RAM) using historical snapshots and LLM time-series extrapolation.
+**Fate:** Merged (Experimental)
+**Lesson:** Structured time-series data can be effectively processed by LLMs when formatted as JSON, allowing for "fuzzy" prediction of system resources.

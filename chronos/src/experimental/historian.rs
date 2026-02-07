@@ -71,7 +71,7 @@ pub struct Historian {
 impl Historian {
     /// Create a new `Historian`.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
@@ -196,8 +196,14 @@ mod tests {
             properties: std::collections::HashMap::new(),
             embedding: None,
             temporal: BiTemporalInterval {
-                valid_time: TimeRange { start: ten_mins_ago, end: None },
-                transaction_time: TimeRange { start: ten_mins_ago, end: None },
+                valid_time: TimeRange {
+                    start: ten_mins_ago,
+                    end: None,
+                },
+                transaction_time: TimeRange {
+                    start: ten_mins_ago,
+                    end: None,
+                },
             },
             source: None,
         };
@@ -209,8 +215,14 @@ mod tests {
             properties: std::collections::HashMap::new(),
             embedding: None,
             temporal: BiTemporalInterval {
-                valid_time: TimeRange { start: five_mins_ago, end: None },
-                transaction_time: TimeRange { start: now, end: None },
+                valid_time: TimeRange {
+                    start: five_mins_ago,
+                    end: None,
+                },
+                transaction_time: TimeRange {
+                    start: now,
+                    end: None,
+                },
             },
             source: None,
         };
