@@ -74,11 +74,11 @@ pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
+use crate::query::QueryResult;
 use std::sync::Arc;
 use tardis_common::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
-use tardis_common::traits::QueryResult;
 
 /// The main Gallifrey database instance.
 ///

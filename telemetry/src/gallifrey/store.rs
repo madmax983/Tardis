@@ -26,6 +26,51 @@ pub struct StoredEvent {
     pub data: EventData,
 }
 
+/// Context around a specific timestamp.
+///
+/// Contains all telemetry data (spans and events) within a time window
+/// centered on a specific moment.
+#[derive(Debug, Clone)]
+pub struct TelemetryContext {
+    /// Center timestamp of the context.
+    pub center: DateTime<Utc>,
+
+    /// Window size in milliseconds (before and after center).
+    pub window_ms: i64,
+
+    /// Spans active during this window.
+    pub spans: Vec<StoredSpan>,
+
+    /// Events that occurred during this window.
+    pub events: Vec<StoredEvent>,
+}
+
+impl TelemetryContext {
+    /// Returns the start of the time window.
+    #[must_use]
+    pub fn start(&self) -> DateTime<Utc> {
+        self.center - chrono::Duration::milliseconds(self.window_ms)
+    }
+
+    /// Returns the end of the time window.
+    #[must_use]
+    pub fn end(&self) -> DateTime<Utc> {
+        self.center + chrono::Duration::milliseconds(self.window_ms)
+    }
+
+    /// Returns whether the context is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.spans.is_empty() && self.events.is_empty()
+    }
+
+    /// Returns the total number of items in the context.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.spans.len() + self.events.len()
+    }
+}
+
 /// Telemetry storage backed by Gallifrey.
 ///
 /// This store maintains spans and events as entities in Gallifrey's
@@ -211,11 +256,7 @@ impl TelemetryStore {
     ///
     /// Returns all spans and events within the specified time window.
     #[must_use]
-    pub fn context_around(
-        &self,
-        timestamp: DateTime<Utc>,
-        window_ms: i64,
-    ) -> super::queries::TelemetryContext {
+    pub fn context_around(&self, timestamp: DateTime<Utc>, window_ms: i64) -> TelemetryContext {
         let window = chrono::Duration::milliseconds(window_ms);
         let from = timestamp - window;
         let to = timestamp + window;
@@ -223,7 +264,7 @@ impl TelemetryStore {
         let spans = self.spans_in_range(from, to);
         let events = self.events_in_range(from, to);
 
-        super::queries::TelemetryContext {
+        TelemetryContext {
             center: timestamp,
             window_ms,
             spans,

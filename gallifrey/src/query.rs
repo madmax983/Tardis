@@ -1,10 +1,7 @@
-//! Shared traits for Tardis subsystem interfaces.
-//!
-//! These traits define the contracts between subsystems, designed to support
-//! both direct function calls (monolithic) and potential future IPC (microkernel).
+//! Query types for Gallifrey.
 
-use crate::domain::Entity;
 use serde::{Deserialize, Serialize};
+use tardis_common::domain::Entity;
 
 /// Query results from Gallifrey.
 #[derive(Debug, Clone, Serialize, Deserialize)]
