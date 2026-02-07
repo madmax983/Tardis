@@ -22,7 +22,8 @@ pub type MockInference =
 pub type MockEmbedding = Box<dyn Fn(ModelHandle, &str) -> VortexResult<Vec<f32>> + Send + Sync>;
 
 /// Mock load model callback type.
-pub type MockLoadModel = Box<dyn Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync>;
+pub type MockLoadModel =
+    Box<dyn Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync>;
 
 /// The main Vortex inference engine.
 pub struct Vortex {
@@ -55,7 +56,7 @@ impl std::fmt::Debug for Vortex {
                 "model_configs_count",
                 &self.model_configs.read().map(|c| c.len()).unwrap_or(0),
             )
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

@@ -175,8 +175,9 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
-        let intent = self.classify_intent(query);
-        let temporal_refs = self.extract_temporal_refs(query, Utc::now());
+        let query_lower = query.to_lowercase();
+        let intent = self.classify_intent(&query_lower);
+        let temporal_refs = self.extract_temporal_refs(&query_lower, Utc::now());
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -196,16 +197,14 @@ impl QueryAnalyzer {
 
     /// Classify the intent of a query.
     #[allow(clippy::unused_self)]
-    fn classify_intent(&self, query: &str) -> QueryIntent {
-        let lower = query.to_lowercase();
-
+    fn classify_intent(&self, query_lower: &str) -> QueryIntent {
         for rule in INTENT_RULES {
-            if rule.matches(&lower) {
+            if rule.matches(query_lower) {
                 return rule.intent.clone();
             }
         }
 
-        if lower.ends_with('?') {
+        if query_lower.ends_with('?') {
             return QueryIntent::Question;
         }
 
@@ -214,12 +213,11 @@ impl QueryAnalyzer {
 
     /// Extract temporal references from a query.
     #[allow(clippy::unused_self)]
-    fn extract_temporal_refs(&self, query: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
-        let mut refs = Vec::new();
-        let lower = query.to_lowercase();
+    fn extract_temporal_refs(&self, query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
+        let mut refs = Vec::with_capacity(TEMPORAL_RULES.len());
 
         for rule in TEMPORAL_RULES {
-            if lower.contains(rule.keyword) {
+            if query_lower.contains(rule.keyword) {
                 let resolved = rule.resolve(now);
 
                 refs.push(TemporalRef {
@@ -250,14 +248,20 @@ impl QueryAnalyzer {
     /// Generate human-readable description of temporal context.
     #[allow(clippy::unused_self)]
     fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
+        use std::fmt::Write;
+
         if refs.is_empty() {
             return "current time".to_string();
         }
 
-        refs.iter()
-            .map(|r| format!("{} ({})", r.text, r.resolved.format("%Y-%m-%d")))
-            .collect::<Vec<_>>()
-            .join(", ")
+        let mut desc = String::with_capacity(refs.len() * 32);
+        for (i, r) in refs.iter().enumerate() {
+            if i > 0 {
+                desc.push_str(", ");
+            }
+            let _ = write!(desc, "{} ({})", r.text, r.resolved.format("%Y-%m-%d"));
+        }
+        desc
     }
 }
 
@@ -277,42 +281,42 @@ mod tests {
         let analyzer = QueryAnalyzer::new();
 
         assert_eq!(
-            analyzer.classify_intent("Remember that I like pizza"),
+            analyzer.classify_intent("remember that i like pizza"),
             QueryIntent::Remember
         );
         assert_eq!(
-            analyzer.classify_intent("Please remember this conversation"),
+            analyzer.classify_intent("please remember this conversation"),
             QueryIntent::Remember
         );
         assert_eq!(
-            analyzer.classify_intent("What did we discuss yesterday?"),
+            analyzer.classify_intent("what did we discuss yesterday?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("Recall the meeting notes"),
+            analyzer.classify_intent("recall the meeting notes"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("What was the result?"),
+            analyzer.classify_intent("what was the result?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("How has the project changed?"),
+            analyzer.classify_intent("how has the project changed?"),
             QueryIntent::TemporalDiff
         );
         assert_eq!(
-            analyzer.classify_intent("Show me the system state"),
+            analyzer.classify_intent("show me the system state"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            analyzer.classify_intent("Take a snapshot"),
+            analyzer.classify_intent("take a snapshot"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            analyzer.classify_intent("Is this a question?"),
+            analyzer.classify_intent("is this a question?"),
             QueryIntent::Question
         );
-        assert_eq!(analyzer.classify_intent("Just chatting"), QueryIntent::Chat);
+        assert_eq!(analyzer.classify_intent("just chatting"), QueryIntent::Chat);
     }
 
     #[test]
@@ -320,20 +324,20 @@ mod tests {
         let analyzer = QueryAnalyzer::new();
         let now = Utc::now();
 
-        let refs = analyzer.extract_temporal_refs("What happened yesterday?", now);
+        let refs = analyzer.extract_temporal_refs("what happened yesterday?", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "yesterday");
         assert_eq!(refs[0].ref_type, TemporalRefType::Relative);
 
-        let refs = analyzer.extract_temporal_refs("Check last week logs", now);
+        let refs = analyzer.extract_temporal_refs("check last week logs", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "last week");
 
-        let refs = analyzer.extract_temporal_refs("Do it today", now);
+        let refs = analyzer.extract_temporal_refs("do it today", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "today");
 
-        let refs = analyzer.extract_temporal_refs("Yesterday and today", now);
+        let refs = analyzer.extract_temporal_refs("yesterday and today", now);
         assert_eq!(refs.len(), 2);
     }
 
