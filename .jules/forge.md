@@ -13,3 +13,7 @@
 **[Metric Collection Performance]
 **Learning:** Cumulative histograms on write (O(N) atomics) cause contention. Cumulative on read (O(N) read, O(1) write) is better.
 **Action:** Prefer "write-fast, read-slow" for high-frequency telemetry data structures.
+
+**[Redundant Allocations]
+**Learning:** Calling `to_lowercase()` or `clone()` multiple times on the same data in a hot path is wasteful.
+**Action:** Normalize data once at the entry point (e.g., `analyze`) and pass references to helper functions.

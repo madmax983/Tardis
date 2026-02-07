@@ -55,7 +55,7 @@ impl std::fmt::Debug for Vortex {
                 "model_configs_count",
                 &self.model_configs.read().map(|c| c.len()).unwrap_or(0),
             )
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

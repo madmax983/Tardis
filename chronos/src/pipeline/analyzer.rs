@@ -112,9 +112,13 @@ struct IntentRule {
 
 impl IntentRule {
     fn matches(&self, query_lower: &str) -> bool {
-        let has_required = self.required.iter().all(|k| query_lower.contains(k));
-        let has_any = self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k));
-        has_required && has_any
+        // If required keywords are missing, fail fast.
+        if !self.required.iter().all(|k| query_lower.contains(k)) {
+            return false;
+        }
+
+        // If there are optional keywords, one must match.
+        self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k))
     }
 }
 
@@ -175,8 +179,9 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
-        let intent = self.classify_intent(query);
-        let temporal_refs = self.extract_temporal_refs(query, Utc::now());
+        let lower = query.to_lowercase();
+        let intent = self.classify_intent(&lower);
+        let temporal_refs = self.extract_temporal_refs(&lower, Utc::now());
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -196,46 +201,39 @@ impl QueryAnalyzer {
 
     /// Classify the intent of a query.
     #[allow(clippy::unused_self)]
-    fn classify_intent(&self, query: &str) -> QueryIntent {
-        let lower = query.to_lowercase();
-
-        for rule in INTENT_RULES {
-            if rule.matches(&lower) {
-                return rule.intent.clone();
-            }
-        }
-
-        if lower.ends_with('?') {
-            return QueryIntent::Question;
-        }
-
-        QueryIntent::Chat
+    fn classify_intent(&self, query_lower: &str) -> QueryIntent {
+        INTENT_RULES
+            .iter()
+            .find(|rule| rule.matches(query_lower))
+            .map_or_else(
+                || {
+                    if query_lower.ends_with('?') {
+                        QueryIntent::Question
+                    } else {
+                        QueryIntent::Chat
+                    }
+                },
+                |rule| rule.intent.clone(),
+            )
     }
 
     /// Extract temporal references from a query.
     #[allow(clippy::unused_self)]
-    fn extract_temporal_refs(&self, query: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
-        let mut refs = Vec::new();
-        let lower = query.to_lowercase();
-
-        for rule in TEMPORAL_RULES {
-            if lower.contains(rule.keyword) {
-                let resolved = rule.resolve(now);
-
-                refs.push(TemporalRef {
-                    text: rule.keyword.to_string(),
-                    resolved,
-                    ref_type: rule.ref_type.clone(),
-                });
-            }
-        }
-
+    fn extract_temporal_refs(&self, query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
         // TODO: Add more sophisticated temporal extraction
         // - NLP-based extraction
         // - Absolute date parsing
         // - Event-based references
 
-        refs
+        TEMPORAL_RULES
+            .iter()
+            .filter(|rule| query_lower.contains(rule.keyword))
+            .map(|rule| TemporalRef {
+                text: rule.keyword.to_string(),
+                resolved: rule.resolve(now),
+                ref_type: rule.ref_type.clone(),
+            })
+            .collect()
     }
 
     /// Extract entity mentions from a query.
@@ -250,14 +248,21 @@ impl QueryAnalyzer {
     /// Generate human-readable description of temporal context.
     #[allow(clippy::unused_self)]
     fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
+        use std::fmt::Write;
+
         if refs.is_empty() {
             return "current time".to_string();
         }
 
-        refs.iter()
-            .map(|r| format!("{} ({})", r.text, r.resolved.format("%Y-%m-%d")))
-            .collect::<Vec<_>>()
-            .join(", ")
+        let mut s = String::new();
+        for (i, r) in refs.iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            // Ignore write errors on String as it shouldn't fail unless OOM
+            let _ = write!(s, "{} ({})", r.text, r.resolved.format("%Y-%m-%d"));
+        }
+        s
     }
 }
 
@@ -277,42 +282,42 @@ mod tests {
         let analyzer = QueryAnalyzer::new();
 
         assert_eq!(
-            analyzer.classify_intent("Remember that I like pizza"),
+            analyzer.classify_intent("remember that i like pizza"),
             QueryIntent::Remember
         );
         assert_eq!(
-            analyzer.classify_intent("Please remember this conversation"),
+            analyzer.classify_intent("please remember this conversation"),
             QueryIntent::Remember
         );
         assert_eq!(
-            analyzer.classify_intent("What did we discuss yesterday?"),
+            analyzer.classify_intent("what did we discuss yesterday?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("Recall the meeting notes"),
+            analyzer.classify_intent("recall the meeting notes"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("What was the result?"),
+            analyzer.classify_intent("what was the result?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            analyzer.classify_intent("How has the project changed?"),
+            analyzer.classify_intent("how has the project changed?"),
             QueryIntent::TemporalDiff
         );
         assert_eq!(
-            analyzer.classify_intent("Show me the system state"),
+            analyzer.classify_intent("show me the system state"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            analyzer.classify_intent("Take a snapshot"),
+            analyzer.classify_intent("take a snapshot"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            analyzer.classify_intent("Is this a question?"),
+            analyzer.classify_intent("is this a question?"),
             QueryIntent::Question
         );
-        assert_eq!(analyzer.classify_intent("Just chatting"), QueryIntent::Chat);
+        assert_eq!(analyzer.classify_intent("just chatting"), QueryIntent::Chat);
     }
 
     #[test]
@@ -320,20 +325,20 @@ mod tests {
         let analyzer = QueryAnalyzer::new();
         let now = Utc::now();
 
-        let refs = analyzer.extract_temporal_refs("What happened yesterday?", now);
+        let refs = analyzer.extract_temporal_refs("what happened yesterday?", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "yesterday");
         assert_eq!(refs[0].ref_type, TemporalRefType::Relative);
 
-        let refs = analyzer.extract_temporal_refs("Check last week logs", now);
+        let refs = analyzer.extract_temporal_refs("check last week logs", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "last week");
 
-        let refs = analyzer.extract_temporal_refs("Do it today", now);
+        let refs = analyzer.extract_temporal_refs("do it today", now);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].text, "today");
 
-        let refs = analyzer.extract_temporal_refs("Yesterday and today", now);
+        let refs = analyzer.extract_temporal_refs("yesterday and today", now);
         assert_eq!(refs.len(), 2);
     }
 
