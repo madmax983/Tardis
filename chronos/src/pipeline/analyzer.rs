@@ -9,6 +9,7 @@
 
 use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
+use tardis_common::temporal::TemporalReference;
 
 /// Analyzed query with extracted metadata.
 #[derive(Debug, Clone)]
@@ -18,7 +19,7 @@ pub struct AnalyzedQuery {
     /// Detected intent.
     pub intent: QueryIntent,
     /// Extracted temporal references.
-    pub temporal_refs: Vec<TemporalRef>,
+    pub temporal_refs: Vec<TemporalReference>,
     /// Human-readable temporal context.
     pub temporal_description: Option<String>,
     /// Extracted entity mentions.
@@ -42,28 +43,6 @@ pub enum QueryIntent {
     Chat,
 }
 
-/// A temporal reference in the query.
-#[derive(Debug, Clone)]
-pub struct TemporalRef {
-    /// Original text.
-    pub text: String,
-    /// Resolved timestamp.
-    pub resolved: DateTime<Utc>,
-    /// Type of reference.
-    pub ref_type: TemporalRefType,
-}
-
-/// Type of temporal reference.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TemporalRefType {
-    /// Relative (e.g., "yesterday").
-    Relative,
-    /// Absolute (e.g., "March 15").
-    Absolute,
-    /// Event-based (e.g., "before the update").
-    EventBased,
-}
-
 enum TimeOffset {
     Days(i64),
     Weeks(i64),
@@ -73,7 +52,6 @@ enum TimeOffset {
 struct TemporalRule {
     keyword: &'static str,
     offset: TimeOffset,
-    ref_type: TemporalRefType,
 }
 
 impl TemporalRule {
@@ -90,17 +68,14 @@ const TEMPORAL_RULES: &[TemporalRule] = &[
     TemporalRule {
         keyword: "yesterday",
         offset: TimeOffset::Days(1),
-        ref_type: TemporalRefType::Relative,
     },
     TemporalRule {
         keyword: "last week",
         offset: TimeOffset::Weeks(1),
-        ref_type: TemporalRefType::Relative,
     },
     TemporalRule {
         keyword: "today",
         offset: TimeOffset::None,
-        ref_type: TemporalRefType::Relative,
     },
 ];
 
@@ -160,6 +135,7 @@ impl QueryAnalyzer {
     ///
     /// ```
     /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
+    /// use tardis_common::temporal::TemporalReference;
     /// use chrono::Utc;
     ///
     /// let analyzer = QueryAnalyzer::new();
@@ -168,7 +144,10 @@ impl QueryAnalyzer {
     ///
     /// assert_eq!(analysis.intent, QueryIntent::Recall);
     /// assert!(!analysis.temporal_refs.is_empty());
-    /// assert_eq!(analysis.temporal_refs[0].text, "yesterday");
+    /// match &analysis.temporal_refs[0] {
+    ///    TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
+    ///    _ => panic!("Expected relative reference"),
+    /// }
     /// ```
     ///
     /// # Errors
@@ -214,7 +193,7 @@ impl QueryAnalyzer {
 
     /// Extract temporal references from a query.
     #[allow(clippy::unused_self)]
-    fn extract_temporal_refs(&self, query: &str, now: DateTime<Utc>) -> Vec<TemporalRef> {
+    fn extract_temporal_refs(&self, query: &str, now: DateTime<Utc>) -> Vec<TemporalReference> {
         let mut refs = Vec::new();
         let lower = query.to_lowercase();
 
@@ -222,10 +201,9 @@ impl QueryAnalyzer {
             if lower.contains(rule.keyword) {
                 let resolved = rule.resolve(now);
 
-                refs.push(TemporalRef {
+                refs.push(TemporalReference::Relative {
                     text: rule.keyword.to_string(),
                     resolved,
-                    ref_type: rule.ref_type.clone(),
                 });
             }
         }
@@ -249,13 +227,26 @@ impl QueryAnalyzer {
 
     /// Generate human-readable description of temporal context.
     #[allow(clippy::unused_self)]
-    fn describe_temporal_context(&self, refs: &[TemporalRef]) -> String {
+    fn describe_temporal_context(&self, refs: &[TemporalReference]) -> String {
         if refs.is_empty() {
             return "current time".to_string();
         }
 
         refs.iter()
-            .map(|r| format!("{} ({})", r.text, r.resolved.format("%Y-%m-%d")))
+            .map(|r| match r {
+                TemporalReference::Relative { text, resolved } => {
+                    format!("{} ({})", text, resolved.format("%Y-%m-%d"))
+                }
+                TemporalReference::Absolute(resolved) => resolved.format("%Y-%m-%d").to_string(),
+                TemporalReference::EventBased { event, resolved } => {
+                    if let Some(res) = resolved {
+                        format!("{} ({})", event, res.format("%Y-%m-%d"))
+                    } else {
+                        event.clone()
+                    }
+                }
+                TemporalReference::Implicit => "implicit".to_string(),
+            })
             .collect::<Vec<_>>()
             .join(", ")
     }
@@ -322,16 +313,25 @@ mod tests {
 
         let refs = analyzer.extract_temporal_refs("What happened yesterday?", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].text, "yesterday");
-        assert_eq!(refs[0].ref_type, TemporalRefType::Relative);
+
+        match &refs[0] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
+            _ => panic!("Expected relative"),
+        }
 
         let refs = analyzer.extract_temporal_refs("Check last week logs", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].text, "last week");
+        match &refs[0] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "last week"),
+            _ => panic!("Expected relative"),
+        }
 
         let refs = analyzer.extract_temporal_refs("Do it today", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].text, "today");
+        match &refs[0] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "today"),
+            _ => panic!("Expected relative"),
+        }
 
         let refs = analyzer.extract_temporal_refs("Yesterday and today", now);
         assert_eq!(refs.len(), 2);
@@ -349,12 +349,12 @@ mod tests {
         // "yesterday" should be 2024-03-14 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved.to_rfc3339(), "2024-03-14T12:00:00+00:00");
+        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-14T12:00:00+00:00");
 
         // "last week" should be 2024-03-08 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("last week", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved.to_rfc3339(), "2024-03-08T12:00:00+00:00");
+        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-08T12:00:00+00:00");
     }
 
     #[test]
