@@ -163,7 +163,7 @@ impl TemporalHeatmap {
             self.valid_range.0, self.valid_range.1
         )
         .ok();
-        writeln!(&mut output, "Max Count: {}", max_val).ok();
+        writeln!(&mut output, "Max Count: {max_val}").ok();
         writeln!(&mut output, "┌{}┐", "─".repeat(self.x_bins)).ok();
 
         // Render rows (reversed Y to have time go up)
