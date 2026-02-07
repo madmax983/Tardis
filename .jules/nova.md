@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## Entropy Gauge
+**Concept:** A system health metric that combines physical volatility (process/file churn) with epistemic volatility (history retcons/prophecies) to measure the "Entropy" of the OS.
+**Fate:** Merged (Experimental)
+**Lesson:** Connecting low-level system metrics with high-level knowledge stability provides a holistic view of system health. A system can be stable physically but epistemically chaotic (changing its mind about the past).
