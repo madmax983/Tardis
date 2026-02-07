@@ -6,13 +6,30 @@
 use crate::kernel::ring_buffer::RingBuffer;
 use crate::kernel::serial;
 use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicU8, Ordering};
 
 /// Global kernel telemetry state.
 static mut KERNEL_LOGGER: Option<KernelLogger> = None;
 
-/// Whether the logger has been initialized.
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
+/// Logger initialization state.
+static INITIALIZED: AtomicU8 = AtomicU8::new(STATE_UNINIT);
+
+const STATE_UNINIT: u8 = 0;
+const STATE_INITIALIZING: u8 = 1;
+const STATE_INITIALIZED: u8 = 2;
+
+#[cfg(test)]
+pub fn reset_for_test() {
+    INITIALIZED.store(STATE_UNINIT, Ordering::SeqCst);
+    unsafe {
+        KERNEL_LOGGER = None;
+    }
+}
+
+#[cfg(test)]
+pub fn is_initialized_for_test() -> bool {
+    INITIALIZED.load(Ordering::Relaxed) == STATE_INITIALIZED
+}
 
 /// Kernel logger that writes to the ring buffer.
 #[allow(missing_debug_implementations)]
@@ -59,8 +76,22 @@ impl KernelLogger {
     /// Panics if called more than once.
     #[allow(clippy::panic, clippy::manual_assert)]
     pub unsafe fn init(ring_buffer: &'static RingBuffer, serial_enabled: bool) {
-        if INITIALIZED.swap(true, Ordering::SeqCst) {
-            panic!("KernelLogger::init called more than once");
+        match INITIALIZED.compare_exchange(
+            STATE_UNINIT,
+            STATE_INITIALIZING,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => {
+                // We won the race to initialize
+            }
+            Err(STATE_INITIALIZING) => {
+                panic!("KernelLogger::init called concurrently");
+            }
+            Err(STATE_INITIALIZED) => {
+                panic!("KernelLogger::init called more than once");
+            }
+            Err(_) => unreachable!(),
         }
 
         if serial_enabled {
@@ -71,8 +102,9 @@ impl KernelLogger {
             KERNEL_LOGGER = Some(KernelLogger::new(ring_buffer, serial_enabled));
         }
 
-        // Note: In actual kernel, we would call log::set_logger here
-        // For now, we provide manual logging functions
+        // Mark as fully initialized.
+        // Use Release ordering to ensure KERNEL_LOGGER write is visible before this.
+        INITIALIZED.store(STATE_INITIALIZED, Ordering::Release);
     }
 
     /// Gets a reference to the global logger.
@@ -80,7 +112,7 @@ impl KernelLogger {
     /// Returns `None` if the logger hasn't been initialized.
     #[must_use]
     pub fn get() -> Option<&'static Self> {
-        if INITIALIZED.load(Ordering::Acquire) {
+        if INITIALIZED.load(Ordering::Acquire) == STATE_INITIALIZED {
             // SAFETY: We only set KERNEL_LOGGER once during init
             unsafe { (*core::ptr::addr_of!(KERNEL_LOGGER)).as_ref() }
         } else {
@@ -225,4 +257,55 @@ macro_rules! ktrace {
     ($subsystem:expr, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Trace, $subsystem, $($arg)*)
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn test_race_condition_init() {
+        super::reset_for_test();
+
+        // Use static to avoid stack overflow (RingBuffer is ~1MB)
+        static RING_BUFFER: RingBuffer = RingBuffer::new();
+
+        // Spawn init thread
+        let handle = thread::Builder::new()
+            .name("init_thread".into())
+            .spawn(move || unsafe {
+                KernelLogger::init(&RING_BUFFER, false);
+            })
+            .unwrap();
+
+        // Check for race condition
+        // We expect that at some point get() returns None AND initialized is true
+        // Because of the 10ms delay inserted in init(), this window is huge.
+        let start = std::time::Instant::now();
+        let mut race_detected = false;
+
+        while start.elapsed() < Duration::from_millis(100) {
+            let initialized = super::is_initialized_for_test();
+            let logger = KernelLogger::get();
+
+            if initialized && logger.is_none() {
+                race_detected = true;
+                break;
+            }
+
+            if logger.is_some() {
+                break; // Initialized successfully
+            }
+
+            thread::yield_now();
+        }
+
+        handle.join().unwrap();
+
+        if race_detected {
+            panic!("Race condition detected: INITIALIZED is true but get() returned None");
+        }
+    }
 }

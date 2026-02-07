@@ -100,7 +100,13 @@ pub fn write_byte(byte: u8) {
 
         // Wait for transmit buffer to be empty
         let mut lsr: Port<u8> = Port::new(COM1_PORT + 5);
+        let mut spins = 0;
         while (lsr.read() & 0x20) == 0 {
+            spins += 1;
+            // Limit spins to prevent infinite loop if hardware is unresponsive
+            if spins > 1_000_000 {
+                return;
+            }
             core::hint::spin_loop();
         }
 

@@ -25,3 +25,7 @@
 2026-03-01 - [RingBuffer Race Condition]
 **Threat:** MPSC usage of SPSC RingBuffer allowed multiple producers to race on slot claiming, leading to concurrent writes to `UnsafeCell` (UB) and data corruption.
 **Defense:** Implemented CAS (Compare-And-Swap) loop in `try_write` to enforce exclusive slot access, with spin-wait backoff for contention handling.
+
+2026-03-05 - [Kernel Logger Race & Serial Hang]
+**Threat:** 1. `KernelLogger` initialization race allowing `get()` to return uninitialized memory (UB). 2. Infinite loop in `serial::write_byte` if hardware is unresponsive (DoS).
+**Defense:** 1. Implemented `AtomicU8` state machine (Uninit->Initializing->Initialized) with Acquire/Release ordering in `KernelLogger`. 2. Added spin loop limit to `serial::write_byte`.
