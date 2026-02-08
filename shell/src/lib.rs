@@ -8,22 +8,34 @@
 //!
 //! ## Architecture
 //!
-//! 1. **REPL**: The [`Repl`](crate::repl::Repl) runs the read-eval-print loop.
-//! 2. **Router**: The [`Router`](crate::router::Router) classifies input intent (e.g., "Time Travel" vs "Question").
-//! 3. **Handlers**:
-//!    - **Chronos**: RAG queries are sent to the Chronos engine.
-//!    - **Commands**: Built-in commands (`help`, `clear`, etc.) are handled locally.
+//! The shell is designed as a modular pipeline:
 //!
-//! ## Example
+//! 1.  **REPL Loop**: The [`Repl`](crate::repl::Repl) manages the user session, history, and terminal I/O using `rustyline`.
+//! 2.  **Intent Classification**: The [`Router`](crate::router::Router) analyzes input to determine if it is:
+//!     -   A **Built-in Command** (e.g., `help`, `history`) -> Handled by [`CommandHandler`](crate::commands::CommandHandler).
+//!     -   A **Chronos Query** (e.g., "What is the status?") -> Sent to the RAG engine.
+//!     -   A **Time Travel Request** (e.g., `@yesterday ...`) -> Modifies temporal context.
+//!     -   A **Direct LLM Query** (e.g., `?Write a poem`) -> Bypasses RAG.
+//! 3.  **Execution**: The appropriate subsystem executes the request and returns a response, which is then formatted for the user.
 //!
-//! ```bash
+//! ## Example Session
+//!
+//! ```text
 //! $ cargo run --bin tardis
+//!
 //! tardis> What is the system status?
-//! [Chronos] RAG response...
+//! [Chronos] The system is running normally. CPU usage is at 15%.
 //!
 //! tardis> @yesterday Who logged in?
-//! [Time Travel] Querying history...
+//! [Time Travel] Querying history for 2023-10-26...
 //! ```
+//!
+//! ## Modules
+//!
+//! - [`repl`]: The main read-eval-print loop.
+//! - [`router`]: Input classification and routing logic.
+//! - [`commands`]: Built-in command handlers.
+//! - `dashboard`: (Feature `nova`) TUI dashboard.
 
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]

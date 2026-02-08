@@ -36,3 +36,15 @@
 2. Extracted `safetensors_loader.rs` and `gguf_loader.rs` for format-specific logic.
 3. Retained `weights.rs` as a lightweight facade/dispatcher.
 **Stability:** Reduced `weights.rs` to <100 lines. Improved separation of concerns.
+
+**[Refactor] Consolidate QueryResult**
+**Tangle:** `tardis_common::traits` contained a single struct `QueryResult` (which is not a trait) while `gallifrey` defined a conflicting, loosely-typed version.
+**Blueprint:** Moved `QueryResult` to `gallifrey::query`, replacing the loose definition with the strictly typed one. Deleted the misnamed `common::traits` module.
+**Stability:** Enforced domain boundaries and removed a misleading module.
+**[Refactor] Unify Temporal References**
+**Tangle:** "The Sprawl" - `chronos` defined its own `TemporalRef` while `common` had a nearly identical `TemporalReference`. This caused type mismatches and duplication.
+**Blueprint:**
+1. Enhanced `common::temporal::TemporalReference` with `PartialEq` and `Eq`.
+2. Refactored `chronos::pipeline::analyzer` to use `common::temporal::TemporalReference`.
+3. Updated consumers (`retriever`, `augmenter`) to use the shared type.
+**Stability:** Removed duplicate types, enforced consistency across crates.

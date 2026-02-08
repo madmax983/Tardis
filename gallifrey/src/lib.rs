@@ -78,7 +78,8 @@ use std::sync::Arc;
 use tardis_common::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
-use tardis_common::traits::QueryResult;
+
+use crate::query::QueryResult;
 
 /// The main Gallifrey database instance.
 ///

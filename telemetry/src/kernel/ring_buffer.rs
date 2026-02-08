@@ -353,10 +353,9 @@ impl RingBuffer {
             // Use volatile read to avoid data races with concurrent writers (Seqlock)
             unsafe {
                 let src_ptr = slot.payload.get().cast::<u8>();
-                let dst_ptr = payload.as_mut_ptr();
-                for i in 0..payload_len {
+                for (i, dst_byte) in payload.iter_mut().enumerate().take(payload_len) {
                     let byte = core::ptr::read_volatile(src_ptr.add(i));
-                    core::ptr::write(dst_ptr.add(i), byte);
+                    *dst_byte = byte;
                 }
             }
 
@@ -422,14 +421,14 @@ impl RingBuffer {
         self.write_pos.store(0, Ordering::Relaxed);
         self.read_pos.store(0, Ordering::Relaxed);
         self.dropped_count.store(0, Ordering::Relaxed);
-        for slot in self.slots.iter() {
+        for slot in &self.slots {
             slot.sequence.store(0, Ordering::Relaxed);
         }
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::panic, clippy::expect_used, clippy::cast_possible_truncation)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
@@ -671,9 +670,12 @@ mod tests {
         // SAFETY: We modify private atomic fields via pointer magic to test wrapping
         // Layout: write_pos (0), read_pos (64 due to padding)
         unsafe {
-            let base = &BUFFER as *const RingBuffer as *mut u8;
+            #[allow(clippy::borrow_as_ptr)]
+            let base = &raw const BUFFER as *mut u8;
+            #[allow(clippy::cast_ptr_alignment)]
             let write_pos_ptr = base.cast::<AtomicUsize>();
             // read_pos is at offset 64: write_pos (8) + _pad1 (56) = 64
+            #[allow(clippy::cast_ptr_alignment)]
             let read_pos_ptr = base.add(64).cast::<AtomicUsize>();
 
             // Case 1: Normal

@@ -33,7 +33,7 @@ pub struct EchoChamber {
 impl EchoChamber {
     /// Create a new `EchoChamber`.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 

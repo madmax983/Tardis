@@ -1,10 +1,24 @@
 //! Built-in command handlers for the Tardis shell.
+//!
+//! This module implements the "standard library" of shell commands. These commands
+//! are executed locally by the shell, rather than being sent to the RAG engine.
+//!
+//! # Supported Commands
+//!
+//! - `help`: Show usage information.
+//! - `history`: Display conversation history.
+//! - `remember` / `recall`: Manual memory management.
+//! - `models`: List available LLMs.
+//! - `context`: Inspect session state.
 
 use std::sync::Arc;
 use tardis_common::SessionId;
 use tardis_gallifrey::Gallifrey;
 
 /// Handler for built-in shell commands.
+///
+/// The command handler is stateless but receives the application state (like `Gallifrey` instances)
+/// during method calls to perform its duties.
 #[derive(Debug)]
 pub struct CommandHandler {
     // Configuration
@@ -18,6 +32,19 @@ impl CommandHandler {
     }
 
     /// Display help information.
+    ///
+    /// If an argument is provided, displays help for that specific command.
+    /// Otherwise, displays the general help menu.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use tardis_shell::commands::CommandHandler;
+    ///
+    /// let handler = CommandHandler::new();
+    /// handler.help(&[]); // General help
+    /// handler.help(&["remember".to_string()]); // Help for 'remember'
+    /// ```
     #[allow(clippy::unused_self)]
     pub fn help(&self, args: &[String]) {
         if args.is_empty() {
@@ -105,6 +132,8 @@ impl CommandHandler {
     }
 
     /// Show conversation history.
+    ///
+    /// Fetches and displays recent messages from the current session.
     #[allow(clippy::unused_self)]
     pub fn history(&self, gallifrey: &Arc<Gallifrey>, session_id: SessionId) {
         match gallifrey.conversation().get_messages(session_id) {

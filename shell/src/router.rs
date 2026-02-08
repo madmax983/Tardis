@@ -1,23 +1,32 @@
 //! Intent routing for the Tardis shell.
+//!
+//! The router is responsible for classifying user input into actionable intents.
+//! It uses a priority-based system to distinguish between:
+//!
+//! 1.  **Shell Commands** (prefixed with `!`): Executed directly by the OS.
+//! 2.  **Time Travel** (prefixed with `@`): Queries directed at a specific point in time.
+//! 3.  **Direct Queries** (prefixed with `?`): Questions for the LLM without RAG context.
+//! 4.  **Built-in Commands**: Known commands like `help` or `history`.
+//! 5.  **Chronos Queries**: Everything else is treated as a natural language query for the RAG engine.
 
 /// Classified intent of user input.
 #[derive(Debug, Clone)]
 pub enum Intent {
-    /// Built-in shell command.
+    /// Built-in shell command (e.g., `help`, `history`).
     BuiltinCommand {
-        /// Command name.
+        /// Command name (e.g., "help").
         command: String,
         /// Command arguments.
         args: Vec<String>,
     },
 
-    /// External shell command (prefixed with !).
+    /// External shell command (prefixed with `!`).
     ShellCommand {
-        /// Full command string.
+        /// Full command string (e.g., "ls -la").
         command: String,
     },
 
-    /// RAG query to Chronos.
+    /// RAG query to Chronos (default behavior).
     ChronosQuery {
         /// Query text.
         query: String,
@@ -26,15 +35,15 @@ pub enum Intent {
         temporal_context: Option<String>,
     },
 
-    /// Time-travel query (prefixed with @).
+    /// Time-travel query (prefixed with `@`).
     TimeTravel {
-        /// Timestamp or temporal reference.
+        /// Timestamp or temporal reference (e.g., "yesterday").
         timestamp: String,
         /// Query to execute at that time.
         query: String,
     },
 
-    /// Direct LLM query without RAG (prefixed with ?).
+    /// Direct LLM query without RAG (prefixed with `?`).
     DirectQuery {
         /// Query text.
         query: String,
@@ -42,6 +51,9 @@ pub enum Intent {
 }
 
 /// Router for classifying user input intent.
+///
+/// The router maintains a list of built-in commands and uses prefix matching
+/// to determine the intent of the user's input.
 #[derive(Debug)]
 pub struct Router {
     /// Built-in command names.
@@ -50,6 +62,8 @@ pub struct Router {
 
 impl Router {
     /// Create a new router.
+    ///
+    /// Initializes the router with the standard list of built-in commands.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -61,6 +75,30 @@ impl Router {
     }
 
     /// Route user input to an intent.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_shell::router::{Router, Intent};
+    ///
+    /// let router = Router::new();
+    ///
+    /// // Built-in command
+    /// let intent = router.route("help me");
+    /// matches!(intent, Intent::BuiltinCommand { command, .. } if command == "help");
+    ///
+    /// // Shell command
+    /// let intent = router.route("!ls -la");
+    /// matches!(intent, Intent::ShellCommand { command } if command == "ls -la");
+    ///
+    /// // Time travel
+    /// let intent = router.route("@yesterday what happened?");
+    /// matches!(intent, Intent::TimeTravel { timestamp, .. } if timestamp == "yesterday");
+    ///
+    /// // Chronos query (default)
+    /// let intent = router.route("What is the meaning of life?");
+    /// matches!(intent, Intent::ChronosQuery { .. });
+    /// ```
     #[must_use]
     pub fn route(&self, input: &str) -> Intent {
         let input = input.trim();
