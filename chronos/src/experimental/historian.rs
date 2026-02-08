@@ -71,7 +71,7 @@ pub struct Historian {
 impl Historian {
     /// Create a new `Historian`.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
