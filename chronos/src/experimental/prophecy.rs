@@ -26,7 +26,7 @@ pub struct Prophet {
 impl Prophet {
     /// Create a new Prophet.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>) -> Self {
         Self {
             vortex,
             paper: PsychicPaper::new(),

@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## The Weaver
+**Concept:** A graph traversal module that finds hidden connections between entities (A -> B -> C) and uses Vortex to narrate the relationship path.
+**Fate:** Merged (Experimental)
+**Lesson:** Knowledge graphs are powerful, but raw paths are hard to understand. Using LLMs to narrate the "story" of the connection makes them intuitive.

@@ -334,6 +334,31 @@ impl KnowledgeStore {
 
         Ok(())
     }
+
+    /// Scan all relationship histories.
+    ///
+    /// This method allows iterating over the entire relationship graph's history
+    /// without cloning the underlying storage structure.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    #[cfg(feature = "nova")]
+    pub fn scan_relationships<F>(&self, mut visitor: F) -> GallifreyResult<()>
+    where
+        F: FnMut(&[Relationship]),
+    {
+        let relationships = self
+            .relationships
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        for history in relationships.values() {
+            visitor(history);
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for KnowledgeStore {

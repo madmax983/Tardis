@@ -16,3 +16,6 @@ pub mod echoes;
 
 #[cfg(feature = "nova")]
 pub mod historian;
+
+#[cfg(feature = "nova")]
+pub mod weaver;

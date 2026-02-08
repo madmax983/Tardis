@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 pub enum Intent {
     /// Try to infer the format using a best-effort heuristic:
     /// 1. Check for JSON start characters `{` or `[`.
-    /// 2. Check for Markdown code blocks (````json`).
+    /// 2. Check for Markdown code blocks (e.g., json code fence).
     /// 3. Check for list markers (`-` or `*`).
     /// 4. Check for Key-Value pairs (majority of lines have `:`).
     /// 5. Fallback to raw string.
