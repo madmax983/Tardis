@@ -36,3 +36,11 @@
 2. Extracted `safetensors_loader.rs` and `gguf_loader.rs` for format-specific logic.
 3. Retained `weights.rs` as a lightweight facade/dispatcher.
 **Stability:** Reduced `weights.rs` to <100 lines. Improved separation of concerns.
+
+**[Refactor] Unify Temporal References**
+**Tangle:** "The Sprawl" - `chronos` defined its own `TemporalRef` while `common` had a nearly identical `TemporalReference`. This caused type mismatches and duplication.
+**Blueprint:**
+1. Enhanced `common::temporal::TemporalReference` with `PartialEq` and `Eq`.
+2. Refactored `chronos::pipeline::analyzer` to use `common::temporal::TemporalReference`.
+3. Updated consumers (`retriever`, `augmenter`) to use the shared type.
+**Stability:** Removed duplicate types, enforced consistency across crates.
