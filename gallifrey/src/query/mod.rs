@@ -47,10 +47,10 @@ impl QueryExecutor {
     /// # Errors
     ///
     /// Returns an error if execution fails.
-    pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<QueryResult> {
+    pub const fn execute(&self, _query: &ParsedQuery) -> GallifreyResult<ExecutionResult> {
         // TODO: Implement actual query execution
 
-        Ok(QueryResult {
+        Ok(ExecutionResult {
             rows: Vec::new(),
             execution_time_ms: 0,
         })
@@ -63,9 +63,9 @@ impl Default for QueryExecutor {
     }
 }
 
-/// Query result.
+/// Execution result.
 #[derive(Debug, Clone)]
-pub struct QueryResult {
+pub struct ExecutionResult {
     /// Result rows.
     pub rows: Vec<serde_json::Value>,
     /// Execution time in milliseconds.

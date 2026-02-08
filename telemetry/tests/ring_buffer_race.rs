@@ -1,6 +1,6 @@
+//! Reproduction test for `RingBuffer` race condition.
 #![cfg(feature = "kernel")]
-
-//! Reproduction test for RingBuffer race condition.
+#![allow(missing_docs)]
 //!
 //! Spawns multiple threads to write to the `RingBuffer` concurrently
 //! and verifies data integrity.
