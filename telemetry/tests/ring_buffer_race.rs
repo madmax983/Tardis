@@ -1,4 +1,6 @@
 #![cfg(feature = "kernel")]
+#![allow(clippy::all, clippy::pedantic)]
+#![allow(clippy::unwrap_used, clippy::panic)]
 
 //! Reproduction test for RingBuffer race condition.
 //!
