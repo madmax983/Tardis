@@ -123,6 +123,7 @@ impl DreamCatcher for MockDreamCatcher {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::sync::Arc;
@@ -161,7 +162,7 @@ mod tests {
         conv_store.add_message(msg2).unwrap();
 
         // 3. Create Dreamer
-        let dreamer = Dreamer::new(gallifrey.clone(), Box::new(MockDreamCatcher::default()));
+        let dreamer = Dreamer::new(gallifrey.clone(), Box::new(MockDreamCatcher));
 
         // 4. Dream!
         let result = dreamer.dream().await;

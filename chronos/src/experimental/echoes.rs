@@ -33,7 +33,7 @@ pub struct EchoChamber {
 impl EchoChamber {
     /// Create a new `EchoChamber`.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
@@ -88,6 +88,7 @@ impl EchoChamber {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tardis_common::domain::{Entity, Message};
@@ -103,26 +104,32 @@ mod tests {
         let gallifrey = Arc::new(Gallifrey::new());
 
         // Setup Knowledge
-        gallifrey.knowledge().insert_entity(Entity {
-            id: EntityId::new(),
-            entity_type: "Fact".to_string(),
-            name: "Previous System Crash".to_string(),
-            properties: std::collections::HashMap::new(),
-            embedding: Some(vec![0.1, 0.2, 0.3]),
-            temporal: BiTemporalInterval::now(),
-            source: None,
-        }).unwrap();
+        gallifrey
+            .knowledge()
+            .insert_entity(Entity {
+                id: EntityId::new(),
+                entity_type: "Fact".to_string(),
+                name: "Previous System Crash".to_string(),
+                properties: std::collections::HashMap::new(),
+                embedding: Some(vec![0.1, 0.2, 0.3]),
+                temporal: BiTemporalInterval::now(),
+                source: None,
+            })
+            .unwrap();
 
         // Setup Conversation
-        gallifrey.conversation().add_message(Message {
-            id: EntityId::new(),
-            session_id: SessionId::new(),
-            role: tardis_common::domain::Role::User,
-            content: "I remember when the system crashed".to_string(),
-            timestamp: Utc::now(),
-            embedding: Some(vec![0.1, 0.2, 0.3]),
-            entity_refs: vec![],
-        }).unwrap();
+        gallifrey
+            .conversation()
+            .add_message(Message {
+                id: EntityId::new(),
+                session_id: SessionId::new(),
+                role: tardis_common::domain::Role::User,
+                content: "I remember when the system crashed".to_string(),
+                timestamp: Utc::now(),
+                embedding: Some(vec![0.1, 0.2, 0.3]),
+                entity_refs: vec![],
+            })
+            .unwrap();
 
         let echo_chamber = EchoChamber::new(vortex, gallifrey);
 
