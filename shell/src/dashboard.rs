@@ -16,13 +16,20 @@ pub mod tui {
         Frame, Terminal,
     };
     use std::{io, sync::Arc, time::Duration};
-    use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
+    use tardis_gallifrey::{
+        experimental::{
+            entropy::{EntropyGauge, SystemEntropy},
+            heatmap::TemporalHeatmap,
+        },
+        Gallifrey,
+    };
 
     /// The interactive dashboard.
     #[derive(Debug)]
     pub struct Dashboard {
         _gallifrey: Arc<Gallifrey>,
         heatmap: TemporalHeatmap,
+        entropy: SystemEntropy,
     }
 
     impl Dashboard {
@@ -45,7 +52,14 @@ pub mod tui {
             // 50x20 resolution for the heatmap
             let heatmap = TemporalHeatmap::new(&all_history, 50, 20);
 
-            Ok(Self { _gallifrey: gallifrey, heatmap })
+            // Calculate entropy
+            let entropy = EntropyGauge::measure(&gallifrey.knowledge())?;
+
+            Ok(Self {
+                _gallifrey: gallifrey,
+                heatmap,
+                entropy,
+            })
         }
 
         /// Run the dashboard loop.
@@ -133,12 +147,46 @@ pub mod tui {
             // Stats
             let total_events: usize = self.heatmap.grid.iter().flatten().sum();
 
+            let stability_color = if self.entropy.retcon_count > 10 || self.entropy.prophecy_count > 10
+            {
+                Color::Red
+            } else if self.entropy.retcon_count > 0 || self.entropy.prophecy_count > 0 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+
             let stats_text = vec![
-                Line::from(Span::styled("System Status", Style::default().add_modifier(Modifier::UNDERLINED))),
+                Line::from(Span::styled(
+                    "System Status",
+                    Style::default().add_modifier(Modifier::UNDERLINED),
+                )),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Entropy: "),
+                    Span::styled(
+                        format!("{:.2}", self.entropy.total_entropy),
+                        Style::default().fg(stability_color),
+                    ),
+                ]),
+                Line::from(format!("Retcons: {}", self.entropy.retcon_count)),
+                Line::from(format!("Prophecies: {}", self.entropy.prophecy_count)),
+                Line::from(format!(
+                    "Avg Drift: {:.2}ms",
+                    self.entropy.average_drift_ms
+                )),
                 Line::from(""),
                 Line::from(format!("Entities: {total_events}")), // Rough proxy for activity
-                Line::from(format!("Valid Time: {} to {}", self.heatmap.valid_range.0.format("%H:%M"), self.heatmap.valid_range.1.format("%H:%M"))),
-                Line::from(format!("Trans Time: {} to {}", self.heatmap.transaction_range.0.format("%H:%M"), self.heatmap.transaction_range.1.format("%H:%M"))),
+                Line::from(format!(
+                    "Valid Time: {} to {}",
+                    self.heatmap.valid_range.0.format("%H:%M"),
+                    self.heatmap.valid_range.1.format("%H:%M")
+                )),
+                Line::from(format!(
+                    "Trans Time: {} to {}",
+                    self.heatmap.transaction_range.0.format("%H:%M"),
+                    self.heatmap.transaction_range.1.format("%H:%M")
+                )),
             ];
             let stats_widget = Paragraph::new(stats_text)
                 .block(Block::default().title("Stats").borders(Borders::ALL));
