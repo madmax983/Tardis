@@ -3,6 +3,8 @@
 //! Provides query parsing and execution for temporal graph queries.
 
 use crate::error::GallifreyResult;
+use serde::{Deserialize, Serialize};
+use tardis_common::domain::Entity;
 use tardis_common::temporal::TemporalQuery;
 
 /// A parsed query.
@@ -51,8 +53,9 @@ impl QueryExecutor {
         // TODO: Implement actual query execution
 
         Ok(QueryResult {
-            rows: Vec::new(),
+            nodes: Vec::new(),
             execution_time_ms: 0,
+            truncated: false,
         })
     }
 }
@@ -63,11 +66,13 @@ impl Default for QueryExecutor {
     }
 }
 
-/// Query result.
-#[derive(Debug, Clone)]
+/// Query results from Gallifrey.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryResult {
-    /// Result rows.
-    pub rows: Vec<serde_json::Value>,
-    /// Execution time in milliseconds.
+    /// Result nodes
+    pub nodes: Vec<Entity>,
+    /// Query execution time in milliseconds
     pub execution_time_ms: u64,
+    /// Whether results were truncated
+    pub truncated: bool,
 }
