@@ -341,10 +341,9 @@ impl RingBuffer {
             // Use volatile read to avoid data races with concurrent writers (Seqlock)
             unsafe {
                 let src_ptr = slot.payload.get().cast::<u8>();
-                let dst_ptr = payload.as_mut_ptr();
-                for i in 0..payload_len {
+                for (i, dst_byte) in payload.iter_mut().enumerate().take(payload_len) {
                     let byte = core::ptr::read_volatile(src_ptr.add(i));
-                    core::ptr::write(dst_ptr.add(i), byte);
+                    *dst_byte = byte;
                 }
             }
 
