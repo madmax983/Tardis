@@ -1,27 +1,12 @@
-2024-05-24 - [Kernel Telemetry Hardening]
-**Threat:** Undefined Behavior (UB) in `RingBuffer` due to casting immutable reference `&T` to mutable pointer `*mut T` and writing to it.
-**Defense:** Replaced raw pointer casting with `UnsafeCell<T>` to provide sound interior mutability.
+# Warden's Journal
 
-2024-05-24 - [Kernel Logger Race]
-**Threat:** Potential data race and aliasing violation when accessing `static mut KERNEL_LOGGER`.
-**Defense:** Used `core::ptr::addr_of!` to obtain raw pointer without creating intermediate references, avoiding reference aliasing rules violation.
+## 2025-05-24 - Hardened Kernel Telemetry
 
-2024-05-24 - [Test Stability]
-**Threat:** SIGSEGV in tests due to privileged I/O instructions execution in userspace.
-**Defense:** Gated unsafe hardware I/O blocks with `#[cfg(not(test))]`.
+**Threat:** `static mut` usage in `KernelLogger` created a risk of undefined behavior if mutable references were created concurrently, or if trace context was updated without synchronization.
+**Defense:** Refactored `KernelLogger` to be effectively immutable after initialization. Removed mutable fields (`current_trace`, `current_span`) and methods (`set_trace_context`, `clear_trace_context`). Added safety documentation explaining the safety of the `static mut` in this restricted context.
 
-2025-02-23 - [RingBuffer Hardening]
-**Threat:** Race condition in `RingBuffer::try_read` allowing torn reads, and potential buffer overread via corrupted `payload_len`.
-**Defense:** Added Seqlock verification after read and capped `payload_len` to `MAX_PAYLOAD_SIZE`.
+**Threat:** `unsafe` blocks in `RingBuffer` used `volatile` reads/writes without explicit documentation, raising questions about correctness and necessity.
+**Defense:** Added detailed comments to `try_write` and `try_read` explaining that `volatile` operations are required to prevent the compiler from optimizing away memory accesses in the lock-free Seqlock pattern, effectively treating the shared memory as I/O mapped memory to avoid UB from data races on the payload buffer.
 
-2025-02-23 - [Telemetry Allocation Removal]
-**Threat:** Panic or deadlock in interrupt/no_std context due to allocation in `Subsystem::from_target`.
-**Defense:** Replaced allocating case conversion with zero-allocation case-insensitive search.
-
-2026-02-23 - [RingBuffer UB & Stuck Writer]
-**Threat:** 1. `bytes` 1.11.0 Integer Overflow (DoS). 2. `RingBuffer` UB (Data Race in `copy_nonoverlapping` on shared memory). 3. `RingBuffer` Reader Livelock (infinite spin on stuck writer).
-**Defense:** 1. Updated `bytes` to 1.11.1. 2. Replaced `copy_nonoverlapping` with `volatile` read/write loops. 3. Added retry limit and skip logic to `try_read`.
-
-2026-03-01 - [RingBuffer Race Condition]
-**Threat:** MPSC usage of SPSC RingBuffer allowed multiple producers to race on slot claiming, leading to concurrent writes to `UnsafeCell` (UB) and data corruption.
-**Defense:** Implemented CAS (Compare-And-Swap) loop in `try_write` to enforce exclusive slot access, with spin-wait backoff for contention handling.
+**Threat:** `unsafe` port I/O in `serial.rs`.
+**Defense:** Added safety comments explaining that port I/O is restricted to kernel features and guarded by initialization checks.
