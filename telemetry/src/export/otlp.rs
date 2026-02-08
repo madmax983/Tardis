@@ -14,6 +14,9 @@ pub struct OtlpConfig {
     /// Maximum batch size before flushing.
     pub batch_size: usize,
 
+    /// Maximum queue size for the exporter channel.
+    pub queue_size: usize,
+
     /// Maximum time to wait before flushing.
     pub flush_interval: Duration,
 
@@ -29,6 +32,7 @@ impl Default for OtlpConfig {
         Self {
             endpoint: "http://localhost:4317".to_string(),
             batch_size: 512,
+            queue_size: 10_000,
             flush_interval: Duration::from_secs(5),
             timeout: Duration::from_secs(10),
             headers: Vec::new(),
@@ -50,6 +54,13 @@ impl OtlpConfig {
     #[must_use]
     pub const fn with_batch_size(mut self, size: usize) -> Self {
         self.batch_size = size;
+        self
+    }
+
+    /// Sets the queue size.
+    #[must_use]
+    pub const fn with_queue_size(mut self, size: usize) -> Self {
+        self.queue_size = size;
         self
     }
 
@@ -83,9 +94,8 @@ impl OtlpExporter {
     /// # Errors
     ///
     /// Returns an error if the exporter cannot be initialized.
-    #[allow(clippy::unused_async)]
-    pub async fn new(config: OtlpConfig) -> TelemetryResult<Self> {
-        let (sender, receiver) = mpsc::channel(10_000);
+    pub fn new(config: OtlpConfig) -> TelemetryResult<Self> {
+        let (sender, receiver) = mpsc::channel(config.queue_size);
 
         let export_config = config.clone();
         let handle = tokio::spawn(async move {
@@ -103,6 +113,12 @@ impl OtlpExporter {
     #[must_use]
     pub fn sender(&self) -> mpsc::Sender<SpanData> {
         self.sender.clone()
+    }
+
+    /// Consumes the exporter and returns the background task handle.
+    #[must_use]
+    pub fn into_handle(self) -> tokio::task::JoinHandle<()> {
+        self.handle
     }
 
     /// Shuts down the exporter gracefully.

@@ -11,9 +11,11 @@
 //! # Example
 //!
 //! ```rust,ignore
+//! use tardis_telemetry::export::OtlpConfig;
 //! use tardis_telemetry::export::OtlpExporter;
 //!
-//! let exporter = OtlpExporter::new("http://localhost:4317").await?;
+//! let config = OtlpConfig::new("http://localhost:4317");
+//! let exporter = OtlpExporter::new(config)?;
 //! // Spans are automatically batched and exported
 //! ```
 

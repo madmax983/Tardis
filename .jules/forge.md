@@ -13,3 +13,11 @@
 **[Metric Collection Performance]
 **Learning:** Cumulative histograms on write (O(N) atomics) cause contention. Cumulative on read (O(N) read, O(1) write) is better.
 **Action:** Prefer "write-fast, read-slow" for high-frequency telemetry data structures.
+
+**[Safe Testing of Internal State]
+**Learning:** Testing lock-free data structures often requires manipulating internal state (like read/write pointers) that should not be exposed.
+**Action:** Use `#[cfg(test)]` to expose safe helper methods (e.g., `set_positions`) instead of using `unsafe` pointer arithmetic in tests.
+
+**[Synchronous Initialization of Async Components]
+**Learning:** `async` functions (like `OtlpExporter::new`) that don't await anything prevent usage in synchronous initialization paths (`init`).
+**Action:** Remove `async` from constructors if they only perform synchronous setup (like spawning a background task), returning a `Result` immediately.

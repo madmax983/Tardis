@@ -4,7 +4,7 @@
 
 use crate::error::{TelemetryError, TelemetryResult};
 use crate::types::Level;
-use crate::userspace::layer::{SpanData, TardisLayer, TardisLayerConfig};
+use crate::userspace::layer::{TardisLayer, TardisLayerConfig};
 use std::sync::Arc;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -167,20 +167,28 @@ pub fn init(config: TelemetryConfig) -> TelemetryResult<TelemetryHandle> {
 
     // Create OTLP sender if enabled
     let (otlp_sender, otlp_handle) = if config.otlp_enabled {
-        let (tx, rx) = tokio::sync::mpsc::channel::<SpanData>(10_000);
-        let _endpoint = config.otlp_endpoint.clone();
-        let _ = config.otlp_batch_size;
+        #[cfg(feature = "otlp")]
+        {
+            use crate::export::{OtlpConfig, OtlpExporter};
+            let endpoint = config
+                .otlp_endpoint
+                .clone()
+                .unwrap_or_else(|| "http://localhost:4317".to_string());
+            let otlp_config = OtlpConfig::new(endpoint).with_batch_size(config.otlp_batch_size);
 
-        let handle = tokio::spawn(async move {
-            // OTLP exporter would run here
-            // For now, just drain the channel
-            let mut rx = rx;
-            while let Some(_span) = rx.recv().await {
-                // TODO: Implement actual OTLP export
+            match OtlpExporter::new(otlp_config) {
+                Ok(exporter) => (Some(exporter.sender()), Some(exporter.into_handle())),
+                Err(e) => {
+                    eprintln!("Failed to initialize OTLP exporter: {e}");
+                    (None, None)
+                }
             }
-        });
-
-        (Some(tx), Some(handle))
+        }
+        #[cfg(not(feature = "otlp"))]
+        {
+            eprintln!("OTLP enabled in config but 'otlp' feature is disabled");
+            (None, None)
+        }
     } else {
         (None, None)
     };

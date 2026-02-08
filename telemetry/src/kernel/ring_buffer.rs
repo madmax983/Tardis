@@ -214,8 +214,8 @@ impl RingBuffer {
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
             let payload_ptr = slot.payload.get().cast::<u8>();
             // Use volatile write to avoid data races with concurrent readers (Seqlock)
-            for i in 0..payload_len {
-                core::ptr::write_volatile(payload_ptr.add(i), payload[i]);
+            for (i, &byte) in payload.iter().enumerate().take(payload_len) {
+                core::ptr::write_volatile(payload_ptr.add(i), byte);
             }
 
             // Update payload length
@@ -413,6 +413,12 @@ impl RingBuffer {
         for slot in self.slots.iter() {
             slot.sequence.store(0, Ordering::Relaxed);
         }
+    }
+
+    /// Sets the read and write positions for testing.
+    pub fn set_positions(&self, write: usize, read: usize) {
+        self.write_pos.store(write, Ordering::Relaxed);
+        self.read_pos.store(read, Ordering::Relaxed);
     }
 }
 
@@ -656,35 +662,24 @@ mod tests {
         // Use static to avoid stack overflow
         static BUFFER: RingBuffer = RingBuffer::new();
 
-        // SAFETY: We modify private atomic fields via pointer magic to test wrapping
-        // Layout: write_pos (0), read_pos (64 due to padding)
-        unsafe {
-            let base = &BUFFER as *const RingBuffer as *mut u8;
-            let write_pos_ptr = base.cast::<AtomicUsize>();
-            // read_pos is at offset 64: write_pos (8) + _pad1 (56) = 64
-            let read_pos_ptr = base.add(64).cast::<AtomicUsize>();
+        // Case 1: Normal
+        BUFFER.set_positions(10, 5);
+        assert_eq!(BUFFER.available(), 5);
 
-            // Case 1: Normal
-            (*write_pos_ptr).store(10, Ordering::Relaxed);
-            (*read_pos_ptr).store(5, Ordering::Relaxed);
-            assert_eq!(BUFFER.available(), 5);
+        // Case 2: Wrap around
+        // write_pos wraps to 5. read_pos is usize::MAX - 4.
+        // valid items = 10.
+        // write - read = 5 - (MAX - 4) = 5 - (-5) = 10.
+        let max = usize::MAX;
+        BUFFER.set_positions(5, max - 4);
 
-            // Case 2: Wrap around
-            // write_pos wraps to 5. read_pos is usize::MAX - 4.
-            // valid items = 10.
-            // write - read = 5 - (MAX - 4) = 5 - (-5) = 10.
-            let max = usize::MAX;
-            (*read_pos_ptr).store(max - 4, Ordering::Relaxed);
-            (*write_pos_ptr).store(5, Ordering::Relaxed);
-
-            // This assertion checks if available() handles usize wrapping correctly
-            // saturating_sub would return 0 here
-            assert_eq!(
-                BUFFER.available(),
-                10,
-                "available() should handle wrapping arithmetic"
-            );
-        }
+        // This assertion checks if available() handles usize wrapping correctly
+        // saturating_sub would return 0 here
+        assert_eq!(
+            BUFFER.available(),
+            10,
+            "available() should handle wrapping arithmetic"
+        );
     }
 
     proptest! {
