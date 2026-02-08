@@ -5,3 +5,7 @@
 **[Large Struct Testing]
 **Learning:** `Box::new(LargeStruct::new())` often overflows the stack because Rust constructs the value on the stack before moving it. For large structs like `RingBuffer` (1MB), using `static` with a `reset()` helper is a reliable pattern for property-based testing.
 **Action:** Use `static` buffers + reset logic instead of heap allocation for testing large `const fn` initialized structs.
+
+**[Naive Truncation in RAG Augmenter]
+**Learning:** Checking total length before formatting can lead to dropping the *entire* context source if it exceeds the limit, even if it's the only relevant source. RAG pipelines must be robust to oversized inputs by truncating content, not sources.
+**Action:** Always implement partial inclusion/truncation logic for variable-length inputs in prompt construction, rather than binary include/exclude.

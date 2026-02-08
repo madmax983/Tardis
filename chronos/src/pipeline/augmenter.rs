@@ -138,22 +138,61 @@ impl ContextAugmenter {
         let mut token_estimate = 0;
 
         for (i, source) in context.iter().enumerate() {
-            // Rough token estimate (4 chars per token)
-            let source_tokens = source.content.len() / 4;
-            if token_estimate + source_tokens > self.max_context_tokens {
-                let _ = writeln!(
-                    formatted,
-                    "\n... ({} more sources truncated)",
-                    context.len() - i
-                );
-                break;
-            }
+            // Rough token estimate (4 chars per token).
+            // Use ceiling division to ensure at least 1 token for non-empty content.
+            let source_len = source.content.len();
+            let source_tokens = if source_len == 0 {
+                0
+            } else {
+                source_len.div_ceil(4)
+            };
 
             let source_type = match source.source_type {
                 ContextSourceType::Knowledge => "Knowledge",
                 ContextSourceType::Conversation => "Conversation",
                 ContextSourceType::SystemState => "System State",
             };
+
+            if token_estimate + source_tokens > self.max_context_tokens {
+                // Determine remaining budget
+                let remaining_tokens = self.max_context_tokens.saturating_sub(token_estimate);
+
+                // If we have a reasonable amount of space left (e.g., > 10 tokens), include partial content
+                let included_partial = if remaining_tokens > 10 {
+                    let allowed_chars = remaining_tokens * 4;
+                    // Safe truncation using char iterator
+                    let truncated_content: String = source
+                        .content
+                        .chars()
+                        .take(allowed_chars)
+                        .collect();
+
+                    let _ = writeln!(
+                        formatted,
+                        "### {source_type} {} (relevance: {:.2})\n{}... (truncated)\n",
+                        i + 1,
+                        source.relevance,
+                        truncated_content
+                    );
+                    true
+                } else {
+                    false
+                };
+
+                let remaining_sources = if included_partial {
+                    context.len() - (i + 1)
+                } else {
+                    context.len() - i
+                };
+
+                if remaining_sources > 0 {
+                    let _ = writeln!(
+                        formatted,
+                        "\n... ({remaining_sources} more sources truncated)"
+                    );
+                }
+                break;
+            }
 
             let _ = writeln!(
                 formatted,
@@ -204,5 +243,79 @@ impl ContextAugmenter {
 impl Default for ContextAugmenter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use crate::pipeline::analyzer::QueryIntent;
+
+    fn mock_analysis(intent: QueryIntent) -> AnalyzedQuery {
+        AnalyzedQuery {
+            text: "test query".to_string(),
+            intent,
+            temporal_refs: vec![],
+            temporal_description: None,
+            entities: vec![],
+        }
+    }
+
+    #[test]
+    fn should_include_partial_context_when_source_is_too_large() {
+        let augmenter = ContextAugmenter::new();
+        // max_context_tokens = 4096
+        // 4096 * 4 = 16384 chars.
+        // Let's create a source with 20000 chars.
+        let huge_content = "a".repeat(20000);
+        let context = vec![ContextSource {
+            source_type: ContextSourceType::Knowledge,
+            content: huge_content.clone(),
+            relevance: 1.0,
+            entity_id: None,
+        }];
+
+        let analysis = mock_analysis(QueryIntent::Question);
+        let result = augmenter.augment("test", &context, &analysis).unwrap();
+
+        // Currently, this will fail because the source is dropped entirely.
+        // We expect it to contain at least some of the content.
+        assert!(result.contains(&"a".repeat(100)), "Should contain partial content");
+    }
+
+    #[test]
+    fn should_respect_max_tokens_with_multiple_sources() {
+        let augmenter = ContextAugmenter::new();
+        // Create 6 sources of ~1000 tokens each.
+        // Total 6000 tokens > 4096.
+        // 0-3 take ~4012 tokens.
+        // 4 takes remaining ~84 tokens (partial).
+        // 5 is fully truncated.
+
+        let filler = "a".repeat(4000); // ~1000 tokens
+        let context: Vec<ContextSource> = (0..6).map(|i| ContextSource {
+            source_type: ContextSourceType::Knowledge,
+            content: format!("Source {i}: {filler}"),
+            relevance: 1.0,
+            entity_id: None,
+        }).collect();
+
+        let analysis = mock_analysis(QueryIntent::Question);
+        let result = augmenter.augment("test", &context, &analysis).unwrap();
+
+        assert!(result.contains("Source 0"));
+        assert!(result.contains("Source 1"));
+        assert!(result.contains("Source 2"));
+        assert!(result.contains("Source 3"));
+        // Source 4 should be partially included because we have ~84 tokens budget left
+        assert!(result.contains("Source 4"), "Should contain partial Source 4");
+        // Source 5 should be fully truncated
+        assert!(!result.contains("Source 5"), "Should not contain Source 5");
+
+        // Check for truncation messages
+        // "Source 4 ... (truncated)"
+        // "... (1 more sources truncated)" (Source 5)
+        assert!(result.contains("(truncated)"));
     }
 }

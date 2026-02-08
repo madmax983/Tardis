@@ -16,7 +16,7 @@ pub struct Retriever {
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 

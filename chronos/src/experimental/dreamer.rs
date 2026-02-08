@@ -130,6 +130,7 @@ mod tests {
     use tardis_common::id::EntityId;
 
     #[tokio::test]
+    #[allow(clippy::unwrap_used)]
     async fn test_dream_cycle() {
         // 1. Setup Gallifrey
         let gallifrey = Arc::new(Gallifrey::new());
@@ -161,7 +162,7 @@ mod tests {
         conv_store.add_message(msg2).unwrap();
 
         // 3. Create Dreamer
-        let dreamer = Dreamer::new(gallifrey.clone(), Box::new(MockDreamCatcher::default()));
+        let dreamer = Dreamer::new(gallifrey.clone(), Box::new(MockDreamCatcher));
 
         // 4. Dream!
         let result = dreamer.dream().await;

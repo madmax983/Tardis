@@ -71,7 +71,7 @@ pub struct Historian {
 impl Historian {
     /// Create a new `Historian`.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self { vortex, gallifrey }
     }
 
@@ -156,6 +156,7 @@ impl Historian {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use tardis_common::domain::Entity;
@@ -175,7 +176,7 @@ mod tests {
 
         let gallifrey = Arc::new(Gallifrey::new());
         let id = EntityId::new();
-        setup_history(&gallifrey, id).await;
+        setup_history(&gallifrey, id);
 
         let historian = Historian::new(vortex, gallifrey);
 
@@ -184,7 +185,7 @@ mod tests {
     }
 
     // Helper to setup history
-    async fn setup_history(gallifrey: &Gallifrey, id: EntityId) {
+    fn setup_history(gallifrey: &Gallifrey, id: EntityId) {
         let now = Utc::now();
         let ten_mins_ago = now - chrono::Duration::seconds(600);
         let five_mins_ago = now - chrono::Duration::seconds(300);
@@ -224,7 +225,7 @@ mod tests {
         let vortex = Arc::new(Vortex::new().unwrap());
         let gallifrey = Arc::new(Gallifrey::new());
         let id = EntityId::new();
-        setup_history(&gallifrey, id).await;
+        setup_history(&gallifrey, id);
 
         let historian = Historian::new(vortex, gallifrey);
 
