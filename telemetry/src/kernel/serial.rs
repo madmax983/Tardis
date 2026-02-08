@@ -43,6 +43,10 @@ pub fn init() {
     // For compilation in userspace tests, we skip the actual I/O
 
     #[cfg(all(feature = "kernel", not(test)))]
+    // SAFETY: We are initializing the standard PC serial port (COM1).
+    // This requires direct I/O port access which is unsafe.
+    // This is safe to call during kernel initialization as we have
+    // exclusive access to the hardware.
     unsafe {
         use x86_64::instructions::port::Port;
 
@@ -95,6 +99,10 @@ pub fn write_byte(byte: u8) {
     }
 
     #[cfg(not(test))]
+    // SAFETY: We are writing to the standard PC serial port (COM1).
+    // This requires direct I/O port access which is unsafe.
+    // We check the Line Status Register (LSR) to ensure the transmit
+    // buffer is empty before writing, preventing data corruption.
     unsafe {
         use x86_64::instructions::port::Port;
 

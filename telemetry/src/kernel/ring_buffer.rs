@@ -205,7 +205,13 @@ impl RingBuffer {
         }
 
         // Write the entry
-        // SAFETY: We have exclusive access to this slot via the sequence protocol
+        // SAFETY: We have exclusive access to this slot via the sequence protocol.
+        // We use volatile writes because the reader might be speculatively reading
+        // the payload concurrently (before checking the sequence number).
+        // While a data race on non-atomic data is technically UB, treating this
+        // memory as volatile I/O prevents the compiler from making assumptions
+        // about the data stability, effectively implementing a Seqlock pattern
+        // without atomic overhead for the bulk data.
         unsafe {
             let entry_ptr = slot.entry.get();
             core::ptr::write_volatile(entry_ptr, entry.clone());
@@ -214,8 +220,8 @@ impl RingBuffer {
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
             let payload_ptr = slot.payload.get().cast::<u8>();
             // Use volatile write to avoid data races with concurrent readers (Seqlock)
-            for i in 0..payload_len {
-                core::ptr::write_volatile(payload_ptr.add(i), payload[i]);
+            for (i, &byte) in payload.iter().enumerate().take(payload_len) {
+                core::ptr::write_volatile(payload_ptr.add(i), byte);
             }
 
             // Update payload length
@@ -328,7 +334,13 @@ impl RingBuffer {
             }
 
             // Read the entry
-            // SAFETY: We have exclusive read access via compare_exchange
+            // SAFETY: We have exclusive read access via compare_exchange.
+            // We use volatile reads because the writer might update the data
+            // concurrently (if we are slow or if the writer wraps around).
+            // Although we check the sequence number *after* reading to confirm validity,
+            // the read itself must not be optimized away or reordered, and we must
+            // avoid UB from reading data that is being modified (data race).
+            // Volatile access tells the compiler to treat this as external I/O memory.
             let entry = unsafe {
                 let entry_ptr = slot.entry.get();
                 core::ptr::read_volatile(entry_ptr)

@@ -9,6 +9,14 @@ use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId}
 use core::sync::atomic::{AtomicBool, Ordering};
 
 /// Global kernel telemetry state.
+///
+/// # Safety
+///
+/// This static is effectively immutable after initialization.
+/// All access is gated through `get()` which checks `INITIALIZED`.
+/// Since `KernelLogger` itself is immutable (except for the internal
+/// state of `RingBuffer` which handles its own synchronization),
+/// accessing this via `&'static` reference is safe.
 static mut KERNEL_LOGGER: Option<KernelLogger> = None;
 
 /// Whether the logger has been initialized.
@@ -22,12 +30,6 @@ pub struct KernelLogger {
 
     /// Whether serial output is enabled.
     serial_enabled: bool,
-
-    /// Current trace context.
-    current_trace: TraceId,
-
-    /// Current span context.
-    current_span: SpanId,
 }
 
 impl KernelLogger {
@@ -42,8 +44,6 @@ impl KernelLogger {
         Self {
             ring_buffer,
             serial_enabled,
-            current_trace: TraceId::NONE,
-            current_span: SpanId::NONE,
         }
     }
 
@@ -95,8 +95,8 @@ impl KernelLogger {
             level,
             subsystem,
             event_type: EventType::Log,
-            span_id: self.current_span,
-            trace_id: self.current_trace,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
             parent_span_id: SpanId::NONE,
             payload_len: 0, // Set by ring buffer
         };
@@ -128,25 +128,13 @@ impl KernelLogger {
             level,
             subsystem,
             event_type,
-            span_id: self.current_span,
-            trace_id: self.current_trace,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
             parent_span_id: SpanId::NONE,
             payload_len: 0,
         };
 
         self.ring_buffer.try_write(&entry, payload);
-    }
-
-    /// Sets the current trace context.
-    pub const fn set_trace_context(&mut self, trace_id: TraceId, span_id: SpanId) {
-        self.current_trace = trace_id;
-        self.current_span = span_id;
-    }
-
-    /// Clears the current trace context.
-    pub const fn clear_trace_context(&mut self) {
-        self.current_trace = TraceId::NONE;
-        self.current_span = SpanId::NONE;
     }
 
     /// Reads the current timestamp in nanoseconds.
