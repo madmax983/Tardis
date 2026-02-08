@@ -1,6 +1,37 @@
 //! Distributed tracing primitives.
 //!
-//! Provides unique identifiers for traces and spans, compatible with W3C Trace Context.
+//! # Overview
+//!
+//! Distributed tracing allows you to track the propagation of a request across service boundaries.
+//! This module provides the core identifiers used to correlate logs and metrics:
+//!
+//! - [`TraceId`]: A 128-bit unique identifier for a whole trace (a complete request lifecycle).
+//! - [`SpanId`]: A 64-bit unique identifier for a single unit of work (a span) within a trace.
+//!
+//! # W3C Trace Context
+//!
+//! These identifiers are designed to be compatible with the [W3C Trace Context](https://www.w3.org/TR/trace-context/) specification,
+//! ensuring interoperability with tools like OpenTelemetry, Jaeger, and Zipkin.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use tardis_telemetry::trace::{TraceId, SpanId};
+//!
+//! // Create IDs from raw bytes (e.g., received from a network header)
+//! let trace_id = TraceId::from_bytes([
+//!     0x4b, 0xf9, 0x2f, 0x35, 0x77, 0xb3, 0x4d, 0xa6,
+//!     0xa3, 0xce, 0x92, 0x9d, 0x0e, 0x0e, 0x47, 0x36,
+//! ]);
+//!
+//! let span_id = SpanId::from_bytes([
+//!     0x00, 0xf0, 0x67, 0xaa, 0x0b, 0xa9, 0x02, 0xb7,
+//! ]);
+//!
+//! println!("Trace: {}", trace_id);
+//! println!("Span: {}", span_id);
+//! ```
+//!
 //! `no_std` compatible.
 
 use core::fmt;
@@ -8,16 +39,47 @@ use serde::{Deserialize, Serialize};
 
 /// 128-bit trace identifier (W3C Trace Context compatible).
 ///
-/// Uniquely identifies a distributed trace across the system.
+/// Uniquely identifies a distributed trace across the system. A trace represents
+/// a single operation (like a user request) that may traverse multiple services or threads.
+///
+/// The ID consists of a 16-byte array, typically serialized as a 32-character hexadecimal string.
+///
+/// # Examples
+///
+/// Creating a `TraceId` from a byte array:
+///
+/// ```
+/// use tardis_telemetry::trace::TraceId;
+///
+/// let bytes = [1u8; 16];
+/// let trace_id = TraceId::from_bytes(bytes);
+/// assert!(!trace_id.is_none());
+/// ```
+///
+/// Generating a random `TraceId` (requires `std` feature):
+///
+/// ```
+/// # #[cfg(feature = "std")]
+/// # {
+/// use tardis_telemetry::trace::TraceId;
+///
+/// let trace_id = TraceId::generate();
+/// println!("New trace started: {}", trace_id);
+/// # }
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(C)]
 pub struct TraceId([u8; 16]);
 
 impl TraceId {
     /// A zero/null trace ID indicating no trace context.
+    ///
+    /// This is used when a valid trace ID is not available or required.
     pub const NONE: Self = Self([0; 16]);
 
     /// Creates a new trace ID from raw bytes.
+    ///
+    /// This is `const` fn, allowing it to be used in static initializers.
     #[must_use]
     pub const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
@@ -78,7 +140,22 @@ impl fmt::Display for TraceId {
 
 /// 64-bit span identifier.
 ///
-/// Uniquely identifies a span within a trace.
+/// Uniquely identifies a span within a trace. A span represents a logical unit of work,
+/// such as a function call, a database query, or a network request.
+///
+/// The ID consists of an 8-byte array, typically serialized as a 16-character hexadecimal string.
+///
+/// # Examples
+///
+/// Creating a `SpanId` from a byte array:
+///
+/// ```
+/// use tardis_telemetry::trace::SpanId;
+///
+/// let bytes = [0xAB; 8];
+/// let span_id = SpanId::from_bytes(bytes);
+/// assert_eq!(span_id.to_string(), "abababababababab");
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(C)]
 pub struct SpanId([u8; 8]);
@@ -88,6 +165,8 @@ impl SpanId {
     pub const NONE: Self = Self([0; 8]);
 
     /// Creates a new span ID from raw bytes.
+    ///
+    /// This is `const` fn, allowing it to be used in static initializers.
     #[must_use]
     pub const fn from_bytes(bytes: [u8; 8]) -> Self {
         Self(bytes)

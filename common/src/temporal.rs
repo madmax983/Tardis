@@ -242,7 +242,7 @@ impl TemporalQuery {
 }
 
 /// A temporal reference extracted from natural language.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemporalReference {
     /// Relative reference like "yesterday", "last week".
     Relative {

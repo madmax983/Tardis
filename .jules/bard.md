@@ -9,3 +9,7 @@
 ## 2024-05-25 - The Hidden Chronos
 **Confusion:** Users exploring the `chronos` crate had no entry point (`README.md`) to understand the RAG pipeline architecture, making the orchestration logic feel like a black box.
 **Clarification:** Added `chronos/README.md` with an ASCII architecture diagram and detailed pipeline stage explanations to map the flow from query to response.
+
+## 2024-05-26 - The Randomness Requirement
+**Confusion:** `TraceId::generate()` is often assumed to be available everywhere, but it requires `std::time`, making it unavailable in `no_std` kernel builds.
+**Clarification:** Explicitly guarded `generate()` examples with `#[cfg(feature = "std")]` and explained that `from_bytes` is the `no_std` alternative.

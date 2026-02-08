@@ -16,7 +16,7 @@ pub struct Retriever {
 impl Retriever {
     /// Create a new retriever.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 
@@ -153,9 +153,13 @@ impl Retriever {
 
         // If query has temporal references, find relevant snapshots
         for temporal_ref in &query.temporal_refs {
+            let Some(resolved) = temporal_ref.resolved() else {
+                continue;
+            };
+
             if let Some(snapshot) = self
                 .gallifrey
-                .find_snapshot(temporal_ref.resolved)
+                .find_snapshot(resolved)
                 .await
                 .map_err(ChronosError::Common)?
             {

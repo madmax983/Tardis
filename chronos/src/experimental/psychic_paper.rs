@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 pub enum Intent {
     /// Try to infer the format using a best-effort heuristic:
     /// 1. Check for JSON start characters `{` or `[`.
-    /// 2. Check for Markdown code blocks (````json`).
+    /// 2. Check for Markdown code blocks (` ```json `).
     /// 3. Check for list markers (`-` or `*`).
     /// 4. Check for Key-Value pairs (majority of lines have `:`).
     /// 5. Fallback to raw string.
@@ -171,16 +171,19 @@ impl PsychicPaper {
             })
             .collect();
 
-        if items.is_empty() {
-            // Try comma separation if single line
-            if !text.contains('\n') && text.contains(',') {
-                let items: Vec<String> = text
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                return Ok(json!(items));
-            }
+        // Fallback: Try comma separation if single line and no bullets were found/stripped
+        // "No bullets found" means we have exactly one item and it matches the original trimmed text.
+        if items.len() == 1
+            && items[0] == text.trim()
+            && !text.contains('\n')
+            && text.contains(',')
+        {
+            let items: Vec<String> = text
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            return Ok(json!(items));
         }
 
         Ok(json!(items))
@@ -298,5 +301,13 @@ Hope that helps."#;
         let paper = PsychicPaper::new();
         let result = paper.interpret(text, Intent::Auto).unwrap();
         assert_eq!(result, json!({"Enemy": "Weeping Angel", "Don't": "Blink"}));
+    }
+
+    #[test]
+    fn test_interpret_list_comma_separated() {
+        let text = "red, green, blue";
+        let paper = PsychicPaper::new();
+        let result = paper.interpret(text, Intent::List).unwrap();
+        assert_eq!(result, json!(["red", "green", "blue"]));
     }
 }
