@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## Entropy Gauge
+**Concept:** A metric that tracks "Temporal Drift" (Valid Time vs Transaction Time divergence), counting Retcons and Prophecies to quantify timeline stability.
+**Fate:** Merged (Experimental)
+**Lesson:** If you measure how much you are rewriting history, you might find out if you are the villain of your own story.

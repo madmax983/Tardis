@@ -157,7 +157,8 @@ impl Repl {
             }
             #[cfg(feature = "nova")]
             "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey)) {
+                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey))
+                {
                     Ok(mut dashboard) => {
                         if let Err(e) = dashboard.run() {
                             println!("Dashboard failed: {e}");
