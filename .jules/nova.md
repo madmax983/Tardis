@@ -24,3 +24,8 @@
 **Concept:** A bi-temporal narrative generator that detects "Retcons" and "Prophecies" in entity history and uses LLM to tell the story.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is confusing; turning it into a natural language story makes it accessible to humans.
+
+## System Entropy Gauge
+**Concept:** A metric that quantifies system chaos by measuring temporal drift, retcons (rewriting history), and prophecies (predicting future).
+**Fate:** Merged (Experimental)
+**Lesson:** Quantifying the "Timey Wimey" nature of the OS provides a single "health" metric for temporal consistency.
