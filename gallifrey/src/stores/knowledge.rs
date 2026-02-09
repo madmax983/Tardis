@@ -169,15 +169,20 @@ impl KnowledgeStore {
 
     /// Update an entity (creates new version).
     ///
-    /// This operation is **non-destructive** (bi-temporal). It:
-    /// 1. Finds the current version of the entity.
-    /// 2. Marks it as superseded by closing its **Transaction Time** end date to `now`.
-    ///    - This preserves the record that "we *used* to believe X was true until now".
-    /// 3. Creates a new version with the updates.
-    ///    - **Transaction Time** starts `now` (we are recording this change now).
-    ///    - **Valid Time** is reset to `now` (the new fact is true from now on).
+    /// This operation is **non-destructive** (bi-temporal). It implements the "Update" pattern:
+    /// 1. **Supersede Old Version**: The current version is marked as "historical" by closing its
+    ///    **Transaction Time** at `now`. Its **Valid Time** remains unchanged (it *was* true).
+    /// 2. **Create New Version**: A copy is created with the updated properties.
+    ///    - **Transaction Time**: Starts `now` (we believe this new version as of now).
+    ///    - **Valid Time**: Starts `now` (this new state is effective from now on).
     ///
-    /// The result is a complete audit trail of every change and correction.
+    /// The result is a chain of versions where:
+    /// - `Version 1`: Valid [T0, ∞), Known [T0, T1)
+    /// - `Version 2`: Valid [T1, ∞), Known [T1, ∞)
+    ///
+    /// Use this for state changes (e.g., status changed from "Active" to "Inactive").
+    /// For correcting mistakes in the past (e.g., "it was actually Inactive since yesterday"),
+    /// you would need a "Correction" operation (not yet exposed via this helper).
     ///
     /// # Examples
     ///
@@ -190,22 +195,29 @@ impl KnowledgeStore {
     ///
     /// let store = KnowledgeStore::new();
     /// let id = EntityId::new();
-    /// let entity = Entity {
-    ///     id,
-    ///     entity_type: "Person".to_string(),
-    ///     name: "Rose".to_string(),
-    ///     properties: HashMap::new(),
-    ///     embedding: None,
-    ///     temporal: BiTemporalInterval::now(),
-    ///     source: None,
-    /// };
-    /// store.insert_entity(entity).unwrap();
+    /// # let entity = Entity {
+    /// #     id,
+    /// #     entity_type: "Person".to_string(),
+    /// #     name: "Rose".to_string(),
+    /// #     properties: HashMap::new(),
+    /// #     embedding: None,
+    /// #     temporal: BiTemporalInterval::now(),
+    /// #     source: None,
+    /// # };
+    /// # store.insert_entity(entity).unwrap();
     ///
-    /// // Update a property
+    /// // 1. Original state: "Rose" (Version 1)
+    ///
+    /// // 2. Update status to "Bad Wolf"
     /// let mut updates = HashMap::new();
     /// updates.insert("status".to_string(), json!("Bad Wolf"));
+    /// store.update_entity(id, updates).unwrap();
     ///
-    /// assert!(store.update_entity(id, updates).is_ok());
+    /// // 3. Verify history
+    /// let history = store.get_entity_history(id).unwrap();
+    /// assert_eq!(history.len(), 2);
+    /// assert!(!history[0].temporal.transaction_time.is_current()); // Old version superseded
+    /// assert!(history[1].temporal.transaction_time.is_current());  // New version active
     /// ```
     ///
     /// # Errors
@@ -233,7 +245,6 @@ impl KnowledgeStore {
 
         // Create new version with updates
         let mut new_version = current.clone();
-        new_version.temporal = current.temporal.supersede();
         for (key, value) in updates {
             new_version.properties.insert(key, value);
         }
