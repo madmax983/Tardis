@@ -13,3 +13,7 @@
 **[Metric Collection Performance]
 **Learning:** Cumulative histograms on write (O(N) atomics) cause contention. Cumulative on read (O(N) read, O(1) write) is better.
 **Action:** Prefer "write-fast, read-slow" for high-frequency telemetry data structures.
+
+**[Redundant Allocations in Hot Paths]
+**Learning:** Functions that preprocess inputs (e.g., `to_lowercase`) internally cause redundant allocations when called multiple times in a loop or pipeline.
+**Action:** Hoist the preprocessing to the caller or the public API boundary and pass the prepared data (e.g., `&str` instead of `String`) to private helpers.

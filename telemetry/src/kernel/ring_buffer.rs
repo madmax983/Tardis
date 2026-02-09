@@ -428,7 +428,12 @@ impl RingBuffer {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::panic, clippy::expect_used, clippy::cast_possible_truncation)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::expect_used,
+    clippy::cast_possible_truncation
+)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
