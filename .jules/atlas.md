@@ -48,3 +48,11 @@
 2. Refactored `chronos::pipeline::analyzer` to use `common::temporal::TemporalReference`.
 3. Updated consumers (`retriever`, `augmenter`) to use the shared type.
 **Stability:** Removed duplicate types, enforced consistency across crates.
+
+**[Architect] Decouple Telemetry from Std**
+**Tangle:** `telemetry` crate depended unconditionally on `tardis-common` (std-only) and `chrono` (std-default), preventing `kernel` usage.
+**Blueprint:**
+1. Made `tardis-common` and `chrono` optional dependencies in `telemetry`.
+2. Configured `serde` and `serde_json` for `no_std` environments.
+3. Updated `std` feature to enable these dependencies.
+**Stability:** Enables `telemetry` to be used in `kernel` (no_std) while retaining full functionality in userspace.
