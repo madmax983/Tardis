@@ -10,3 +10,7 @@
 
 **Threat:** `unsafe` port I/O in `serial.rs`.
 **Defense:** Added safety comments explaining that port I/O is restricted to kernel features and guarded by initialization checks.
+
+**2025-06-01 - RingBuffer Enum Safety**
+**Threat:** `RingBuffer` used `ptr::read_volatile` to read `TelemetryEntry` structs containing Rust enums (`Level`, `Subsystem`, `EventType`) directly from potentially corrupted shared memory. Reading an invalid discriminant (e.g., `5` for `Level`) is immediate Undefined Behavior.
+**Defense:** Introduced `TelemetryEntryRaw` with integer fields to mirror the memory layout. Modified `RingBuffer` to read raw integers first, then safely convert them to valid enum variants (mapping invalid values to `Info`/`Unknown`), eliminating the UB risk.

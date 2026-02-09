@@ -38,6 +38,19 @@ impl Level {
     }
 }
 
+impl From<u8> for Level {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::Trace,
+            1 => Self::Debug,
+            3 => Self::Warn,
+            4 => Self::Error,
+            // Map invalid levels (and 2/Info) to Info to avoid noise but prevent UB
+            _ => Self::Info,
+        }
+    }
+}
+
 impl fmt::Display for Level {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
