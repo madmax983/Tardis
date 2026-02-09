@@ -135,10 +135,10 @@ impl EntropyGauge {
 mod tests {
     use super::*;
     use crate::Gallifrey;
-    use tardis_common::id::EntityId;
-    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
     use chrono::{Duration, Utc};
     use std::collections::HashMap;
+    use tardis_common::id::EntityId;
+    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 
     #[test]
     fn test_measure_logic() {

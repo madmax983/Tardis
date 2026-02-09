@@ -45,7 +45,10 @@ pub mod tui {
             // 50x20 resolution for the heatmap
             let heatmap = TemporalHeatmap::new(&all_history, 50, 20);
 
-            Ok(Self { _gallifrey: gallifrey, heatmap })
+            Ok(Self {
+                _gallifrey: gallifrey,
+                heatmap,
+            })
         }
 
         /// Run the dashboard loop.
@@ -113,7 +116,9 @@ pub mod tui {
             // Title
             let title = Paragraph::new(Text::styled(
                 "🌟 Tardis Time Stream 🌟",
-                Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .fg(Color::Cyan),
             ))
             .block(Block::default().borders(Borders::ALL));
             f.render_widget(title, chunks[0]);
@@ -126,27 +131,41 @@ pub mod tui {
 
             // Heatmap
             let heatmap_str = self.heatmap.render_ascii();
-            let heatmap_widget = Paragraph::new(heatmap_str)
-                .block(Block::default().title("Bi-Temporal Activity").borders(Borders::ALL));
+            let heatmap_widget = Paragraph::new(heatmap_str).block(
+                Block::default()
+                    .title("Bi-Temporal Activity")
+                    .borders(Borders::ALL),
+            );
             f.render_widget(heatmap_widget, main_chunks[0]);
 
             // Stats
             let total_events: usize = self.heatmap.grid.iter().flatten().sum();
 
             let stats_text = vec![
-                Line::from(Span::styled("System Status", Style::default().add_modifier(Modifier::UNDERLINED))),
+                Line::from(Span::styled(
+                    "System Status",
+                    Style::default().add_modifier(Modifier::UNDERLINED),
+                )),
                 Line::from(""),
                 Line::from(format!("Entities: {total_events}")), // Rough proxy for activity
-                Line::from(format!("Valid Time: {} to {}", self.heatmap.valid_range.0.format("%H:%M"), self.heatmap.valid_range.1.format("%H:%M"))),
-                Line::from(format!("Trans Time: {} to {}", self.heatmap.transaction_range.0.format("%H:%M"), self.heatmap.transaction_range.1.format("%H:%M"))),
+                Line::from(format!(
+                    "Valid Time: {} to {}",
+                    self.heatmap.valid_range.0.format("%H:%M"),
+                    self.heatmap.valid_range.1.format("%H:%M")
+                )),
+                Line::from(format!(
+                    "Trans Time: {} to {}",
+                    self.heatmap.transaction_range.0.format("%H:%M"),
+                    self.heatmap.transaction_range.1.format("%H:%M")
+                )),
             ];
             let stats_widget = Paragraph::new(stats_text)
                 .block(Block::default().title("Stats").borders(Borders::ALL));
             f.render_widget(stats_widget, main_chunks[1]);
 
             // Footer
-            let footer = Paragraph::new("Press 'q' to exit")
-                .block(Block::default().borders(Borders::ALL));
+            let footer =
+                Paragraph::new("Press 'q' to exit").block(Block::default().borders(Borders::ALL));
             f.render_widget(footer, chunks[2]);
         }
     }
