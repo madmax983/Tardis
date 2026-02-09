@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::needless_range_loop, clippy::uninlined_format_args)]
+
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
 use tardis_common::domain::Entity;
