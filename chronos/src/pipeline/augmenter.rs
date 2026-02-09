@@ -139,22 +139,50 @@ impl ContextAugmenter {
         let mut token_estimate = 0;
 
         for (i, source) in context.iter().enumerate() {
-            // Rough token estimate (4 chars per token)
-            let source_tokens = source.content.len() / 4;
-            if token_estimate + source_tokens > self.max_context_tokens {
-                let _ = writeln!(
-                    formatted,
-                    "\n... ({} more sources truncated)",
-                    context.len() - i
-                );
-                break;
-            }
-
             let source_type = match source.source_type {
                 ContextSourceType::Knowledge => "Knowledge",
                 ContextSourceType::Conversation => "Conversation",
                 ContextSourceType::SystemState => "System State",
             };
+
+            // Rough token estimate (4 chars per token)
+            let source_tokens = source.content.len() / 4;
+
+            if token_estimate + source_tokens > self.max_context_tokens {
+                // Calculate remaining budget
+                let remaining_tokens = self.max_context_tokens.saturating_sub(token_estimate);
+                let chars_to_take = remaining_tokens * 4;
+
+                // If we have space for at least some content, include it partially
+                if chars_to_take > 0 {
+                    let content: String = source.content.chars().take(chars_to_take).collect();
+                    let _ = writeln!(
+                        formatted,
+                        "### {source_type} {} (relevance: {:.2})\n{}...\n",
+                        i + 1,
+                        source.relevance,
+                        content
+                    );
+                }
+
+                // Report how many sources were fully dropped
+                // If we took some content from the current source, we only count subsequent sources.
+                // If we took NO content from the current source, we count it as dropped too.
+                let sources_fully_dropped = if chars_to_take > 0 {
+                    context.len() - (i + 1)
+                } else {
+                    context.len() - i
+                };
+
+                if sources_fully_dropped > 0 {
+                    let _ = writeln!(
+                        formatted,
+                        "\n... ({} more sources truncated)",
+                        sources_fully_dropped
+                    );
+                }
+                break;
+            }
 
             let _ = writeln!(
                 formatted,
@@ -205,5 +233,118 @@ impl ContextAugmenter {
 impl Default for ContextAugmenter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipeline::{ContextSource, ContextSourceType};
+    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
+
+    fn create_mock_source(content: &str) -> ContextSource {
+        ContextSource {
+            source_type: ContextSourceType::Knowledge,
+            content: content.to_string(),
+            relevance: 1.0,
+            entity_id: None,
+        }
+    }
+
+    fn create_mock_analysis() -> AnalyzedQuery {
+        AnalyzedQuery {
+            text: "test".to_string(),
+            intent: QueryIntent::Question,
+            temporal_refs: vec![],
+            temporal_description: None,
+            entities: vec![],
+        }
+    }
+
+    #[test]
+    fn test_augment_truncates_large_source() {
+        let augmenter = ContextAugmenter { max_context_tokens: 10 }; // 40 chars max
+
+        // Create a source with 50 chars (should be truncated)
+        // 1 token = 4 chars, so 10 tokens = 40 chars.
+        // Source has 50 chars.
+        let content = "a".repeat(50);
+        let source = create_mock_source(&content);
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &[source], &analysis).unwrap();
+
+        // Should contain the truncated content (40 chars)
+        assert!(result.contains(&content[..40]), "Result should contain truncated content");
+        // Should NOT contain the full content
+        assert!(!result.contains(&content), "Result should not contain full content");
+        // Should indicate truncation with ellipsis
+        assert!(result.contains("..."), "Result should contain ellipsis");
+        // Should NOT say "1 more sources truncated" because we partially included it and there are no MORE sources.
+        assert!(!result.contains("sources truncated"), "Should not report dropped sources when none were fully dropped");
+    }
+
+    #[test]
+    fn test_augment_multiple_sources_partial() {
+        let augmenter = ContextAugmenter { max_context_tokens: 15 }; // 60 chars max
+
+        // Source 1: 20 chars (5 tokens)
+        let s1 = create_mock_source(&"a".repeat(20));
+        // Source 2: 50 chars (12.5 tokens).
+        // Remaining budget: 15 - 5 = 10 tokens (40 chars).
+        // S2 will be truncated to 40 chars.
+        let s2 = create_mock_source(&"b".repeat(50));
+
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &[s1, s2], &analysis).unwrap();
+
+        assert!(result.contains(&"a".repeat(20)), "Should contain full first source");
+        assert!(result.contains(&"b".repeat(40)), "Should contain truncated second source");
+        assert!(!result.contains(&"b".repeat(50)), "Should not contain full second source");
+    }
+
+    #[test]
+    fn test_augment_multiple_sources_dropped() {
+        let augmenter = ContextAugmenter { max_context_tokens: 10 }; // 40 chars
+
+        // S1: 40 chars (10 tokens). Fits exactly.
+        let s1 = create_mock_source(&"a".repeat(40));
+        // S2: 10 chars. No budget left. Should be dropped.
+        let s2 = create_mock_source(&"b".repeat(10));
+
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &[s1, s2], &analysis).unwrap();
+
+        assert!(result.contains(&"a".repeat(40)), "Should contain first source");
+        assert!(!result.contains(&"b".repeat(10)), "Should not contain second source");
+        assert!(result.contains("1 more sources truncated"), "Should report dropped source");
+    }
+
+    #[test]
+    fn test_augment_empty_context() {
+        let augmenter = ContextAugmenter { max_context_tokens: 10 };
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &[], &analysis).unwrap();
+
+        assert!(!result.contains("## Retrieved Context"), "Should not have context header");
+        assert!(result.contains("## User Query"), "Should have user query");
+    }
+
+    #[test]
+    fn test_augment_exact_limit() {
+        let augmenter = ContextAugmenter { max_context_tokens: 10 }; // 40 chars
+
+        // 40 chars. Fits exactly.
+        let content = "a".repeat(40);
+        let source = create_mock_source(&content);
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &[source], &analysis).unwrap();
+
+        assert!(result.contains(&content), "Should contain full content");
+        assert!(!result.contains("truncated"), "Should not report truncation");
     }
 }
