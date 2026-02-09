@@ -45,6 +45,70 @@ const RING_BUFFER_MASK: usize = RING_BUFFER_SIZE - 1;
 /// Maximum payload size per entry.
 pub const MAX_PAYLOAD_SIZE: usize = 192;
 
+/// Raw telemetry entry for safe storage in ring buffer.
+///
+/// This struct mirrors `TelemetryEntry` but uses primitive types for enums
+/// to prevent Undefined Behavior when reading potentially corrupted memory.
+///
+/// # Layout
+///
+/// Must match `TelemetryEntry` layout exactly:
+/// - `timestamp_ns`: u64 (offset 0)
+/// - `level`: u8 (offset 8)
+/// - `padding`: u8 (offset 9)
+/// - `subsystem`: u16 (offset 10)
+/// - `event_type`: u16 (offset 12)
+/// - `span_id`: [u8; 8] (offset 14)
+/// - `trace_id`: [u8; 16] (offset 22)
+/// - `parent_span_id`: [u8; 8] (offset 38)
+/// - `payload_len`: u16 (offset 46)
+///
+/// Total size: 48 bytes.
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct TelemetryEntryRaw {
+    timestamp_ns: u64,
+    level: u8,
+    _pad: u8, // Explicit padding to match compiler layout for align(2) of subsystem
+    subsystem: u16,
+    event_type: u16,
+    span_id: SpanId,
+    trace_id: TraceId,
+    parent_span_id: SpanId,
+    payload_len: u16,
+}
+
+impl From<TelemetryEntry> for TelemetryEntryRaw {
+    fn from(entry: TelemetryEntry) -> Self {
+        Self {
+            timestamp_ns: entry.timestamp_ns,
+            level: entry.level as u8,
+            _pad: 0,
+            subsystem: entry.subsystem as u16,
+            event_type: entry.event_type as u16,
+            span_id: entry.span_id,
+            trace_id: entry.trace_id,
+            parent_span_id: entry.parent_span_id,
+            payload_len: entry.payload_len,
+        }
+    }
+}
+
+impl From<TelemetryEntryRaw> for TelemetryEntry {
+    fn from(raw: TelemetryEntryRaw) -> Self {
+        Self {
+            timestamp_ns: raw.timestamp_ns,
+            level: Level::from(raw.level),
+            subsystem: Subsystem::from(raw.subsystem),
+            event_type: EventType::from(raw.event_type),
+            span_id: raw.span_id,
+            trace_id: raw.trace_id,
+            parent_span_id: raw.parent_span_id,
+            payload_len: raw.payload_len,
+        }
+    }
+}
+
 /// Entry slot in the ring buffer.
 ///
 /// Each slot is cache-line aligned to prevent false sharing between
@@ -58,7 +122,7 @@ pub struct RingSlot {
     sequence: AtomicUsize,
 
     /// Telemetry entry header.
-    entry: UnsafeCell<TelemetryEntry>,
+    entry: UnsafeCell<TelemetryEntryRaw>,
 
     /// Inline payload storage.
     payload: UnsafeCell<[u8; MAX_PAYLOAD_SIZE]>,
@@ -69,11 +133,13 @@ impl RingSlot {
     const fn new() -> Self {
         Self {
             sequence: AtomicUsize::new(0),
-            entry: UnsafeCell::new(TelemetryEntry {
+            // Use raw entry for storage to ensure memory safety
+            entry: UnsafeCell::new(TelemetryEntryRaw {
                 timestamp_ns: 0,
-                level: Level::Trace,
-                subsystem: Subsystem::Unknown,
-                event_type: EventType::Unknown,
+                level: 0, // Level::Trace
+                _pad: 0,
+                subsystem: 255, // Subsystem::Unknown
+                event_type: 65535, // EventType::Unknown
                 span_id: SpanId::NONE,
                 trace_id: TraceId::NONE,
                 parent_span_id: SpanId::NONE,
@@ -214,7 +280,9 @@ impl RingBuffer {
         // without atomic overhead for the bulk data.
         unsafe {
             let entry_ptr = slot.entry.get();
-            core::ptr::write_volatile(entry_ptr, entry.clone());
+            // Convert to raw representation for safe storage
+            let raw_entry = TelemetryEntryRaw::from(entry.clone());
+            core::ptr::write_volatile(entry_ptr, raw_entry);
 
             // Write payload
             let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
@@ -343,7 +411,10 @@ impl RingBuffer {
             // Volatile access tells the compiler to treat this as external I/O memory.
             let entry = unsafe {
                 let entry_ptr = slot.entry.get();
-                core::ptr::read_volatile(entry_ptr)
+                // Read as raw bytes/integers to avoid UB from invalid enum variants
+                let raw_entry = core::ptr::read_volatile(entry_ptr);
+                // Convert to safe TelemetryEntry (maps invalid values to defaults)
+                TelemetryEntry::from(raw_entry)
             };
 
             // Cap payload length to prevent buffer overread/overflow if header is corrupted
@@ -733,6 +804,51 @@ mod tests {
             } else {
                 panic!("Buffer should not be empty");
             }
+        }
+    }
+
+    #[test]
+    fn ring_buffer_invalid_enum_safety() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+
+        // 1. Manually write invalid enum values to a slot
+        unsafe {
+            let slot = &BUFFER.slots[0];
+            let entry_ptr = slot.entry.get(); // *mut TelemetryEntryRaw
+
+            // Construct a raw entry with invalid values
+            let invalid_raw = TelemetryEntryRaw {
+                timestamp_ns: 12345,
+                level: 255, // Invalid Level
+                _pad: 0,
+                subsystem: 65000, // Invalid Subsystem
+                event_type: 60000, // Invalid EventType
+                span_id: SpanId::NONE,
+                trace_id: TraceId::NONE,
+                parent_span_id: SpanId::NONE,
+                payload_len: 0,
+            };
+
+            core::ptr::write_volatile(entry_ptr, invalid_raw);
+
+            // Mark slot as ready to read (seq 2)
+            slot.sequence.store(2, Ordering::Release);
+
+            // Ensure write_pos allows reading (write_pos = 1)
+            BUFFER.write_pos.store(1, Ordering::Relaxed);
+        }
+
+        // 2. Try to read using safe API
+        // This should NOT panic or crash.
+        // It should return a valid TelemetryEntry with mapped safe values.
+        if let Some((read_entry, _)) = BUFFER.try_read() {
+            assert_eq!(read_entry.timestamp_ns, 12345);
+            assert_eq!(read_entry.level, Level::Info); // Mapped from 255
+            assert_eq!(read_entry.subsystem, Subsystem::Unknown); // Mapped from 65000
+            assert_eq!(read_entry.event_type, EventType::Unknown); // Mapped from 60000
+        } else {
+            panic!("Should have returned an entry");
         }
     }
 }

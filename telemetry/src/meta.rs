@@ -139,6 +139,25 @@ impl fmt::Display for Subsystem {
     }
 }
 
+impl From<u16> for Subsystem {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => Self::Kernel,
+            1 => Self::Memory,
+            2 => Self::Scheduler,
+            3 => Self::Interrupt,
+            4 => Self::Syscall,
+            5 => Self::Boot,
+            100 => Self::Vortex,
+            101 => Self::Gallifrey,
+            102 => Self::Chronos,
+            103 => Self::Shell,
+            104 => Self::Telemetry,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 /// Event type within a subsystem.
 ///
 /// Provides fine-grained categorization of telemetry events.
@@ -265,6 +284,44 @@ impl EventType {
 impl fmt::Display for EventType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+impl From<u16> for EventType {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => Self::SpanStart,
+            1 => Self::SpanEnd,
+            2 => Self::Log,
+            3 => Self::Metric,
+            100 => Self::Boot,
+            101 => Self::Panic,
+            102 => Self::SyscallEntry,
+            103 => Self::SyscallExit,
+            104 => Self::PageFault,
+            105 => Self::InterruptReceived,
+            106 => Self::ContextSwitch,
+            200 => Self::ModelLoad,
+            201 => Self::ModelUnload,
+            202 => Self::InferenceStart,
+            203 => Self::InferenceEnd,
+            204 => Self::TokenGenerated,
+            205 => Self::EmbeddingComputed,
+            300 => Self::QueryStart,
+            301 => Self::QueryEnd,
+            302 => Self::EntityInsert,
+            303 => Self::EntityUpdate,
+            304 => Self::TimeTravel,
+            305 => Self::SnapshotTaken,
+            400 => Self::RagQuery,
+            401 => Self::Retrieval,
+            402 => Self::Augmentation,
+            403 => Self::Consolidation,
+            500 => Self::UserInput,
+            501 => Self::IntentClassified,
+            502 => Self::ResponseGenerated,
+            _ => Self::Unknown,
+        }
     }
 }
 
