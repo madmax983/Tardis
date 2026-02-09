@@ -142,6 +142,12 @@ impl Chronos {
     /// 3. **Augmentation**: The context is formatted into a prompt for the LLM.
     /// 4. **Inference**: The LLM generates a response based on the augmented prompt.
     ///
+    /// # ⚠️ Mock Implementation
+    ///
+    /// Currently, the inference step is **mocked**. It will return a static string
+    /// indicating what *would* have been sent to the LLM, along with the retrieved context items.
+    /// This is temporary while the `vortex` crate is being integrated.
+    ///
     /// # Errors
     ///
     /// Returns an error if any stage of the pipeline fails, such as:
