@@ -3927,6 +3927,7 @@ dependencies = [
  "tardis-chronos",
  "tardis-common",
  "tardis-gallifrey",
+ "tardis-telemetry",
  "tardis-vortex",
  "thiserror 2.0.18",
  "tokio",

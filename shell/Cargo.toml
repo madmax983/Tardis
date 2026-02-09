@@ -15,7 +15,7 @@ name = "tardis"
 path = "src/main.rs"
 
 [features]
-nova = ["dep:ratatui", "dep:crossterm", "tardis-gallifrey/nova"]
+nova = ["dep:ratatui", "dep:crossterm", "tardis-gallifrey/nova", "tardis-chronos/nova"]
 
 [dependencies]
 # Internal
@@ -23,6 +23,7 @@ tardis-common = { path = "../common" }
 tardis-vortex = { path = "../vortex" }
 tardis-gallifrey = { path = "../gallifrey" }
 tardis-chronos = { path = "../chronos" }
+tardis-telemetry = { path = "../telemetry", features = ["std"] }
 
 # TUI (Nova)
 ratatui = { version = "0.30", optional = true }
