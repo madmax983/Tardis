@@ -1,3 +1,11 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::needless_range_loop,
+    clippy::uninlined_format_args
+)]
+
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
 use tardis_common::domain::Entity;
@@ -30,9 +38,6 @@ impl TemporalHeatmap {
     ///
     /// Panics if `x_bins` or `y_bins` is zero.
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
     pub fn new(history: &[Entity], x_bins: usize, y_bins: usize) -> Self {
         assert!(x_bins > 0, "x_bins must be > 0");
         assert!(y_bins > 0, "y_bins must be > 0");

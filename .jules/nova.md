@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## The Conscience
+**Concept:** Emotional telemetry that synthesizes system entropy (stability) and activity levels into a high-level "Mood" (Zen, Curious, Confused, Panic) displayed in the shell.
+**Fate:** Merged (Experimental)
+**Lesson:** Giving the system an emotional state makes abstract metrics (drift, write rate) instantly relatable and humane. "The system is panicked" is clearer than "High entropy and write load".

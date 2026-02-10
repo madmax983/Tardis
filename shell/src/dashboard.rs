@@ -16,13 +16,20 @@ pub mod tui {
         Frame, Terminal,
     };
     use std::{io, sync::Arc, time::Duration};
-    use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
+    use tardis_gallifrey::{
+        experimental::{
+            conscience::{Conscience, Mood, SystemConscience},
+            heatmap::TemporalHeatmap,
+        },
+        Gallifrey,
+    };
 
     /// The interactive dashboard.
     #[derive(Debug)]
     pub struct Dashboard {
         _gallifrey: Arc<Gallifrey>,
         heatmap: TemporalHeatmap,
+        conscience: SystemConscience,
     }
 
     impl Dashboard {
@@ -45,7 +52,15 @@ pub mod tui {
             // 50x20 resolution for the heatmap
             let heatmap = TemporalHeatmap::new(&all_history, 50, 20);
 
-            Ok(Self { _gallifrey: gallifrey, heatmap })
+            // Assess system conscience
+            let conscience = Conscience::assess(&gallifrey.knowledge())
+                .map_err(|e| anyhow::anyhow!("Failed to assess conscience: {}", e))?;
+
+            Ok(Self {
+                _gallifrey: gallifrey,
+                heatmap,
+                conscience,
+            })
         }
 
         /// Run the dashboard loop.
@@ -133,12 +148,51 @@ pub mod tui {
             // Stats
             let total_events: usize = self.heatmap.grid.iter().flatten().sum();
 
+            let mood_color = match self.conscience.mood {
+                Mood::Zen => Color::Green,
+                Mood::Curious => Color::Cyan,
+                Mood::Confused => Color::Yellow,
+                Mood::Overwhelmed => Color::Magenta,
+                Mood::Panic => Color::Red,
+            };
+
             let stats_text = vec![
-                Line::from(Span::styled("System Status", Style::default().add_modifier(Modifier::UNDERLINED))),
+                Line::from(Span::styled(
+                    "System Status",
+                    Style::default().add_modifier(Modifier::UNDERLINED),
+                )),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Mood: "),
+                    Span::styled(
+                        format!("{:?}", self.conscience.mood),
+                        Style::default()
+                            .fg(mood_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+                Line::from(Span::styled(
+                    self.conscience.mood.description(),
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(""),
+                Line::from(format!(
+                    "Stability: {:.2}",
+                    self.conscience.entropy.stability_score
+                )),
+                Line::from(format!("Activity: {}", self.conscience.activity_score)),
                 Line::from(""),
                 Line::from(format!("Entities: {total_events}")), // Rough proxy for activity
-                Line::from(format!("Valid Time: {} to {}", self.heatmap.valid_range.0.format("%H:%M"), self.heatmap.valid_range.1.format("%H:%M"))),
-                Line::from(format!("Trans Time: {} to {}", self.heatmap.transaction_range.0.format("%H:%M"), self.heatmap.transaction_range.1.format("%H:%M"))),
+                Line::from(format!(
+                    "Valid Time: {} to {}",
+                    self.heatmap.valid_range.0.format("%H:%M"),
+                    self.heatmap.valid_range.1.format("%H:%M")
+                )),
+                Line::from(format!(
+                    "Trans Time: {} to {}",
+                    self.heatmap.transaction_range.0.format("%H:%M"),
+                    self.heatmap.transaction_range.1.format("%H:%M")
+                )),
             ];
             let stats_widget = Paragraph::new(stats_text)
                 .block(Block::default().title("Stats").borders(Borders::ALL));
