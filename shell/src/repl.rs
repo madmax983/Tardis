@@ -9,7 +9,11 @@ use std::sync::Arc;
 use tardis_chronos::{Chronos, RagConfig};
 use tardis_common::SessionId;
 use tardis_gallifrey::Gallifrey;
+use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
+
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::prophecy::Prophet;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -24,6 +28,11 @@ pub struct Repl {
     chronos: Arc<Chronos>,
     /// Gallifrey database.
     gallifrey: Arc<Gallifrey>,
+    /// Telemetry store (optional).
+    telemetry_store: Option<Arc<TelemetryStore>>,
+    /// Prophet engine (optional, Nova only).
+    #[cfg(feature = "nova")]
+    prophet: Option<Arc<Prophet>>,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -36,7 +45,12 @@ impl Repl {
     /// # Errors
     ///
     /// Returns an error if initialization fails.
-    pub fn new(chronos: Arc<Chronos>, gallifrey: Arc<Gallifrey>) -> Result<Self> {
+    pub fn new(
+        chronos: Arc<Chronos>,
+        gallifrey: Arc<Gallifrey>,
+        telemetry_store: Option<Arc<TelemetryStore>>,
+        #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
+    ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
         // Create a new session
@@ -49,6 +63,9 @@ impl Repl {
             commands: CommandHandler::new(),
             chronos,
             gallifrey,
+            telemetry_store,
+            #[cfg(feature = "nova")]
+            prophet,
             session_id,
             running: true,
         })
@@ -157,7 +174,11 @@ impl Repl {
             }
             #[cfg(feature = "nova")]
             "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey)) {
+                match crate::dashboard::tui::Dashboard::new(
+                    std::sync::Arc::clone(&self.gallifrey),
+                    self.telemetry_store.clone(),
+                    self.prophet.clone(),
+                ) {
                     Ok(mut dashboard) => {
                         if let Err(e) = dashboard.run() {
                             println!("Dashboard failed: {e}");

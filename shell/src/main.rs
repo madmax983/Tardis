@@ -7,7 +7,11 @@ use std::sync::Arc;
 use tardis_chronos::Chronos;
 use tardis_gallifrey::Gallifrey;
 use tardis_vortex::Vortex;
+use tardis_telemetry::{init, TelemetryConfig};
 use tracing::info;
+
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::prophecy::Prophet;
 
 mod commands;
 #[cfg(feature = "nova")]
@@ -19,12 +23,14 @@ use repl::Repl;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env().add_directive("tardis=info".parse()?),
-        )
-        .init();
+    // Initialize telemetry
+    // This replaces tracing_subscriber::fmt().init()
+    let telemetry_handle = init(TelemetryConfig::default())?;
+
+    // Capture the store
+    // Telemetry is compiled with "std" feature in shell dependency, so store field exists
+    let telemetry_store = telemetry_handle.store.clone();
+
 
     info!("Starting Tardis Shell");
 
@@ -37,9 +43,20 @@ async fn main() -> Result<()> {
     // Print banner
     print_banner();
 
+    #[cfg(feature = "nova")]
+    let prophet = Arc::new(Prophet::new(vortex.clone()));
+
     // Create and run REPL
-    let mut repl = Repl::new(chronos, gallifrey)?;
+    #[cfg(feature = "nova")]
+    let mut repl = Repl::new(chronos, gallifrey, telemetry_store, Some(prophet))?;
+
+    #[cfg(not(feature = "nova"))]
+    let mut repl = Repl::new(chronos, gallifrey, telemetry_store)?;
+
     repl.run().await?;
+
+    // Ensure telemetry flushes
+    telemetry_handle.shutdown().await;
 
     info!("Tardis Shell exiting");
     Ok(())
