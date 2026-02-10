@@ -12,10 +12,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod domain;
 pub mod error;
 pub mod id;
-pub mod llm;
 pub mod temporal;
 
 // Re-export commonly used items

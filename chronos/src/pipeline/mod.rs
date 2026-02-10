@@ -199,7 +199,7 @@ impl Chronos {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
-        let entity = tardis_common::domain::Entity {
+        let entity = tardis_gallifrey::domain::Entity {
             id: EntityId::new(),
             entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),

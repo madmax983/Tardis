@@ -1,7 +1,7 @@
 use crate::error::GallifreyResult;
 use crate::stores::KnowledgeStore;
 use serde::{Deserialize, Serialize};
-use tardis_common::domain::Entity;
+use crate::domain::Entity;
 
 /// Metrics quantifying the stability of the system's knowledge.
 #[derive(Debug, Clone, Serialize, Deserialize)]

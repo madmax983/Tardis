@@ -10,7 +10,7 @@ use crate::tokenizer::TokenizerService;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use tardis_common::llm::{InferenceParams, ModelLoadConfig};
+use crate::config::{InferenceParams, ModelLoadConfig};
 use tokio::task;
 use tracing::{info, instrument};
 
