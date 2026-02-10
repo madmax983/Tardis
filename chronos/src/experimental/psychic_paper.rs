@@ -1,13 +1,49 @@
 //! Psychic Paper: The Universal Interpreter.
 //!
-//! "It shows you what you want to see."
+//! > "It shows you what you want to see."
 //!
-//! This module provides robust parsing for unstructured text, designed to handle
-//! the messy output of LLMs or user input.
+//! Large Language Models (LLMs) are notoriously messy. They might wrap JSON in Markdown,
+//! add conversational fluff ("Here is your data:"), or forget structure entirely.
+//!
+//! **Psychic Paper** is a robust parser designed to extract structured data from this chaos.
+//! It uses a set of heuristics to determine the format of the input (JSON, List, Key-Value)
+//! and extract the payload.
+//!
+//! # Hero's Journey: Cleaning the Chaos
+//!
+//! ```rust
+//! use tardis_chronos::experimental::psychic_paper::{PsychicPaper, Intent};
+//! use serde_json::json;
+//!
+//! // The input: A messy response from an LLM
+//! let messy_llm_output = r#"
+//!     Sure! I can help with that. Here are the coordinates you asked for:
+//!     ```json
+//!     {
+//!         "sector": "Gallifrey",
+//!         "constellation": "Kasterborous",
+//!         "coordinates": [10, 0, 11]
+//!     }
+//!     ```
+//!     Let me know if you need anything else!
+//! "#;
+//!
+//! // The hero: PsychicPaper
+//! let paper = PsychicPaper::new();
+//!
+//! // The action: Interpret the intent automatically
+//! let data = paper.interpret(messy_llm_output, Intent::Auto).unwrap();
+//!
+//! // The result: Clean, structured JSON
+//! assert_eq!(data["sector"], "Gallifrey");
+//! assert_eq!(data["coordinates"][0], 10);
+//! ```
 
 use serde_json::{json, Value};
 
 /// The intent of the interpretation.
+///
+/// This tells Psychic Paper what kind of structure to look for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
     /// Try to infer the format using a best-effort heuristic:
@@ -173,10 +209,7 @@ impl PsychicPaper {
 
         // Fallback: Try comma separation if single line and no bullets were found/stripped
         // "No bullets found" means we have exactly one item and it matches the original trimmed text.
-        if items.len() == 1
-            && items[0] == text.trim()
-            && !text.contains('\n')
-            && text.contains(',')
+        if items.len() == 1 && items[0] == text.trim() && !text.contains('\n') && text.contains(',')
         {
             let items: Vec<String> = text
                 .split(',')

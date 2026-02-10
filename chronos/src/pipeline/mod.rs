@@ -111,6 +111,39 @@ pub struct RagResponse {
 }
 
 /// The main Chronos RAG engine.
+///
+/// Chronos orchestrates the RAG pipeline, bridging the gap between:
+/// - **Vortex**: The LLM that generates text.
+/// - **Gallifrey**: The Knowledge Graph that stores facts and history.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::sync::Arc;
+/// use tardis_chronos::{Chronos, RagConfig};
+/// use tardis_vortex::Vortex;
+/// use tardis_gallifrey::Gallifrey;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // 1. Setup
+/// let vortex = Arc::new(Vortex::new()?);
+/// let gallifrey = Arc::new(Gallifrey::new());
+/// let chronos = Chronos::new(vortex, gallifrey);
+///
+/// // 2. Query
+/// let response = chronos.query(
+///     "What is the system status?",
+///     RagConfig::default()
+/// ).await?;
+///
+/// // 3. Use the response
+/// println!("Generated: {}", response.text);
+/// for source in response.sources {
+///     println!("Used context: {:?}", source.source_type);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Chronos {
     #[allow(dead_code)]

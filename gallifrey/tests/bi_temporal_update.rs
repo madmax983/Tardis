@@ -2,11 +2,11 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use tardis_gallifrey::stores::{KnowledgeStore, Entity};
+use serde_json::json;
+use std::collections::HashMap;
 use tardis_common::id::EntityId;
 use tardis_common::temporal::BiTemporalInterval;
-use std::collections::HashMap;
-use serde_json::json;
+use tardis_gallifrey::stores::{Entity, KnowledgeStore};
 
 #[test]
 fn test_bi_temporal_update_logic() {
@@ -16,9 +16,7 @@ fn test_bi_temporal_update_logic() {
         id,
         entity_type: "Test".to_string(),
         name: "Test Entity".to_string(),
-        properties: HashMap::from([
-            ("version".to_string(), json!(1))
-        ]),
+        properties: HashMap::from([("version".to_string(), json!(1))]),
         embedding: None,
         temporal: BiTemporalInterval::now(),
         source: None,
@@ -48,19 +46,37 @@ fn test_bi_temporal_update_logic() {
 
     // Check V1 (Old)
     assert_eq!(v1.properties.get("version").unwrap(), &json!(1));
-    assert!(!v1.temporal.transaction_time.is_current(), "V1 transaction time should be closed");
-    assert!(v1.temporal.transaction_time.end.is_some(), "V1 should have end time");
+    assert!(
+        !v1.temporal.transaction_time.is_current(),
+        "V1 transaction time should be closed"
+    );
+    assert!(
+        v1.temporal.transaction_time.end.is_some(),
+        "V1 should have end time"
+    );
 
     // Check V2 (New)
     assert_eq!(v2.properties.get("version").unwrap(), &json!(2));
-    assert!(v2.temporal.transaction_time.is_current(), "V2 transaction time should be open");
-    assert!(v2.temporal.transaction_time.end.is_none(), "V2 should not have end time");
+    assert!(
+        v2.temporal.transaction_time.is_current(),
+        "V2 transaction time should be open"
+    );
+    assert!(
+        v2.temporal.transaction_time.end.is_none(),
+        "V2 should not have end time"
+    );
 
     // Check Valid Time
     // V2's valid time should start at 'now' (when update happened)
     // V1's valid time should be unchanged from creation.
     // V2 transaction time starts at 'now'.
 
-    assert!(v2.temporal.valid_time.start > v1.temporal.valid_time.start, "V2 valid time should be strictly greater than V1");
-    assert!(v2.temporal.transaction_time.start > v1.temporal.transaction_time.start, "V2 transaction time should be strictly greater than V1");
+    assert!(
+        v2.temporal.valid_time.start > v1.temporal.valid_time.start,
+        "V2 valid time should be strictly greater than V1"
+    );
+    assert!(
+        v2.temporal.transaction_time.start > v1.temporal.transaction_time.start,
+        "V2 transaction time should be strictly greater than V1"
+    );
 }

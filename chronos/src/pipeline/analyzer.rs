@@ -30,16 +30,28 @@ pub struct AnalyzedQuery {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueryIntent {
     /// General question.
+    ///
+    /// Example: "Why is the sky blue?"
     Question,
     /// Recall past information.
+    ///
+    /// Example: "What did we talk about yesterday?"
     Recall,
     /// Store new information.
+    ///
+    /// Example: "Remember that my favorite color is blue."
     Remember,
     /// Compare across time.
+    ///
+    /// Example: "How has the codebase changed since last week?"
     TemporalDiff,
     /// System state query.
+    ///
+    /// Example: "What is the CPU usage?"
     SystemQuery,
     /// General conversation.
+    ///
+    /// Example: "Hello there!"
     Chat,
 }
 
@@ -192,6 +204,16 @@ impl QueryAnalyzer {
     }
 
     /// Extract temporal references from a query.
+    ///
+    /// Currently uses a rule-based approach to identify keywords like "yesterday", "today",
+    /// and "last week".
+    ///
+    /// # Future Vision
+    ///
+    /// Planned improvements include:
+    /// - NLP-based extraction for complex phrases ("next Tuesday at 5pm").
+    /// - Absolute date parsing ("2023-12-25").
+    /// - Event-based references ("since the last update").
     #[allow(clippy::unused_self)]
     fn extract_temporal_refs(
         &self,
@@ -210,11 +232,6 @@ impl QueryAnalyzer {
                 });
             }
         }
-
-        // TODO: Add more sophisticated temporal extraction
-        // - NLP-based extraction
-        // - Absolute date parsing
-        // - Event-based references
 
         refs
     }
@@ -355,12 +372,18 @@ mod tests {
         // "yesterday" should be 2024-03-14 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-14T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-14T12:00:00+00:00"
+        );
 
         // "last week" should be 2024-03-08 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("last week", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-08T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-08T12:00:00+00:00"
+        );
     }
 
     #[test]
