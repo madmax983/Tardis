@@ -11,13 +11,15 @@ rust-version.workspace = true
 workspace = true
 
 [features]
-nova = []
+nova = ["telemetry"]
+telemetry = ["dep:tardis-telemetry"]
 
 [dependencies]
 # Internal
 tardis-common = { path = "../common" }
 tardis-vortex = { path = "../vortex" }
 tardis-gallifrey = { path = "../gallifrey" }
+tardis-telemetry = { path = "../telemetry", optional = true }
 
 # Async runtime
 tokio = { workspace = true }
