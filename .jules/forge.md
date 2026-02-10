@@ -13,3 +13,7 @@
 **[Metric Collection Performance]
 **Learning:** Cumulative histograms on write (O(N) atomics) cause contention. Cumulative on read (O(N) read, O(1) write) is better.
 **Action:** Prefer "write-fast, read-slow" for high-frequency telemetry data structures.
+
+**[Experimental Module Lint Suppression]
+**Learning:** Experimental modules often require `clippy::cast_precision_loss` and similar lints due to prototyping nature.
+**Action:** When refactoring, preserve these suppressions but scope them tightly to the specific helper functions where the operations occur.
