@@ -43,6 +43,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::{EntityId, SessionId};
 use tardis_gallifrey::Gallifrey;
+#[cfg(feature = "telemetry")]
+use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
@@ -116,6 +118,8 @@ pub struct Chronos {
     #[allow(dead_code)]
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
+    #[cfg(feature = "telemetry")]
+    telemetry: Option<Arc<TelemetryStore>>,
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
@@ -128,10 +132,20 @@ impl Chronos {
         Self {
             vortex,
             gallifrey: Arc::clone(&gallifrey),
+            #[cfg(feature = "telemetry")]
+            telemetry: None,
             analyzer: QueryAnalyzer::new(),
             retriever: Retriever::new(gallifrey),
             augmenter: ContextAugmenter::new(),
         }
+    }
+
+    /// Attach a telemetry store to Chronos.
+    #[cfg(feature = "telemetry")]
+    #[must_use]
+    pub fn with_telemetry(mut self, telemetry: Arc<TelemetryStore>) -> Self {
+        self.telemetry = Some(telemetry);
+        self
     }
 
     /// Execute a RAG query.
