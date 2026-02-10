@@ -75,8 +75,8 @@ pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
-use std::sync::Arc;
 use crate::domain::{Change, Entity, Message, Snapshot};
+use std::sync::Arc;
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
 

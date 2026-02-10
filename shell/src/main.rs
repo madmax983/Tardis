@@ -6,8 +6,8 @@ use anyhow::Result;
 use std::sync::Arc;
 use tardis_chronos::Chronos;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::Vortex;
 use tardis_telemetry::{init, TelemetryConfig};
+use tardis_vortex::Vortex;
 use tracing::info;
 
 #[cfg(feature = "nova")]
@@ -30,7 +30,6 @@ async fn main() -> Result<()> {
     // Capture the store
     // Telemetry is compiled with "std" feature in shell dependency, so store field exists
     let telemetry_store = telemetry_handle.store.clone();
-
 
     info!("Starting Tardis Shell");
 

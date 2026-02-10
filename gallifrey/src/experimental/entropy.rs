@@ -1,7 +1,7 @@
+use crate::domain::Entity;
 use crate::error::GallifreyResult;
 use crate::stores::KnowledgeStore;
 use serde::{Deserialize, Serialize};
-use crate::domain::Entity;
 
 /// Metrics quantifying the stability of the system's knowledge.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,10 +135,10 @@ impl EntropyGauge {
 mod tests {
     use super::*;
     use crate::Gallifrey;
-    use tardis_common::id::EntityId;
-    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
     use chrono::{Duration, Utc};
     use std::collections::HashMap;
+    use tardis_common::id::EntityId;
+    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 
     #[test]
     fn test_measure_logic() {

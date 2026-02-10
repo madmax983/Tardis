@@ -6,8 +6,8 @@ use crate::error::ChronosResult;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tardis_gallifrey::domain::{Entity, Message};
 use tardis_common::id::EntityId;
+use tardis_gallifrey::domain::{Entity, Message};
 use tardis_gallifrey::Gallifrey;
 use tracing::{info, instrument};
 
@@ -126,8 +126,8 @@ impl DreamCatcher for MockDreamCatcher {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tardis_gallifrey::domain::{Message, Role};
     use tardis_common::id::EntityId;
+    use tardis_gallifrey::domain::{Message, Role};
 
     #[tokio::test]
     async fn test_dream_cycle() {

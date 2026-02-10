@@ -2,9 +2,9 @@
 //!
 //! Provides query parsing and execution for temporal graph queries.
 
+use crate::domain::Entity;
 use crate::error::GallifreyResult;
 use serde::{Deserialize, Serialize};
-use crate::domain::Entity;
 use tardis_common::temporal::TemporalQuery;
 
 /// A parsed query.
