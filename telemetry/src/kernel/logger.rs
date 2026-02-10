@@ -6,21 +6,26 @@
 use crate::kernel::ring_buffer::RingBuffer;
 use crate::kernel::serial;
 use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicU8, Ordering};
 
 /// Global kernel telemetry state.
 ///
 /// # Safety
 ///
 /// This static is effectively immutable after initialization.
-/// All access is gated through `get()` which checks `INITIALIZED`.
+/// All access is gated through `get()` which checks `STATE`.
 /// Since `KernelLogger` itself is immutable (except for the internal
 /// state of `RingBuffer` which handles its own synchronization),
 /// accessing this via `&'static` reference is safe.
 static mut KERNEL_LOGGER: Option<KernelLogger> = None;
 
-/// Whether the logger has been initialized.
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
+// Initialization states
+const STATE_UNINIT: u8 = 0;
+const STATE_INITING: u8 = 1;
+const STATE_INITED: u8 = 2;
+
+/// Initialization state of the logger.
+static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
 
 /// Kernel logger that writes to the ring buffer.
 #[allow(missing_debug_implementations)]
@@ -59,17 +64,29 @@ impl KernelLogger {
     /// Panics if called more than once.
     #[allow(clippy::panic, clippy::manual_assert)]
     pub unsafe fn init(ring_buffer: &'static RingBuffer, serial_enabled: bool) {
-        if INITIALIZED.swap(true, Ordering::SeqCst) {
-            panic!("KernelLogger::init called more than once");
+        // Try to transition from UNINIT to INITING
+        match STATE.compare_exchange(
+            STATE_UNINIT,
+            STATE_INITING,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => {} // Proceed with initialization
+            Err(_) => panic!("KernelLogger::init called more than once"),
         }
 
         if serial_enabled {
             serial::init();
         }
 
+        // Initialize the logger
         unsafe {
             KERNEL_LOGGER = Some(KernelLogger::new(ring_buffer, serial_enabled));
         }
+
+        // Mark as fully initialized
+        // Release ordering ensures the write to KERNEL_LOGGER is visible before STATE becomes INITED
+        STATE.store(STATE_INITED, Ordering::Release);
 
         // Note: In actual kernel, we would call log::set_logger here
         // For now, we provide manual logging functions
@@ -80,8 +97,9 @@ impl KernelLogger {
     /// Returns `None` if the logger hasn't been initialized.
     #[must_use]
     pub fn get() -> Option<&'static Self> {
-        if INITIALIZED.load(Ordering::Acquire) {
-            // SAFETY: We only set KERNEL_LOGGER once during init
+        // Acquire ordering ensures we see the write to KERNEL_LOGGER if STATE is INITED
+        if STATE.load(Ordering::Acquire) == STATE_INITED {
+            // SAFETY: We checked STATE is INITED, so KERNEL_LOGGER is initialized and immutable.
             unsafe { (*core::ptr::addr_of!(KERNEL_LOGGER)).as_ref() }
         } else {
             None
@@ -213,4 +231,37 @@ macro_rules! ktrace {
     ($subsystem:expr, $($arg:tt)*) => {
         $crate::klog!($crate::Level::Trace, $subsystem, $($arg)*)
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_logger_initialization() {
+        // Reset state for testing (unsafe but necessary for test isolation if possible)
+        // Since we can't easily reset static mut safely in parallel tests,
+        // we assume this test runs in isolation or first.
+        // However, we can't guarantee that.
+        // So we will just test the state transitions we can observe.
+
+        // If it's already initialized by another test, we can't test pre-init state.
+        // But in a fresh test run, it should be uninitialized.
+
+        static RING_BUFFER: RingBuffer = RingBuffer::new();
+
+        // Check if already initialized (by another test?)
+        if KernelLogger::get().is_some() {
+            // Already initialized, can't test transition.
+            return;
+        }
+
+        assert!(KernelLogger::get().is_none());
+
+        unsafe {
+            KernelLogger::init(&RING_BUFFER, false);
+        }
+
+        assert!(KernelLogger::get().is_some());
+    }
 }
