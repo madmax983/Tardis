@@ -48,7 +48,7 @@ impl EchoChamber {
         // For now, we assume the default model is suitable.
         let handle = self
             .vortex
-            .load_model("default", tardis_common::llm::ModelLoadConfig::default())
+            .load_model("default", tardis_vortex::config::ModelLoadConfig::default())
             .await?;
 
         let embedding = self.vortex.embed(handle, text).await?;
@@ -90,7 +90,7 @@ impl EchoChamber {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tardis_common::domain::{Entity, Message};
+    use tardis_gallifrey::domain::{Entity, Message};
     use tardis_common::id::{EntityId, ModelHandle, SessionId};
     use tardis_common::temporal::BiTemporalInterval;
 
@@ -117,7 +117,7 @@ mod tests {
         gallifrey.conversation().add_message(Message {
             id: EntityId::new(),
             session_id: SessionId::new(),
-            role: tardis_common::domain::Role::User,
+            role: tardis_gallifrey::domain::Role::User,
             content: "I remember when the system crashed".to_string(),
             timestamp: Utc::now(),
             embedding: Some(vec![0.1, 0.2, 0.3]),

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
-use tardis_common::domain::Entity;
+use crate::domain::Entity;
 
 /// A 2D heatmap visualizing entity activity across Valid Time and Transaction Time.
 #[derive(Debug)]

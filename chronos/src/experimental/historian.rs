@@ -139,7 +139,7 @@ impl Historian {
 
         let handle = self
             .vortex
-            .load_model("default", tardis_common::llm::ModelLoadConfig::default())
+            .load_model("default", tardis_vortex::config::ModelLoadConfig::default())
             .await?;
 
         let story = self
@@ -147,7 +147,7 @@ impl Historian {
             .infer(
                 handle,
                 &prompt,
-                tardis_common::llm::InferenceParams::default(),
+                tardis_vortex::config::InferenceParams::default(),
             )
             .await?;
 
@@ -158,7 +158,7 @@ impl Historian {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tardis_common::domain::Entity;
+    use tardis_gallifrey::domain::Entity;
     use tardis_common::id::{EntityId, ModelHandle};
     use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 

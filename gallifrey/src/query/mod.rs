@@ -4,7 +4,7 @@
 
 use crate::error::GallifreyResult;
 use serde::{Deserialize, Serialize};
-use tardis_common::domain::Entity;
+use crate::domain::Entity;
 use tardis_common::temporal::TemporalQuery;
 
 /// A parsed query.

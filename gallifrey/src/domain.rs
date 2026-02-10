@@ -1,7 +1,7 @@
 //! Domain entities shared across Tardis OS.
 
-use crate::id::{EntityId, SessionId, SnapshotId};
-use crate::temporal::BiTemporalInterval;
+use tardis_common::id::{EntityId, SessionId, SnapshotId};
+use tardis_common::temporal::BiTemporalInterval;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ use std::collections::HashMap;
 /// Creating a simple entity representing a person:
 ///
 /// ```
-/// use tardis_common::domain::Entity;
+/// use tardis_gallifrey::domain::Entity;
 /// use tardis_common::id::EntityId;
 /// use tardis_common::temporal::BiTemporalInterval;
 /// use std::collections::HashMap;
@@ -106,7 +106,7 @@ pub enum Role {
 /// # Examples
 ///
 /// ```
-/// use tardis_common::domain::{Message, Role};
+/// use tardis_gallifrey::domain::{Message, Role};
 /// use tardis_common::id::{EntityId, SessionId};
 /// use chrono::Utc;
 ///
@@ -152,7 +152,7 @@ pub struct Message {
 /// # Examples
 ///
 /// ```
-/// use tardis_common::domain::Session;
+/// use tardis_gallifrey::domain::Session;
 /// use tardis_common::id::SessionId;
 /// use chrono::Utc;
 /// use std::collections::HashMap;
@@ -194,7 +194,7 @@ pub struct Session {
 /// # Examples
 ///
 /// ```
-/// use tardis_common::domain::{Snapshot, SnapshotTrigger, SystemState};
+/// use tardis_gallifrey::domain::{Snapshot, SnapshotTrigger, SystemState};
 /// use tardis_common::id::SnapshotId;
 /// use chrono::Utc;
 /// use std::collections::HashMap;
@@ -288,7 +288,7 @@ pub struct FileMetadata {
 /// # Examples
 ///
 /// ```
-/// use tardis_common::domain::{Change, ChangeType};
+/// use tardis_gallifrey::domain::{Change, ChangeType};
 /// use chrono::Utc;
 /// use serde_json::json;
 ///
