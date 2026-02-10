@@ -13,3 +13,7 @@
 **[RAG Context Truncation]
 **Learning:** Naive token limit checks that discard entire sources when they overflow can severely limit context utilization, especially with large documents or small token budgets. Partial truncation (e.g., `chars().take()`) allows filling the remaining budget effectively.
 **Action:** When implementing token-limited buffers, always implement partial filling logic rather than binary include/exclude decisions.
+
+**[Data Enum PartialEq]
+**Learning:** `assert_eq!` requires `PartialEq`, but complex domain types (like `SnapshotTrigger`) often lack it. Instead of modifying core crates (risking global recompilation), `matches!(val, Variant)` is a robust, non-invasive alternative for testing enum variants.
+**Action:** Default to `matches!` for enum variant testing when `PartialEq` is missing to minimize cross-crate dependencies.
