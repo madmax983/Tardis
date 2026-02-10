@@ -30,15 +30,13 @@ impl TemporalHeatmap {
     ///
     /// Panics if `x_bins` or `y_bins` is zero.
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
     pub fn new(history: &[Entity], x_bins: usize, y_bins: usize) -> Self {
         assert!(x_bins > 0, "x_bins must be > 0");
         assert!(y_bins > 0, "y_bins must be > 0");
 
+        let now = Utc::now();
+
         if history.is_empty() {
-            let now = Utc::now();
             return Self {
                 grid: vec![vec![0; x_bins]; y_bins],
                 valid_range: (now, now),
@@ -48,41 +46,60 @@ impl TemporalHeatmap {
             };
         }
 
-        // 1. Determine bounds
-        let now = Utc::now();
-        let mut v_min = now;
-        let mut v_max = now;
-        let mut t_min = now;
-        let mut t_max = now;
+        let (valid_range, transaction_range) = Self::determine_bounds(history, now);
 
-        let mut first = true;
+        let mut grid = vec![vec![0; x_bins]; y_bins];
+        Self::populate_grid(
+            &mut grid,
+            history,
+            valid_range,
+            transaction_range,
+            x_bins,
+            y_bins,
+            now,
+        );
 
-        for entity in history {
+        Self {
+            grid,
+            valid_range,
+            transaction_range,
+            x_bins,
+            y_bins,
+        }
+    }
+
+    fn determine_bounds(
+        history: &[Entity],
+        now: DateTime<Utc>,
+    ) -> ((DateTime<Utc>, DateTime<Utc>), (DateTime<Utc>, DateTime<Utc>)) {
+        let (mut v_min, mut v_max, mut t_min, mut t_max) = match history.first() {
+            Some(first) => (
+                first.temporal.valid_time.start,
+                first.temporal.valid_time.end.unwrap_or(now),
+                first.temporal.transaction_time.start,
+                first.temporal.transaction_time.end.unwrap_or(now),
+            ),
+            None => return ((now, now), (now, now)),
+        };
+
+        for entity in history.iter().skip(1) {
             let vt = entity.temporal.valid_time;
             let tt = entity.temporal.transaction_time;
 
-            if first {
+            if vt.start < v_min {
                 v_min = vt.start;
-                v_max = vt.end.unwrap_or(now);
-                t_min = tt.start;
-                t_max = tt.end.unwrap_or(now);
-                first = false;
-            } else {
-                if vt.start < v_min {
-                    v_min = vt.start;
-                }
-                let v_end = vt.end.unwrap_or(now);
-                if v_end > v_max {
-                    v_max = v_end;
-                }
+            }
+            let v_end = vt.end.unwrap_or(now);
+            if v_end > v_max {
+                v_max = v_end;
+            }
 
-                if tt.start < t_min {
-                    t_min = tt.start;
-                }
-                let t_end = tt.end.unwrap_or(now);
-                if t_end > t_max {
-                    t_max = t_end;
-                }
+            if tt.start < t_min {
+                t_min = tt.start;
+            }
+            let t_end = tt.end.unwrap_or(now);
+            if t_end > t_max {
+                t_max = t_end;
             }
         }
 
@@ -94,12 +111,27 @@ impl TemporalHeatmap {
             t_max = t_min + chrono::Duration::seconds(1);
         }
 
-        let mut grid = vec![vec![0; x_bins]; y_bins];
+        ((v_min, v_max), (t_min, t_max))
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
+    fn populate_grid(
+        grid: &mut [Vec<usize>],
+        history: &[Entity],
+        valid_range: (DateTime<Utc>, DateTime<Utc>),
+        transaction_range: (DateTime<Utc>, DateTime<Utc>),
+        x_bins: usize,
+        y_bins: usize,
+        now: DateTime<Utc>,
+    ) {
+        let (v_min, v_max) = valid_range;
+        let (t_min, t_max) = transaction_range;
 
         let v_duration = (v_max - v_min).num_milliseconds() as f64;
         let t_duration = (t_max - t_min).num_milliseconds() as f64;
 
-        // 2. Populate grid
         for entity in history {
             let vt = entity.temporal.valid_time;
             let tt = entity.temporal.transaction_time;
@@ -129,14 +161,6 @@ impl TemporalHeatmap {
                     grid[y][x] += 1;
                 }
             }
-        }
-
-        Self {
-            grid,
-            valid_range: (v_min, v_max),
-            transaction_range: (t_min, t_max),
-            x_bins,
-            y_bins,
         }
     }
 
