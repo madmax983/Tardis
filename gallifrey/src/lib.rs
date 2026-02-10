@@ -21,9 +21,9 @@
 //!
 //! ```rust
 //! use tardis_gallifrey::Gallifrey;
-//! use tardis_common::domain::Entity;
+//! use tardis_gallifrey::domain::Entity;
 //! use tardis_common::id::EntityId;
-//! use tardis_common::temporal::{BiTemporalInterval, TemporalQuery};
+//! use tardis_gallifrey::temporal::{BiTemporalInterval, TemporalQuery};
 //! use std::collections::HashMap;
 //!
 //! # #[tokio::main]
@@ -61,6 +61,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod domain;
 pub mod error;
 #[cfg(feature = "nova")]
 /// Experimental features (Nova).
@@ -75,7 +76,7 @@ pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
 use std::sync::Arc;
-use tardis_common::domain::{Change, Entity, Message, Snapshot};
+use crate::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
 

@@ -10,7 +10,7 @@ use crate::temporal::BiTemporalInterval;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::RwLock;
-pub use tardis_common::domain::{Entity, Relationship};
+pub use crate::domain::{Entity, Relationship};
 use tardis_common::EntityId;
 
 /// The knowledge graph store.

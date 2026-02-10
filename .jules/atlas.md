@@ -56,3 +56,11 @@
 2. Configured `serde` and `serde_json` for `no_std` environments.
 3. Updated `std` feature to enable these dependencies.
 **Stability:** Enables `telemetry` to be used in `kernel` (no_std) while retaining full functionality in userspace.
+
+**[Architect] The Great Decoupling**
+**Tangle:** `tardis-common` was becoming a "God Crate" (holding `Entity`, `Message`, `Snapshot`, `LLM`), causing domain leakage and weak cohesion. `Chronos` depended on `common` for things that belonged in `Gallifrey` or `Vortex`.
+**Blueprint:**
+1. Moved `common::domain` to `gallifrey::domain` (the Knowledge Store).
+2. Moved `common::llm` to `vortex::config` (the Inference Engine).
+3. Updated `common` to only contain shared primitives (`id`, `error`, `temporal`).
+**Stability:** Enforced strict domain boundaries. `common` is now truly common.
