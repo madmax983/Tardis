@@ -138,7 +138,7 @@ impl RingSlot {
                 timestamp_ns: 0,
                 level: 0, // Level::Trace
                 _pad: 0,
-                subsystem: 255, // Subsystem::Unknown
+                subsystem: 255,    // Subsystem::Unknown
                 event_type: 65535, // EventType::Unknown
                 span_id: SpanId::NONE,
                 trace_id: TraceId::NONE,
@@ -499,7 +499,12 @@ impl RingBuffer {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::panic, clippy::expect_used, clippy::cast_possible_truncation)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::expect_used,
+    clippy::cast_possible_truncation
+)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
@@ -822,7 +827,7 @@ mod tests {
                 timestamp_ns: 12345,
                 level: 255, // Invalid Level
                 _pad: 0,
-                subsystem: 65000, // Invalid Subsystem
+                subsystem: 65000,  // Invalid Subsystem
                 event_type: 60000, // Invalid EventType
                 span_id: SpanId::NONE,
                 trace_id: TraceId::NONE,

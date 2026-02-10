@@ -68,6 +68,10 @@ impl CommandHandler {
         println!("    snapshot <name>   Save system state snapshot");
         println!("    restore <name>    Restore a saved snapshot");
         println!("    timeline <entity> Show history of an entity");
+        #[cfg(feature = "nova")]
+        println!("    doctor            Diagnose system health via telemetry");
+        #[cfg(feature = "nova")]
+        println!("    dashboard         Launch the TUI dashboard");
         println!("    clear             Clear the screen");
         println!("    exit / quit       Exit the shell");
         println!();

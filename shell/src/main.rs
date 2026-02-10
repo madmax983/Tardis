@@ -6,6 +6,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use tardis_chronos::Chronos;
 use tardis_gallifrey::Gallifrey;
+use tardis_telemetry::{init, TelemetryConfig};
 use tardis_vortex::Vortex;
 use tracing::info;
 
@@ -19,12 +20,9 @@ use repl::Repl;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env().add_directive("tardis=info".parse()?),
-        )
-        .init();
+    // Initialize telemetry
+    let config = TelemetryConfig::default();
+    let handle = init(config)?;
 
     info!("Starting Tardis Shell");
 
@@ -32,7 +30,13 @@ async fn main() -> Result<()> {
     let vortex = Arc::new(Vortex::new()?);
     let gallifrey = Arc::new(Gallifrey::new());
 
-    let chronos = Arc::new(Chronos::new(vortex.clone(), gallifrey.clone()));
+    let mut chronos = Chronos::new(vortex.clone(), gallifrey.clone());
+
+    if let Some(store) = handle.store() {
+        chronos = chronos.with_telemetry(Arc::clone(store));
+    }
+
+    let chronos = Arc::new(chronos);
 
     // Print banner
     print_banner();
@@ -40,6 +44,9 @@ async fn main() -> Result<()> {
     // Create and run REPL
     let mut repl = Repl::new(chronos, gallifrey)?;
     repl.run().await?;
+
+    // Shutdown telemetry
+    handle.shutdown().await;
 
     info!("Tardis Shell exiting");
     Ok(())

@@ -157,13 +157,24 @@ impl Repl {
             }
             #[cfg(feature = "nova")]
             "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey)) {
+                match crate::dashboard::tui::Dashboard::new(std::sync::Arc::clone(&self.gallifrey))
+                {
                     Ok(mut dashboard) => {
                         if let Err(e) = dashboard.run() {
                             println!("Dashboard failed: {e}");
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "doctor" => {
+                if let Some(doctor) = self.chronos.doctor() {
+                    println!("Analyzing system telemetry (last 5 minutes)...");
+                    let report = doctor.diagnose(std::time::Duration::from_secs(300)).await;
+                    println!("\n{report}");
+                } else {
+                    println!("System Doctor is offline. (Telemetry store not available)");
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

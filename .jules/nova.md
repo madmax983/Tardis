@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## System Doctor
+**Concept:** A "self-aware" diagnostic module that queries the system's own telemetry (spans, events) to detect anomalies (latency, errors) and formulate a natural language diagnosis.
+**Fate:** Merged (Experimental)
+**Lesson:** Connecting Observability (Telemetry) to RAG (Chronos) gives the system the ability to "introspect" and explain its own state, bridging the gap between raw metrics and semantic understanding.

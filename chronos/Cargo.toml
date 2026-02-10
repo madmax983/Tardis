@@ -18,6 +18,7 @@ nova = []
 tardis-common = { path = "../common" }
 tardis-vortex = { path = "../vortex" }
 tardis-gallifrey = { path = "../gallifrey" }
+tardis-telemetry = { path = "../telemetry" }
 
 # Async runtime
 tokio = { workspace = true }

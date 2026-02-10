@@ -38,11 +38,15 @@ pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
 pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
 
+#[cfg(feature = "nova")]
+use crate::experimental::doctor::SystemDoctor;
+
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::{EntityId, SessionId};
 use tardis_gallifrey::Gallifrey;
+use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
@@ -119,6 +123,7 @@ pub struct Chronos {
     analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
+    telemetry: Option<Arc<TelemetryStore>>,
 }
 
 impl Chronos {
@@ -131,7 +136,24 @@ impl Chronos {
             analyzer: QueryAnalyzer::new(),
             retriever: Retriever::new(gallifrey),
             augmenter: ContextAugmenter::new(),
+            telemetry: None,
         }
+    }
+
+    /// Add a telemetry store to the Chronos engine.
+    #[must_use]
+    pub fn with_telemetry(mut self, telemetry: Arc<TelemetryStore>) -> Self {
+        self.telemetry = Some(telemetry);
+        self
+    }
+
+    /// Get the System Doctor if enabled and telemetry is available.
+    #[cfg(feature = "nova")]
+    #[must_use]
+    pub fn doctor(&self) -> Option<SystemDoctor> {
+        self.telemetry
+            .as_ref()
+            .map(|store| SystemDoctor::new(Arc::clone(store)))
     }
 
     /// Execute a RAG query.
