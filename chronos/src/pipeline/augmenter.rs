@@ -14,6 +14,17 @@
 //! 3.  **User Query**: The original question.
 //! 4.  **Instructions**: Dynamic instructions based on the query intent (e.g.,
 //!     "Focus on recall" vs "Compare states").
+//!
+//! # Token Budgeting
+//!
+//! The `ContextAugmenter` operates with a strict token limit (default: 4096 tokens) to prevent
+//! overflowing the LLM's context window.
+//!
+//! - It uses a heuristic of **4 characters per token**.
+//! - It iterates through retrieved sources in order of relevance (assumed pre-sorted).
+//! - If a source fits entirely within the remaining budget, it is included.
+//! - If a source partially fits, it is **truncated** to fit the remaining budget.
+//! - Any subsequent sources are dropped, and a note "... (N more sources truncated)" is appended.
 
 use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;

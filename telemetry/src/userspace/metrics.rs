@@ -5,8 +5,9 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
-//! use tardis_telemetry::metrics::{counter, gauge, histogram, Subsystem};
+//! ```rust
+//! // Macros are at the crate root
+//! use tardis_telemetry::{counter, gauge, histogram, Subsystem};
 //!
 //! // Increment a counter
 //! counter!("requests_total").inc();

@@ -13,3 +13,7 @@
 ## 2024-05-26 - The Randomness Requirement
 **Confusion:** `TraceId::generate()` is often assumed to be available everywhere, but it requires `std::time`, making it unavailable in `no_std` kernel builds.
 **Clarification:** Explicitly guarded `generate()` examples with `#[cfg(feature = "std")]` and explained that `from_bytes` is the `no_std` alternative.
+
+## 2024-05-27 - The Silent Truncation
+**Confusion:** RAG responses were occasionally missing context without error, due to the `ContextAugmenter` silently truncating sources that exceeded the token budget.
+**Clarification:** Added a "Token Budgeting" section to `chronos/src/pipeline/augmenter.rs` explaining the 4-char heuristic and truncation logic.
