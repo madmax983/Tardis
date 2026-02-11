@@ -144,7 +144,8 @@ impl ContextAugmenter {
             };
 
             // Rough token estimate (4 chars per token)
-            let source_tokens = source.content.len() / 4;
+            // Ceiling division to ensure non-empty sources cost at least 1 token
+            let source_tokens = (source.content.len() + 3) / 4;
 
             if token_estimate + source_tokens > self.max_context_tokens {
                 // Calculate remaining budget
@@ -380,6 +381,49 @@ mod tests {
         assert!(
             !result.contains("truncated"),
             "Should not report truncation"
+        );
+    }
+
+    #[test]
+    fn test_augment_many_small_sources() {
+        let augmenter = ContextAugmenter { max_context_tokens: 5 };
+
+        // Create 20 sources of 3 chars each ("s00", "s01", etc.)
+        // Current logic: 3/4 = 0 tokens. All 20 fit.
+        // Correct logic: (3+3)/4 = 1 token. Only 5 fit.
+        let sources: Vec<ContextSource> = (0..20)
+            .map(|i| ContextSource {
+                source_type: ContextSourceType::Knowledge,
+                content: format!("s{:02}", i),
+                relevance: 1.0,
+                entity_id: None,
+            })
+            .collect();
+
+        let analysis = create_mock_analysis();
+
+        let result = augmenter.augment("query", &sources, &analysis).unwrap();
+
+        // Check if truncation happened correctly
+        // With limit=5, we expect 5 sources to be included (indices 0..5)
+        for i in 0..5 {
+            assert!(
+                result.contains(&format!("s{:02}", i)),
+                "Should contain source {}",
+                i
+            );
+        }
+
+        // The 6th source (index 5) should be excluded
+        assert!(
+            !result.contains("s05"),
+            "Should not contain source 5 (limit exceeded)"
+        );
+
+        // Should report dropped sources
+        assert!(
+            result.contains("15 more sources truncated"),
+            "Should report 15 dropped sources"
         );
     }
 }
