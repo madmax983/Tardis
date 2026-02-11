@@ -2,7 +2,7 @@
 /// The TUI Dashboard module.
 pub mod tui {
     use anyhow::Result;
-    use chrono::{DateTime, Utc};
+    use chrono::Utc;
     use crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
         execute,
@@ -14,22 +14,12 @@ pub mod tui {
         style::{Color, Modifier, Style},
         symbols,
         text::{Line, Span, Text},
-        widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, List, ListItem, Paragraph},
+        widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
         Frame, Terminal,
     };
-    use std::{io, sync::{Arc, Mutex}, time::Duration};
-    use tardis_common::domain::Entity;
+    use std::{io, sync::Arc, time::Duration};
     use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
-    #[cfg(feature = "nova")]
-    use tardis_chronos::experimental::prophecy::Prophet;
-
-    /// Shared data for the dashboard.
-    #[derive(Debug, Default)]
-    struct DashboardData {
-        prophecies: Vec<Entity>,
-        last_update: Option<DateTime<Utc>>,
-    }
 
     /// The interactive dashboard.
     #[derive(Debug)]
@@ -37,16 +27,6 @@ pub mod tui {
         _gallifrey: Arc<Gallifrey>,
         heatmap: TemporalHeatmap,
         telemetry: Option<Arc<TelemetryStore>>,
-        data: Arc<Mutex<DashboardData>>,
-        update_handle: Option<tokio::task::JoinHandle<()>>,
-    }
-
-    impl Drop for Dashboard {
-        fn drop(&mut self) {
-            if let Some(handle) = &self.update_handle {
-                handle.abort();
-            }
-        }
     }
 
     impl Dashboard {
@@ -58,7 +38,6 @@ pub mod tui {
         pub fn new(
             gallifrey: Arc<Gallifrey>,
             telemetry: Option<Arc<TelemetryStore>>,
-            #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
         ) -> Result<Self> {
             // Fetch history for heatmap
             let mut all_history = Vec::new();
@@ -67,44 +46,11 @@ pub mod tui {
             })?;
 
             let heatmap = TemporalHeatmap::new(&all_history, 50, 20);
-            let data = Arc::new(Mutex::new(DashboardData::default()));
-
-            // Spawn background task for prophecies
-            #[cfg(feature = "nova")]
-            let update_handle = if let Some(p) = prophet {
-                let data_clone = data.clone();
-                Some(tokio::spawn(async move {
-                    loop {
-                        // Mock model handle for now
-                        let model = tardis_common::id::ModelHandle::new(0);
-                        // Predict 10 minutes into the future
-                        if let Ok(predictions) = p.foresee(
-                            "System running normally. Telemetry active.",
-                            Duration::from_secs(600),
-                            model
-                        ).await {
-                            if let Ok(mut lock) = data_clone.lock() {
-                                lock.prophecies = predictions;
-                                lock.last_update = Some(Utc::now());
-                            }
-                        }
-                        // Refresh every 30 seconds
-                        tokio::time::sleep(Duration::from_secs(30)).await;
-                    }
-                }))
-            } else {
-                None
-            };
-
-            #[cfg(not(feature = "nova"))]
-            let update_handle = None;
 
             Ok(Self {
                 _gallifrey: gallifrey,
                 heatmap,
                 telemetry,
-                data,
-                update_handle,
             })
         }
 
@@ -178,7 +124,7 @@ pub mod tui {
             .block(Block::default().borders(Borders::ALL));
             f.render_widget(title, chunks[0]);
 
-            // Split Content into Top (Heatmap) and Bottom (Telemetry + Prophecies)
+            // Split Content into Top (Heatmap) and Bottom (Telemetry)
             let content_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
@@ -208,11 +154,8 @@ pub mod tui {
                 .block(Block::default().title("Archive").borders(Borders::ALL));
             f.render_widget(stats_widget, heatmap_chunks[1]);
 
-            // --- Bottom: Telemetry & Prophecies ---
-            let bottom_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
-                .split(content_chunks[1]);
+            // --- Bottom: Telemetry ---
+            // Removed horizontal split, using full width for chart
 
             // Telemetry Chart
             let mut datasets = Vec::new();
@@ -270,29 +213,7 @@ pub mod tui {
                 .x_axis(Axis::default().title("Time").bounds([0.0, 100.0]))
                 .y_axis(Axis::default().title("Amplitude").bounds([-1.0, 1.0]));
 
-            f.render_widget(chart, bottom_chunks[0]);
-
-            // Prophecies List
-            let mut items = Vec::new();
-            if let Ok(lock) = self.data.lock() {
-                if lock.prophecies.is_empty() {
-                    items.push(ListItem::new("Consulting the Oracle..."));
-                } else {
-                    for p in &lock.prophecies {
-                        items.push(ListItem::new(Line::from(vec![
-                            Span::styled("🔮 ", Style::default().fg(Color::Magenta)),
-                            Span::raw(format!("{}: {}", p.entity_type, p.name)),
-                        ])));
-                    }
-                }
-            } else {
-                items.push(ListItem::new("Oracle Unreachable"));
-            }
-
-            let list = List::new(items)
-                .block(Block::default().title("Prophecies (Next 10m)").borders(Borders::ALL));
-
-            f.render_widget(list, bottom_chunks[1]);
+            f.render_widget(chart, content_chunks[1]);
 
             // Footer
             let footer = Paragraph::new("Press 'q' to exit")

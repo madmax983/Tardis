@@ -12,9 +12,6 @@ use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
 pub struct Repl {
@@ -29,10 +26,8 @@ pub struct Repl {
     /// Gallifrey database.
     gallifrey: Arc<Gallifrey>,
     /// Telemetry store (optional).
+    #[allow(dead_code)]
     telemetry_store: Option<Arc<TelemetryStore>>,
-    /// Prophet engine (optional, Nova only).
-    #[cfg(feature = "nova")]
-    prophet: Option<Arc<Prophet>>,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -49,7 +44,6 @@ impl Repl {
         chronos: Arc<Chronos>,
         gallifrey: Arc<Gallifrey>,
         telemetry_store: Option<Arc<TelemetryStore>>,
-        #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
@@ -64,8 +58,6 @@ impl Repl {
             chronos,
             gallifrey,
             telemetry_store,
-            #[cfg(feature = "nova")]
-            prophet,
             session_id,
             running: true,
         })
@@ -177,7 +169,6 @@ impl Repl {
                 match crate::dashboard::tui::Dashboard::new(
                     std::sync::Arc::clone(&self.gallifrey),
                     self.telemetry_store.clone(),
-                    self.prophet.clone(),
                 ) {
                     Ok(mut dashboard) => {
                         if let Err(e) = dashboard.run() {

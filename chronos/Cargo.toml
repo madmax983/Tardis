@@ -32,9 +32,6 @@ serde_json = { workspace = true }
 # Time handling
 chrono = { workspace = true }
 
-# Identifiers
-uuid = { workspace = true }
-
 # Logging
 tracing = { workspace = true }
 

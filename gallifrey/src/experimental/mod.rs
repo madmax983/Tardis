@@ -1,11 +1,11 @@
-//! Experimental features that are not yet stable.
+//! Experimental features for Gallifrey.
+//!
+//! These features are unstable and hidden behind the `nova` feature flag.
 //!
 //! # Features
-//! - `heatmap`: Temporal heatmap generation for visualizing entity history.
-//! - `entropy`: System entropy and stability metrics.
+//!
+//! - `heatmap`: Temporal heatmap visualization for TUI.
 
+#[cfg(feature = "nova")]
 /// Temporal heatmap visualization.
 pub mod heatmap;
-
-/// System entropy and stability metrics.
-pub mod entropy;
