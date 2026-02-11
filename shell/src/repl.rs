@@ -14,6 +14,8 @@ use tracing::{error, info};
 
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::doctor::SystemDoctor;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -186,6 +188,15 @@ impl Repl {
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
                 }
+            }
+            #[cfg(feature = "nova")]
+            "doctor" => {
+                let doctor = SystemDoctor::new(
+                    self.telemetry_store.clone(),
+                    std::sync::Arc::clone(&self.gallifrey),
+                );
+                let report = doctor.report().await;
+                println!("{}", report);
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }

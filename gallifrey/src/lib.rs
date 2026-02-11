@@ -75,6 +75,9 @@ pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
 
+#[cfg(feature = "nova")]
+pub use experimental::{entropy::{EntropyGauge, SystemEntropy}, heatmap::TemporalHeatmap};
+
 use std::sync::Arc;
 use crate::domain::{Change, Entity, Message, Snapshot};
 use tardis_common::id::{EntityId, SessionId};
@@ -288,6 +291,33 @@ impl Gallifrey {
         self.system_state
             .record_change(change)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+}
+
+#[cfg(feature = "nova")]
+impl Gallifrey {
+    /// Measure global system entropy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the knowledge store cannot be scanned.
+    pub fn entropy(&self) -> GallifreyResult<SystemEntropy> {
+        EntropyGauge::measure_global(&self.knowledge)
+    }
+
+    /// Generate a temporal heatmap of the system's knowledge.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the knowledge store cannot be scanned.
+    pub fn temporal_heatmap(&self) -> GallifreyResult<TemporalHeatmap> {
+        let mut all_entities = Vec::new();
+        self.knowledge.scan_history(|history| {
+            all_entities.extend_from_slice(history);
+        })?;
+
+        // Use a reasonable grid size (e.g., 50x20)
+        Ok(TemporalHeatmap::new(&all_entities, 50, 20))
     }
 }
 

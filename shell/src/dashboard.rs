@@ -18,7 +18,7 @@ pub mod tui {
         Frame, Terminal,
     };
     use std::{io, sync::{Arc, Mutex}, time::Duration};
-    use tardis_common::domain::Entity;
+    use tardis_gallifrey::domain::Entity;
     use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
     #[cfg(feature = "nova")]

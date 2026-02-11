@@ -21,6 +21,29 @@ pub struct SystemEntropy {
     pub stability_score: f64,
 }
 
+impl SystemEntropy {
+    /// Generate a human-readable report of the system entropy.
+    #[must_use]
+    pub fn report(&self) -> String {
+        format!(
+            "System Entropy Report:\n\
+             ---------------------\n\
+             Stability Score: {:.2}\n\
+             Total Drift:     {} ms\n\
+             Average Drift:   {:.2} ms\n\
+             Sync Count:      {}\n\
+             Retcons:         {} (History rewritten)\n\
+             Prophecies:      {} (Future predicted)\n",
+            self.stability_score,
+            self.total_drift_ms,
+            self.average_drift_ms,
+            self.sync_count,
+            self.retcon_count,
+            self.prophecy_count
+        )
+    }
+}
+
 impl Default for SystemEntropy {
     fn default() -> Self {
         Self {

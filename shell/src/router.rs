@@ -69,7 +69,7 @@ impl Router {
         Self {
             builtins: vec![
                 "help", "exit", "quit", "history", "remember", "recall", "models", "context",
-                "clear", "snapshot", "restore", "timeline", "forget", "export",
+                "clear", "snapshot", "restore", "timeline", "forget", "export", "doctor",
             ],
         }
     }
