@@ -281,21 +281,25 @@ impl RingBuffer {
         unsafe {
             let entry_ptr = slot.entry.get();
             // Convert to raw representation for safe storage
-            let raw_entry = TelemetryEntryRaw::from(entry.clone());
+            let mut raw_entry = TelemetryEntryRaw::from(entry.clone());
+
+            // Update payload length in local copy before writing to shared memory
+            let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                raw_entry.payload_len = payload_len as u16;
+            }
+
+            // Write the whole struct volatilely once
+            // This ensures all fields, including payload_len, are written using volatile access,
+            // preventing mixed volatile/non-volatile access (potential UB) to the same memory location.
             core::ptr::write_volatile(entry_ptr, raw_entry);
 
             // Write payload
-            let payload_len = payload.len().min(MAX_PAYLOAD_SIZE);
             let payload_ptr = slot.payload.get().cast::<u8>();
             // Use volatile write to avoid data races with concurrent readers (Seqlock)
             for (i, &byte) in payload.iter().enumerate().take(payload_len) {
                 core::ptr::write_volatile(payload_ptr.add(i), byte);
-            }
-
-            // Update payload length
-            #[allow(clippy::cast_possible_truncation)]
-            {
-                (*entry_ptr).payload_len = payload_len as u16;
             }
         }
 
