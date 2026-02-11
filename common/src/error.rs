@@ -9,101 +9,6 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     // ========================================================================
-    // Vortex (LLM) Errors
-    // ========================================================================
-    /// Model not found at specified path
-    #[error("model not found: {path}")]
-    ModelNotFound {
-        /// Path where model was expected
-        path: String,
-    },
-
-    /// Model failed to load
-    #[error("failed to load model '{name}': {reason}")]
-    ModelLoadFailed {
-        /// Model name or path
-        name: String,
-        /// Failure reason
-        reason: String,
-    },
-
-    /// Inference failed
-    #[error("inference failed: {reason}")]
-    InferenceFailed {
-        /// Failure reason
-        reason: String,
-    },
-
-    /// Invalid model handle
-    #[error("invalid model handle: {0}")]
-    InvalidModelHandle(u64),
-
-    /// Tokenization error
-    #[error("tokenization failed: {0}")]
-    TokenizationFailed(String),
-
-    // ========================================================================
-    // Gallifrey (Database) Errors
-    // ========================================================================
-    /// Query parsing failed
-    #[error("query parse error: {0}")]
-    QueryParseError(String),
-
-    /// Query execution failed
-    #[error("query execution failed: {0}")]
-    QueryExecutionFailed(String),
-
-    /// Entity not found
-    #[error("entity not found: {0}")]
-    EntityNotFound(String),
-
-    /// Invalid temporal reference
-    #[error("invalid temporal reference: {0}")]
-    InvalidTemporalReference(String),
-
-    /// Time travel failed
-    #[error("time travel failed: {reason}")]
-    TimeTravelFailed {
-        /// Failure reason
-        reason: String,
-    },
-
-    // ========================================================================
-    // Chronos (RAG) Errors
-    // ========================================================================
-    /// Retrieval failed
-    #[error("retrieval failed: {0}")]
-    RetrievalFailed(String),
-
-    /// Context assembly failed
-    #[error("context assembly failed: {0}")]
-    ContextAssemblyFailed(String),
-
-    /// Memory storage failed
-    #[error("memory storage failed: {0}")]
-    MemoryStorageFailed(String),
-
-    // ========================================================================
-    // Shell Errors
-    // ========================================================================
-    /// Command not found
-    #[error("command not found: {0}")]
-    CommandNotFound(String),
-
-    /// Command execution failed
-    #[error("command failed: {command}: {reason}")]
-    CommandFailed {
-        /// Command that failed
-        command: String,
-        /// Failure reason
-        reason: String,
-    },
-
-    /// Session error
-    #[error("session error: {0}")]
-    SessionError(String),
-
-    // ========================================================================
     // General Errors
     // ========================================================================
     /// IO error
@@ -147,25 +52,13 @@ impl Error {
     /// Check if this error is recoverable.
     #[must_use]
     pub const fn is_recoverable(&self) -> bool {
-        matches!(
-            self,
-            Self::ModelNotFound { .. }
-                | Self::EntityNotFound(_)
-                | Self::CommandNotFound(_)
-                | Self::InvalidTemporalReference(_)
-        )
+        false
     }
 
     /// Check if this error is a user error (vs system error).
     #[must_use]
     pub const fn is_user_error(&self) -> bool {
-        matches!(
-            self,
-            Self::QueryParseError(_)
-                | Self::InvalidConfig(_)
-                | Self::InvalidTemporalReference(_)
-                | Self::CommandNotFound(_)
-        )
+        matches!(self, Self::InvalidConfig(_))
     }
 }
 
@@ -175,18 +68,12 @@ mod tests {
 
     #[test]
     fn error_display() {
-        let err = Error::ModelNotFound {
-            path: "/models/llama.gguf".to_string(),
-        };
-        assert_eq!(err.to_string(), "model not found: /models/llama.gguf");
+        let err = Error::internal("test error");
+        assert_eq!(err.to_string(), "internal error: test error");
     }
 
     #[test]
     fn error_is_recoverable() {
-        assert!(Error::ModelNotFound {
-            path: "test".to_string()
-        }
-        .is_recoverable());
         assert!(!Error::Internal("test".to_string()).is_recoverable());
     }
 }

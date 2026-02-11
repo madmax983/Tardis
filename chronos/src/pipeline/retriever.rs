@@ -1,7 +1,7 @@
 //! Multi-source retrieval for Chronos.
 
 use super::{ContextSource, ContextSourceType, RagConfig};
-use crate::error::{ChronosError, ChronosResult};
+use crate::error::ChronosResult;
 use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
@@ -78,8 +78,7 @@ impl Retriever {
         let entities = self
             .gallifrey
             .search_knowledge(&embedding, config.max_context_items)
-            .await
-            .map_err(ChronosError::Common)?;
+            .await?;
 
         for e in entities {
             sources.push(ContextSource {
@@ -105,11 +104,7 @@ impl Retriever {
 
         // Get recent messages from current session
         if let Some(session_id) = config.session_id {
-            let messages = self
-                .gallifrey
-                .get_recent_messages(session_id, 5)
-                .await
-                .map_err(ChronosError::Common)?;
+            let messages = self.gallifrey.get_recent_messages(session_id, 5).await?;
 
             for msg in messages {
                 sources.push(ContextSource {
@@ -126,8 +121,7 @@ impl Retriever {
         let historical = self
             .gallifrey
             .search_conversation(&embedding, config.max_context_items)
-            .await
-            .map_err(ChronosError::Common)?;
+            .await?;
 
         for msg in historical {
             sources.push(ContextSource {
@@ -157,12 +151,7 @@ impl Retriever {
                 continue;
             };
 
-            if let Some(snapshot) = self
-                .gallifrey
-                .find_snapshot(resolved)
-                .await
-                .map_err(ChronosError::Common)?
-            {
+            if let Some(snapshot) = self.gallifrey.find_snapshot(resolved).await? {
                 sources.push(ContextSource {
                     source_type: ContextSourceType::SystemState,
                     content: format!(

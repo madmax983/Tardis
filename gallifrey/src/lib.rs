@@ -134,7 +134,7 @@ impl Gallifrey {
         &self,
         _query: &str,
         _temporal: TemporalQuery,
-    ) -> tardis_common::Result<QueryResult> {
+    ) -> GallifreyResult<QueryResult> {
         // TODO: Implement actual query parsing and execution
         Ok(QueryResult {
             nodes: Vec::new(),
@@ -151,10 +151,8 @@ impl Gallifrey {
     ///
     /// Returns an error if the node cannot be inserted (e.g. storage error).
     #[allow(clippy::unused_async)]
-    pub async fn insert(&self, node: Entity) -> tardis_common::Result<EntityId> {
-        self.knowledge
-            .insert_entity(node)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    pub async fn insert(&self, node: Entity) -> GallifreyResult<EntityId> {
+        self.knowledge.insert_entity(node)
     }
 
     /// Update an existing node.
@@ -165,18 +163,11 @@ impl Gallifrey {
     ///
     /// Returns an error if the node cannot be updated or properties are invalid.
     #[allow(clippy::unused_async)]
-    pub async fn update(
-        &self,
-        id: EntityId,
-        properties: serde_json::Value,
-    ) -> tardis_common::Result<()> {
+    pub async fn update(&self, id: EntityId, properties: serde_json::Value) -> GallifreyResult<()> {
         let props: std::collections::HashMap<String, serde_json::Value> =
-            serde_json::from_value(properties)
-                .map_err(|e| tardis_common::Error::Internal(e.to_string()))?;
+            serde_json::from_value(properties)?;
 
-        self.knowledge
-            .update_entity(id, props)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+        self.knowledge.update_entity(id, props)
     }
 
     /// Get the history of an entity.
@@ -187,10 +178,8 @@ impl Gallifrey {
     ///
     /// Returns an error if history cannot be retrieved.
     #[allow(clippy::unused_async)]
-    pub async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
-        self.knowledge
-            .get_entity_history(id)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    pub async fn get_history(&self, id: EntityId) -> GallifreyResult<Vec<Entity>> {
+        self.knowledge.get_entity_history(id)
     }
 
     /// Travel to a point in time and get a snapshot.
@@ -202,7 +191,7 @@ impl Gallifrey {
     pub async fn time_travel(
         &self,
         _timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> tardis_common::Result<QueryResult> {
+    ) -> GallifreyResult<QueryResult> {
         // TODO: Implement time travel query
         Ok(QueryResult {
             nodes: Vec::new(),
@@ -221,10 +210,8 @@ impl Gallifrey {
         &self,
         embedding: &[f32],
         limit: usize,
-    ) -> tardis_common::Result<Vec<Entity>> {
-        self.knowledge
-            .semantic_search(embedding, limit)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    ) -> GallifreyResult<Vec<Entity>> {
+        self.knowledge.semantic_search(embedding, limit)
     }
 
     // --- Conversation ---
@@ -239,10 +226,8 @@ impl Gallifrey {
         &self,
         session_id: SessionId,
         limit: usize,
-    ) -> tardis_common::Result<Vec<Message>> {
-        self.conversation
-            .get_recent_messages(session_id, limit)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    ) -> GallifreyResult<Vec<Message>> {
+        self.conversation.get_recent_messages(session_id, limit)
     }
 
     /// Semantic search for messages.
@@ -255,10 +240,8 @@ impl Gallifrey {
         &self,
         embedding: &[f32],
         limit: usize,
-    ) -> tardis_common::Result<Vec<Message>> {
-        self.conversation
-            .semantic_search(embedding, limit)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    ) -> GallifreyResult<Vec<Message>> {
+        self.conversation.semantic_search(embedding, limit)
     }
 
     // --- System State ---
@@ -272,10 +255,8 @@ impl Gallifrey {
     pub async fn find_snapshot(
         &self,
         timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> tardis_common::Result<Option<Snapshot>> {
-        self.system_state
-            .find_snapshot_at(timestamp)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    ) -> GallifreyResult<Option<Snapshot>> {
+        self.system_state.find_snapshot_at(timestamp)
     }
 
     /// Record a system change.
@@ -284,10 +265,8 @@ impl Gallifrey {
     ///
     /// Returns an error if the change cannot be recorded.
     #[allow(clippy::unused_async)]
-    pub async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
-        self.system_state
-            .record_change(change)
-            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    pub async fn record_change(&self, change: Change) -> GallifreyResult<()> {
+        self.system_state.record_change(change)
     }
 }
 

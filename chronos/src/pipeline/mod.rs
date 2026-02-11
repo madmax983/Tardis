@@ -38,7 +38,7 @@ pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
 pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
 
-use crate::error::{ChronosError, ChronosResult};
+use crate::error::ChronosResult;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::{EntityId, SessionId};
@@ -230,11 +230,7 @@ impl Chronos {
             source: Some("user".to_string()),
         };
 
-        let id = self
-            .gallifrey
-            .insert(entity)
-            .await
-            .map_err(ChronosError::Common)?;
+        let id = self.gallifrey.insert(entity).await?;
 
         Ok(id)
     }
@@ -249,11 +245,7 @@ impl Chronos {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
 
         // Search knowledge graph
-        let results = self
-            .gallifrey
-            .search_knowledge(&[], limit)
-            .await
-            .map_err(ChronosError::Common)?;
+        let results = self.gallifrey.search_knowledge(&[], limit).await?;
 
         Ok(results
             .into_iter()

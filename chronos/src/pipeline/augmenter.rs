@@ -155,13 +155,13 @@ impl ContextAugmenter {
 
                 // If we have space for at least some content, include it partially
                 if chars_to_take > 0 {
-                    let content: String = source.content.chars().take(chars_to_take).collect();
+                    let truncated_content: String =
+                        source.content.chars().take(chars_to_take).collect();
                     let _ = writeln!(
                         formatted,
-                        "### {source_type} {} (relevance: {:.2})\n{}...\n",
+                        "### {source_type} {} (relevance: {:.2})\n{truncated_content}...\n",
                         i + 1,
                         source.relevance,
-                        content
                     );
                 }
 
@@ -177,8 +177,7 @@ impl ContextAugmenter {
                 if sources_fully_dropped > 0 {
                     let _ = writeln!(
                         formatted,
-                        "\n... ({} more sources truncated)",
-                        sources_fully_dropped
+                        "\n... ({sources_fully_dropped} more sources truncated)",
                     );
                 }
                 break;

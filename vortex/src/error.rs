@@ -70,14 +70,6 @@ pub type VortexResult<T> = Result<T, VortexError>;
 impl From<VortexError> for tardis_common::Error {
     fn from(err: VortexError) -> Self {
         match err {
-            VortexError::ModelNotFound { path } => Self::ModelNotFound { path },
-            VortexError::LoadFailed(msg) => Self::ModelLoadFailed {
-                name: "unknown".to_string(),
-                reason: msg,
-            },
-            VortexError::InvalidHandle(id) => Self::InvalidModelHandle(id),
-            VortexError::InferenceFailed(reason) => Self::InferenceFailed { reason },
-            VortexError::TokenizationError(reason) => Self::TokenizationFailed(reason),
             VortexError::Io(e) => Self::Io(e),
             VortexError::Json(e) => Self::Serialization(e),
             _ => Self::Internal(err.to_string()),
