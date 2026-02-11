@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## The System Doctor
+**Concept:** A self-healing diagnostic tool that combines telemetry (errors/latency) with temporal entropy (retcons) to prescribe fixes.
+**Fate:** Merged (Experimental)
+**Lesson:** Connecting "Space" (Telemetry) and "Time" (Gallifrey Entropy) gives a complete picture of system health. A system can be error-free but temporally unstable!
