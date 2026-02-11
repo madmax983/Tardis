@@ -187,6 +187,42 @@ impl Repl {
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
                 }
             }
+            #[cfg(feature = "nova")]
+            "sonic" => {
+                let subcommand = args.first().map(String::as_str).unwrap_or("help");
+                let path = args.get(1);
+
+                let sonic = crate::experimental::sonic::SonicScrewdriver::new();
+
+                match subcommand {
+                    "fix" => {
+                        if let Some(p) = path {
+                            match sonic.fix(p) {
+                                Ok(json) => println!("{json}"),
+                                Err(e) => println!("Error fixing file: {e}"),
+                            }
+                        } else {
+                            println!("Usage: sonic fix <file>");
+                        }
+                    }
+                    "scan" => {
+                        if let Some(p) = path {
+                            match sonic.scan(p) {
+                                Ok(report) => println!("{report}"),
+                                Err(e) => println!("Error scanning file: {e}"),
+                            }
+                        } else {
+                            println!("Usage: sonic scan <file>");
+                        }
+                    }
+                    _ => {
+                        println!("Sonic Screwdriver v0.1");
+                        println!("Usage:");
+                        println!("  sonic fix <file>   - Fix and format JSON/config files");
+                        println!("  sonic scan <file>  - Analyze file structure");
+                    }
+                }
+            }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }

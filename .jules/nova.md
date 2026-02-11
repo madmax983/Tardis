@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## Sonic Screwdriver
+**Concept:** A CLI tool that uses heuristic parsing (Psychic Paper) to repair and normalize messy configuration files and LLM outputs.
+**Fate:** Merged (Experimental)
+**Lesson:** Even "dumb" heuristics can be surprisingly effective at cleaning up "smart" LLM output. Sometimes you just need a hammer (or a screwdriver) to fix the JSON.

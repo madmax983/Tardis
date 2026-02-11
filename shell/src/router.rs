@@ -66,12 +66,15 @@ impl Router {
     /// Initializes the router with the standard list of built-in commands.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            builtins: vec![
-                "help", "exit", "quit", "history", "remember", "recall", "models", "context",
-                "clear", "snapshot", "restore", "timeline", "forget", "export",
-            ],
-        }
+        let mut builtins = vec![
+            "help", "exit", "quit", "history", "remember", "recall", "models", "context",
+            "clear", "snapshot", "restore", "timeline", "forget", "export",
+        ];
+
+        #[cfg(feature = "nova")]
+        builtins.extend(&["dashboard", "sonic"]);
+
+        Self { builtins }
     }
 
     /// Route user input to an intent.

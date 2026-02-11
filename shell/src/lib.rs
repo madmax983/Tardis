@@ -45,5 +45,8 @@ pub mod commands;
 #[cfg(feature = "nova")]
 /// The TUI dashboard.
 pub mod dashboard;
+#[cfg(feature = "nova")]
+/// Experimental features (Nova).
+pub mod experimental;
 pub mod repl;
 pub mod router;
