@@ -9,10 +9,10 @@ use crate::error::{ChronosError, ChronosResult};
 use crate::experimental::psychic_paper::{Intent, PsychicPaper};
 use std::sync::Arc;
 use std::time::Duration;
-use tardis_gallifrey::domain::Entity;
 use tardis_common::id::{EntityId, ModelHandle};
-use tardis_vortex::InferenceParams;
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
+use tardis_gallifrey::domain::Entity;
+use tardis_vortex::InferenceParams;
 use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 

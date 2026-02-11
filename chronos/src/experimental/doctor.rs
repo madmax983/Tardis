@@ -3,12 +3,12 @@
 //! A self-diagnostic tool that correlates telemetry data (symptoms)
 //! with system state changes (causes) to prescribe fixes.
 
-use std::sync::Arc;
+use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
-use chrono::{Duration, Utc};
 
 /// Vital signs of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,14 +130,20 @@ impl SystemDoctor {
         }
 
         if vitals.active_spans > 100 {
-            symptoms.push(format!("High concurrency: {} active spans", vitals.active_spans));
+            symptoms.push(format!(
+                "High concurrency: {} active spans",
+                vitals.active_spans
+            ));
             if status == HealthStatus::Healthy {
                 status = HealthStatus::Degraded;
             }
         }
 
         if vitals.average_latency_ms > 500 {
-            symptoms.push(format!("High latency: {}ms average", vitals.average_latency_ms));
+            symptoms.push(format!(
+                "High latency: {}ms average",
+                vitals.average_latency_ms
+            ));
             if status == HealthStatus::Healthy {
                 status = HealthStatus::Degraded;
             }
@@ -175,10 +181,10 @@ impl SystemDoctor {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use tardis_telemetry::userspace::layer::{EventData, SpanData};
-    use tardis_telemetry::types::{Subsystem, TraceId, SpanId};
-    use std::time::Instant;
     use std::collections::HashMap;
+    use std::time::Instant;
+    use tardis_telemetry::types::{SpanId, Subsystem, TraceId};
+    use tardis_telemetry::userspace::layer::{EventData, SpanData};
 
     #[tokio::test]
     async fn test_doctor_diagnosis() {
@@ -222,6 +228,9 @@ mod tests {
         let diagnosis = doctor.diagnose().await;
         assert_ne!(diagnosis.status, HealthStatus::Healthy);
         assert!(diagnosis.symptoms.iter().any(|s| s.contains("errors")));
-        assert!(diagnosis.symptoms.iter().any(|s| s.contains("High latency")));
+        assert!(diagnosis
+            .symptoms
+            .iter()
+            .any(|s| s.contains("High latency")));
     }
 }

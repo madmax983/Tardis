@@ -144,11 +144,7 @@ impl Historian {
 
         let story = self
             .vortex
-            .infer(
-                handle,
-                &prompt,
-                tardis_vortex::InferenceParams::default(),
-            )
+            .infer(handle, &prompt, tardis_vortex::InferenceParams::default())
             .await?;
 
         Ok(story)
@@ -158,9 +154,9 @@ impl Historian {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tardis_gallifrey::domain::Entity;
     use tardis_common::id::{EntityId, ModelHandle};
     use tardis_common::temporal::{BiTemporalInterval, TimeRange};
+    use tardis_gallifrey::domain::Entity;
 
     #[tokio::test]
     async fn test_historian_narrative() {
@@ -196,8 +192,14 @@ mod tests {
             properties: std::collections::HashMap::new(),
             embedding: None,
             temporal: BiTemporalInterval {
-                valid_time: TimeRange { start: ten_mins_ago, end: None },
-                transaction_time: TimeRange { start: ten_mins_ago, end: None },
+                valid_time: TimeRange {
+                    start: ten_mins_ago,
+                    end: None,
+                },
+                transaction_time: TimeRange {
+                    start: ten_mins_ago,
+                    end: None,
+                },
             },
             source: None,
         };
@@ -209,8 +211,14 @@ mod tests {
             properties: std::collections::HashMap::new(),
             embedding: None,
             temporal: BiTemporalInterval {
-                valid_time: TimeRange { start: five_mins_ago, end: None },
-                transaction_time: TimeRange { start: now, end: None },
+                valid_time: TimeRange {
+                    start: five_mins_ago,
+                    end: None,
+                },
+                transaction_time: TimeRange {
+                    start: now,
+                    end: None,
+                },
             },
             source: None,
         };

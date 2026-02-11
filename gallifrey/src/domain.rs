@@ -1,10 +1,10 @@
 //! Domain entities shared across Tardis OS.
 
-use tardis_common::id::{EntityId, SessionId, SnapshotId};
 use crate::temporal::BiTemporalInterval;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tardis_common::id::{EntityId, SessionId, SnapshotId};
 
 // ============================================================================
 // Knowledge Graph

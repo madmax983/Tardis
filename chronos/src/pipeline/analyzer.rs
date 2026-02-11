@@ -355,12 +355,18 @@ mod tests {
         // "yesterday" should be 2024-03-14 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-14T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-14T12:00:00+00:00"
+        );
 
         // "last week" should be 2024-03-08 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("last week", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-08T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-08T12:00:00+00:00"
+        );
     }
 
     #[test]

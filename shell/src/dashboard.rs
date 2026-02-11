@@ -17,12 +17,16 @@ pub mod tui {
         widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, List, ListItem, Paragraph},
         Frame, Terminal,
     };
-    use std::{io, sync::{Arc, Mutex}, time::Duration};
+    use std::{
+        io,
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+    #[cfg(feature = "nova")]
+    use tardis_chronos::experimental::prophecy::Prophet;
     use tardis_common::domain::Entity;
     use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
-    #[cfg(feature = "nova")]
-    use tardis_chronos::experimental::prophecy::Prophet;
 
     /// Shared data for the dashboard.
     #[derive(Debug, Default)]
@@ -78,11 +82,14 @@ pub mod tui {
                         // Mock model handle for now
                         let model = tardis_common::id::ModelHandle::new(0);
                         // Predict 10 minutes into the future
-                        if let Ok(predictions) = p.foresee(
-                            "System running normally. Telemetry active.",
-                            Duration::from_secs(600),
-                            model
-                        ).await {
+                        if let Ok(predictions) = p
+                            .foresee(
+                                "System running normally. Telemetry active.",
+                                Duration::from_secs(600),
+                                model,
+                            )
+                            .await
+                        {
                             if let Ok(mut lock) = data_clone.lock() {
                                 lock.prophecies = predictions;
                                 lock.last_update = Some(Utc::now());
@@ -173,7 +180,9 @@ pub mod tui {
             // Title
             let title = Paragraph::new(Text::styled(
                 "🌟 Tardis Holodeck 🌟",
-                Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .fg(Color::Cyan),
             ))
             .block(Block::default().borders(Borders::ALL));
             f.render_widget(title, chunks[0]);
@@ -191,18 +200,26 @@ pub mod tui {
                 .split(content_chunks[0]);
 
             let heatmap_str = self.heatmap.render_ascii();
-            let heatmap_widget = Paragraph::new(heatmap_str)
-                .block(Block::default().title("Bi-Temporal History").borders(Borders::ALL));
+            let heatmap_widget = Paragraph::new(heatmap_str).block(
+                Block::default()
+                    .title("Bi-Temporal History")
+                    .borders(Borders::ALL),
+            );
             f.render_widget(heatmap_widget, heatmap_chunks[0]);
 
             let total_events: usize = self.heatmap.grid.iter().flatten().sum();
             let stats_text = vec![
-                Line::from(Span::styled("Archive Stats", Style::default().add_modifier(Modifier::UNDERLINED))),
+                Line::from(Span::styled(
+                    "Archive Stats",
+                    Style::default().add_modifier(Modifier::UNDERLINED),
+                )),
                 Line::from(""),
                 Line::from(format!("Entities: {total_events}")),
-                Line::from(format!("Valid: {} - {}",
+                Line::from(format!(
+                    "Valid: {} - {}",
                     self.heatmap.valid_range.0.format("%H:%M"),
-                    self.heatmap.valid_range.1.format("%H:%M"))),
+                    self.heatmap.valid_range.1.format("%H:%M")
+                )),
             ];
             let stats_widget = Paragraph::new(stats_text)
                 .block(Block::default().title("Archive").borders(Borders::ALL));
@@ -221,39 +238,45 @@ pub mod tui {
             let mut chart_title = "Live Telemetry (Simulated)";
 
             if let Some(telemetry) = &self.telemetry {
-                 // Try to read real metrics
-                 let now = Utc::now();
-                 let from = now - chrono::Duration::seconds(100);
+                // Try to read real metrics
+                let now = Utc::now();
+                let from = now - chrono::Duration::seconds(100);
 
-                 // Look for standard metrics. If none, fallback to simulated.
-                 // We don't have a way to know metric names without scanning.
-                 // But let's assume "cpu_usage" exists if telemetry is active.
-                 let samples = telemetry.metric_history("cpu_usage", from, now);
+                // Look for standard metrics. If none, fallback to simulated.
+                // We don't have a way to know metric names without scanning.
+                // But let's assume "cpu_usage" exists if telemetry is active.
+                let samples = telemetry.metric_history("cpu_usage", from, now);
 
-                 if !samples.is_empty() {
-                     chart_title = "Live Telemetry (cpu_usage)";
-                     let base_time = from.timestamp_millis() as f64 / 1000.0;
-                     for s in samples {
-                         let time_sec = s.timestamp_ns as f64 / 1_000_000_000.0;
-                         // Normalize time to 0-100 range relative to window
-                         let rel_time = time_sec - base_time;
-                         if rel_time >= 0.0 && rel_time <= 100.0 {
-                             let val = match s.value {
-                                 MetricValue::Counter(v) => v as f64,
-                                 MetricValue::Gauge(v) => v as f64,
-                                 MetricValue::Histogram { sum, count, .. } => if count > 0 { sum / count as f64 } else { 0.0 },
-                             };
-                             data_points.push((rel_time, val));
-                         }
-                     }
-                 }
+                if !samples.is_empty() {
+                    chart_title = "Live Telemetry (cpu_usage)";
+                    let base_time = from.timestamp_millis() as f64 / 1000.0;
+                    for s in samples {
+                        let time_sec = s.timestamp_ns as f64 / 1_000_000_000.0;
+                        // Normalize time to 0-100 range relative to window
+                        let rel_time = time_sec - base_time;
+                        if rel_time >= 0.0 && rel_time <= 100.0 {
+                            let val = match s.value {
+                                MetricValue::Counter(v) => v as f64,
+                                MetricValue::Gauge(v) => v as f64,
+                                MetricValue::Histogram { sum, count, .. } => {
+                                    if count > 0 {
+                                        sum / count as f64
+                                    } else {
+                                        0.0
+                                    }
+                                }
+                            };
+                            data_points.push((rel_time, val));
+                        }
+                    }
+                }
             }
 
             if data_points.is_empty() {
-                 // Fallback mock data
-                 for i in 0..100 {
-                     data_points.push((i as f64, (i as f64 / 10.0).sin()));
-                 }
+                // Fallback mock data
+                for i in 0..100 {
+                    data_points.push((i as f64, (i as f64 / 10.0).sin()));
+                }
             }
 
             let dataset = Dataset::default()
@@ -289,14 +312,17 @@ pub mod tui {
                 items.push(ListItem::new("Oracle Unreachable"));
             }
 
-            let list = List::new(items)
-                .block(Block::default().title("Prophecies (Next 10m)").borders(Borders::ALL));
+            let list = List::new(items).block(
+                Block::default()
+                    .title("Prophecies (Next 10m)")
+                    .borders(Borders::ALL),
+            );
 
             f.render_widget(list, bottom_chunks[1]);
 
             // Footer
-            let footer = Paragraph::new("Press 'q' to exit")
-                .block(Block::default().borders(Borders::ALL));
+            let footer =
+                Paragraph::new("Press 'q' to exit").block(Block::default().borders(Borders::ALL));
             f.render_widget(footer, chunks[2]);
         }
     }
