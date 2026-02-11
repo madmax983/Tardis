@@ -117,6 +117,13 @@ const INTENT_RULES: &[IntentRule] = &[
 ];
 
 /// Query analyzer.
+///
+/// The analyzer is the first step in the RAG pipeline. It normalizes the query
+/// and runs it through a set of heuristic rules to determine:
+///
+/// 1. **Intent**: What action should the system take? (e.g. search knowledge, store memory, diff states).
+/// 2. **Temporality**: Does the query refer to a specific time in the past?
+/// 3. **Entities**: (Future) Which specific entities are being discussed?
 #[derive(Debug)]
 pub struct QueryAnalyzer {
     // Configuration
@@ -133,14 +140,13 @@ impl QueryAnalyzer {
     ///
     /// # Examples
     ///
+    /// Basic recall query:
     /// ```
     /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
     /// use tardis_common::temporal::TemporalReference;
-    /// use chrono::Utc;
     ///
     /// let analyzer = QueryAnalyzer::new();
-    /// let query = "What did we do yesterday?";
-    /// let analysis = analyzer.analyze(query).unwrap();
+    /// let analysis = analyzer.analyze("What did we do yesterday?").unwrap();
     ///
     /// assert_eq!(analysis.intent, QueryIntent::Recall);
     /// assert!(!analysis.temporal_refs.is_empty());
@@ -148,6 +154,36 @@ impl QueryAnalyzer {
     ///    TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
     ///    _ => panic!("Expected relative reference"),
     /// }
+    /// ```
+    ///
+    /// Storing a memory:
+    /// ```
+    /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
+    ///
+    /// let analyzer = QueryAnalyzer::new();
+    /// let analysis = analyzer.analyze("Remember that the sky is blue").unwrap();
+    ///
+    /// assert_eq!(analysis.intent, QueryIntent::Remember);
+    /// ```
+    ///
+    /// Comparing states (temporal diff):
+    /// ```
+    /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
+    ///
+    /// let analyzer = QueryAnalyzer::new();
+    /// let analysis = analyzer.analyze("How has the user profile changed?").unwrap();
+    ///
+    /// assert_eq!(analysis.intent, QueryIntent::TemporalDiff);
+    /// ```
+    ///
+    /// System introspection:
+    /// ```
+    /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
+    ///
+    /// let analyzer = QueryAnalyzer::new();
+    /// let analysis = analyzer.analyze("Take a system snapshot").unwrap();
+    ///
+    /// assert_eq!(analysis.intent, QueryIntent::SystemQuery);
     /// ```
     ///
     /// # Errors

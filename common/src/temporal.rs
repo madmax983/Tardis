@@ -176,6 +176,28 @@ impl Default for BiTemporalInterval {
 }
 
 /// Parameters for temporal queries.
+///
+/// # Examples
+///
+/// Querying valid time (history):
+/// ```
+/// use tardis_common::temporal::TemporalQuery;
+/// use chrono::{Utc, Duration};
+///
+/// // What was true 1 hour ago?
+/// let valid_at = Utc::now() - Duration::hours(1);
+/// let query = TemporalQuery::as_of_valid(valid_at);
+/// ```
+///
+/// Querying transaction time (audit):
+/// ```
+/// use tardis_common::temporal::TemporalQuery;
+/// use chrono::{Utc, Duration};
+///
+/// // What did the system believe was true 1 hour ago?
+/// let transaction_at = Utc::now() - Duration::hours(1);
+/// let query = TemporalQuery::as_of_transaction(transaction_at);
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TemporalQuery {
     /// Point-in-time for valid time queries (AS OF VALID TIME).
@@ -242,6 +264,22 @@ impl TemporalQuery {
 }
 
 /// A temporal reference extracted from natural language.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::temporal::TemporalReference;
+/// use chrono::Utc;
+///
+/// // "yesterday"
+/// let rel = TemporalReference::Relative {
+///     text: "yesterday".to_string(),
+///     resolved: Utc::now(), // In practice, this would be calculated
+/// };
+///
+/// // "2024-01-01"
+/// let abs = TemporalReference::Absolute(Utc::now());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemporalReference {
     /// Relative reference like "yesterday", "last week".

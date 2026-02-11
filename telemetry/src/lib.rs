@@ -36,18 +36,20 @@
 //!
 //! ## Usage
 //!
-//! ```rust,ignore
+//! ```rust
 //! use tardis_telemetry::{init, TelemetryConfig};
+//! // Macros are exported at the crate root
+//! use tardis_telemetry::{counter, histogram};
 //!
 //! // Initialize telemetry
 //! let config = TelemetryConfig::default();
-//! let handle = init(config)?;
+//! // In a real app, you would handle the result
+//! let _handle = init(config).ok();
 //!
 //! // Use tracing macros as normal
 //! tracing::info!("System started");
 //!
 //! // Record metrics
-//! use tardis_telemetry::metrics::{counter, histogram};
 //! counter!("requests_total").inc();
 //! histogram!("latency_ms").record(42);
 //! ```
