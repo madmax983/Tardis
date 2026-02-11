@@ -71,7 +71,10 @@ impl TemporalHeatmap {
     fn determine_bounds(
         history: &[Entity],
         now: DateTime<Utc>,
-    ) -> ((DateTime<Utc>, DateTime<Utc>), (DateTime<Utc>, DateTime<Utc>)) {
+    ) -> (
+        (DateTime<Utc>, DateTime<Utc>),
+        (DateTime<Utc>, DateTime<Utc>),
+    ) {
         let (mut v_min, mut v_max, mut t_min, mut t_max) = match history.first() {
             Some(first) => (
                 first.temporal.valid_time.start,

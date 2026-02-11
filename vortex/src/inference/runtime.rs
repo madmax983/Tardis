@@ -1,5 +1,6 @@
 //! Main Vortex inference runtime.
 
+use crate::config::{InferenceParams, ModelLoadConfig};
 use crate::error::{VortexError, VortexResult};
 use crate::loader::{
     download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
@@ -10,7 +11,6 @@ use crate::tokenizer::TokenizerService;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use crate::config::{InferenceParams, ModelLoadConfig};
 use tokio::task;
 use tracing::{info, instrument};
 
@@ -22,7 +22,8 @@ pub type MockInference =
 pub type MockEmbedding = Box<dyn Fn(ModelHandle, &str) -> VortexResult<Vec<f32>> + Send + Sync>;
 
 /// Mock load model callback type.
-pub type MockLoadModel = Box<dyn Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync>;
+pub type MockLoadModel =
+    Box<dyn Fn(&str, ModelLoadConfig) -> VortexResult<ModelHandle> + Send + Sync>;
 
 /// The main Vortex inference engine.
 pub struct Vortex {

@@ -17,3 +17,7 @@
 **[Experimental Module Lint Suppression]
 **Learning:** Experimental modules often require `clippy::cast_precision_loss` and similar lints due to prototyping nature.
 **Action:** When refactoring, preserve these suppressions but scope them tightly to the specific helper functions where the operations occur.
+
+**[Unused Self Receiver]
+**Learning:** Many methods take `&self` but don't use it, often suppressed with `#[allow(clippy::unused_self)]`. This indicates a procedural style masked as object-oriented.
+**Action:** Convert stateless methods to associated functions (e.g., `fn foo(...)`) or free functions, removing the need for suppression.

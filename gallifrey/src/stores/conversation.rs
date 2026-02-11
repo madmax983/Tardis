@@ -5,11 +5,11 @@
 //! - Semantic search across history
 //! - Session summaries
 
+pub use crate::domain::{Message, Role, Session};
 use crate::error::{GallifreyError, GallifreyResult};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::RwLock;
-pub use crate::domain::{Message, Role, Session};
 use tardis_common::{EntityId, SessionId};
 
 /// The conversation store.

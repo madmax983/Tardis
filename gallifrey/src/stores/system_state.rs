@@ -5,11 +5,11 @@
 //! - Forensic analysis
 //! - Configuration rollback
 
+pub use crate::domain::{Change, Snapshot, SnapshotTrigger, SystemState};
 use crate::error::{GallifreyError, GallifreyResult};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::RwLock;
-pub use crate::domain::{Change, Snapshot, SnapshotTrigger, SystemState};
 use tardis_common::SnapshotId;
 
 /// The system state store.

@@ -173,10 +173,7 @@ impl PsychicPaper {
 
         // Fallback: Try comma separation if single line and no bullets were found/stripped
         // "No bullets found" means we have exactly one item and it matches the original trimmed text.
-        if items.len() == 1
-            && items[0] == text.trim()
-            && !text.contains('\n')
-            && text.contains(',')
+        if items.len() == 1 && items[0] == text.trim() && !text.contains('\n') && text.contains(',')
         {
             let items: Vec<String> = text
                 .split(',')
