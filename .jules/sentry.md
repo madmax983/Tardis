@@ -10,6 +10,10 @@
 **Learning:** Naive token limit checks that discard entire sources when they overflow can severely limit context utilization, especially with large documents or small token budgets. Partial truncation (e.g., ) allows filling the remaining budget effectively.
 **Action:** When implementing token-limited buffers, always implement partial filling logic rather than binary include/exclude decisions.
 
+**[Zero-Cost Resource Bug]
+**Learning:** Integer division `len / 4` rounds down to 0 for small values (0-3), allowing an infinite number of small items to bypass resource limits. This is a common "salami slicing" vulnerability in rate limiting or quota systems.
+**Action:** Use ceiling division `(len + divisor - 1) / divisor` or `max(1, cost)` to ensure minimum cost for non-empty items. Test with "many small items" to verify accumulation.
+
 **[RAG Context Truncation]
 **Learning:** Naive token limit checks that discard entire sources when they overflow can severely limit context utilization, especially with large documents or small token budgets. Partial truncation (e.g., `chars().take()`) allows filling the remaining budget effectively.
 **Action:** When implementing token-limited buffers, always implement partial filling logic rather than binary include/exclude decisions.
