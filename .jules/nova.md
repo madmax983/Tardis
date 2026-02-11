@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## System Doctor: Temporal Diagnosis
+**Concept:** Upgraded the System Doctor to diagnose "Temporal Instability" by reading the Entropy Gauge.
+**Fate:** Merged (Experimental)
+**Lesson:** The Doctor can now prescribe "reducing retroactive updates" when history is being rewritten too often.

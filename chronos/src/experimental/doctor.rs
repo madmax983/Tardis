@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::experimental::entropy::EntropyGauge;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
 use chrono::{Duration, Utc};
@@ -58,7 +59,6 @@ pub struct Prescription {
 #[derive(Debug)]
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
-    #[allow(dead_code)]
     gallifrey: Arc<Gallifrey>,
 }
 
@@ -143,24 +143,56 @@ impl SystemDoctor {
             }
         }
 
+        // Check Temporal Entropy (Nova Feature)
+        if let Ok(entropy) = EntropyGauge::measure_global(&self.gallifrey.knowledge()) {
+            if entropy.stability_score < 0.5 {
+                status = match status {
+                    HealthStatus::Healthy | HealthStatus::Degraded => HealthStatus::Degraded,
+                    HealthStatus::Critical => HealthStatus::Critical,
+                };
+
+                // If it's really bad
+                if entropy.stability_score < 0.2 {
+                    status = HealthStatus::Critical;
+                }
+
+                symptoms.push(format!(
+                    "High temporal instability: {:.2} ({} retcons)",
+                    entropy.stability_score,
+                    entropy.retcon_count
+                ));
+            }
+        }
+
         // Correlate with system changes (simple heuristic for now)
         // In a real version, we'd ask Gallifrey for recent "SystemState" changes
         // and ask Vortex to find causality.
-        let root_causes = if status != HealthStatus::Healthy {
-            // Mock causality
-            vec!["Possible recent configuration change or high load".to_string()]
-        } else {
-            Vec::new()
-        };
+        let mut root_causes = Vec::new();
+        let mut prescription = None;
 
-        let prescription = if status != HealthStatus::Healthy {
-            Some(Prescription {
-                description: "Check recent system state changes and error logs.".to_string(),
-                auto_fix_command: None,
-            })
-        } else {
-            None
-        };
+        if status != HealthStatus::Healthy {
+            // Mock causality for non-entropy issues
+            if symptoms.iter().any(|s| s.contains("errors") || s.contains("latency")) {
+                root_causes.push("Possible recent configuration change or high load".to_string());
+                prescription = Some(Prescription {
+                    description: "Check recent system state changes and error logs.".to_string(),
+                    auto_fix_command: None,
+                });
+            }
+
+            // Prescription for entropy
+            if symptoms.iter().any(|s| s.contains("temporal instability")) {
+                root_causes.push("Excessive retroactive updates (retcons) detected".to_string());
+                let entropy_fix = Prescription {
+                    description: "Reduce retroactive updates to minimize entropy.".to_string(),
+                    auto_fix_command: None,
+                };
+                // Prioritize entropy fix if critical
+                if prescription.is_none() || status == HealthStatus::Critical {
+                    prescription = Some(entropy_fix);
+                }
+            }
+        }
 
         Diagnosis {
             status,
@@ -179,6 +211,9 @@ mod tests {
     use tardis_telemetry::types::{Subsystem, TraceId, SpanId};
     use std::time::Instant;
     use std::collections::HashMap;
+    use tardis_gallifrey::domain::Entity;
+    use tardis_common::id::EntityId;
+    use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 
     #[tokio::test]
     async fn test_doctor_diagnosis() {
@@ -223,5 +258,48 @@ mod tests {
         assert_ne!(diagnosis.status, HealthStatus::Healthy);
         assert!(diagnosis.symptoms.iter().any(|s| s.contains("errors")));
         assert!(diagnosis.symptoms.iter().any(|s| s.contains("High latency")));
+    }
+
+    #[tokio::test]
+    async fn test_doctor_entropy_diagnosis() {
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), Arc::clone(&gallifrey));
+
+        // Inject massive retcons to create entropy
+        let store = gallifrey.knowledge();
+        let now = Utc::now();
+        let hour = Duration::hours(1);
+
+        for i in 0..10 {
+            // Retcon: Valid Time (1 hour ago) < Transaction Time (Now)
+            let entity = Entity {
+                id: EntityId::new(),
+                entity_type: "Retcon".to_string(),
+                name: format!("Retcon-{}", i),
+                properties: HashMap::new(),
+                embedding: None,
+                temporal: BiTemporalInterval {
+                    valid_time: TimeRange::starting_at(now - hour),
+                    transaction_time: TimeRange::starting_at(now),
+                },
+                source: None,
+            };
+            store.insert_entity(entity).unwrap();
+        }
+
+        // Diagnose
+        let diagnosis = doctor.diagnose().await;
+
+        // Should be at least degraded
+        assert!(diagnosis.status != HealthStatus::Healthy);
+
+        // Should complain about instability
+        let has_instability = diagnosis.symptoms.iter().any(|s| s.contains("High temporal instability"));
+        assert!(has_instability, "Doctor should detect temporal instability. Symptoms: {:?}", diagnosis.symptoms);
+
+        // Should prescribe reducing retcons
+        assert!(diagnosis.prescription.is_some());
+        assert!(diagnosis.prescription.unwrap().description.contains("Reduce retroactive updates"));
     }
 }
