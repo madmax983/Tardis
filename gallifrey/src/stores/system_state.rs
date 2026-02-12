@@ -71,6 +71,30 @@ impl SystemStateStore {
         Ok(id)
     }
 
+    /// Manually insert a snapshot.
+    ///
+    /// Useful for testing, migration, or synchronization from other nodes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock is poisoned.
+    pub fn insert_snapshot(&self, snapshot: Snapshot) -> GallifreyResult<()> {
+        let mut snapshots = self
+            .snapshots
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        let mut by_name = self
+            .by_name
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        by_name.insert(snapshot.name.clone(), snapshot.id);
+        snapshots.insert(snapshot.id, snapshot);
+
+        Ok(())
+    }
+
     /// Get a snapshot by ID.
     ///
     /// # Errors
