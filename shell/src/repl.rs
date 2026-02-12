@@ -13,6 +13,8 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
+use crate::experimental::sonic::SonicScrewdriver;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 
 /// The main REPL for Tardis shell.
@@ -185,6 +187,37 @@ impl Repl {
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "sonic" => {
+                let sonic = SonicScrewdriver::new(
+                    std::sync::Arc::clone(&self.gallifrey),
+                    self.telemetry_store.clone(),
+                );
+
+                if args.is_empty() {
+                    println!("Usage: sonic [fix <file> | diagnose]");
+                } else {
+                    match args[0].as_str() {
+                        "fix" => {
+                            if args.len() < 2 {
+                                println!("Usage: sonic fix <file>");
+                            } else {
+                                if let Err(e) = sonic.fix(&args[1]) {
+                                    println!("Sonic Screwdriver error: {e}");
+                                }
+                            }
+                        }
+                        "diagnose" => {
+                            if let Err(e) = sonic.diagnose().await {
+                                println!("Sonic Screwdriver error: {e}");
+                            }
+                        }
+                        _ => {
+                            println!("Unknown sonic setting: {}", args[0]);
+                        }
+                    }
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

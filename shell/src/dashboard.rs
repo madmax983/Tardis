@@ -24,8 +24,7 @@ pub mod tui {
     };
     #[cfg(feature = "nova")]
     use tardis_chronos::experimental::prophecy::Prophet;
-    use tardis_common::domain::Entity;
-    use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
+    use tardis_gallifrey::{domain::Entity, experimental::heatmap::TemporalHeatmap, Gallifrey};
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
 
     /// Shared data for the dashboard.
