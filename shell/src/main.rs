@@ -16,6 +16,8 @@ use tardis_chronos::experimental::prophecy::Prophet;
 mod commands;
 #[cfg(feature = "nova")]
 mod dashboard;
+#[cfg(feature = "nova")]
+mod experimental;
 mod repl;
 mod router;
 
