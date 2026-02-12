@@ -156,7 +156,7 @@ impl ContextAugmenter {
 
             // Rough token estimate (4 chars per token)
             // Ceiling division to ensure non-empty sources cost at least 1 token
-            let source_tokens = (source.content.len() + 3) / 4;
+            let source_tokens = source.content.len().div_ceil(4);
 
             if token_estimate + source_tokens > self.max_context_tokens {
                 // Calculate remaining budget
@@ -165,13 +165,21 @@ impl ContextAugmenter {
 
                 // If we have space for at least some content, include it partially
                 if chars_to_take > 0 {
-                    let content: String = source.content.chars().take(chars_to_take).collect();
+                    // Bolt optimization: slice string instead of allocating new one
+                    let end_index = source
+                        .content
+                        .char_indices()
+                        .map(|(i, _)| i)
+                        .nth(chars_to_take)
+                        .unwrap_or(source.content.len());
+
+                    let truncated_content = &source.content[..end_index];
                     let _ = writeln!(
                         buffer,
                         "### {source_type} {} (relevance: {:.2})\n{}...\n",
                         i + 1,
                         source.relevance,
-                        content
+                        truncated_content
                     );
                 }
 
@@ -187,8 +195,7 @@ impl ContextAugmenter {
                 if sources_fully_dropped > 0 {
                     let _ = writeln!(
                         buffer,
-                        "\n... ({} more sources truncated)",
-                        sources_fully_dropped
+                        "\n... ({sources_fully_dropped} more sources truncated)"
                     );
                 }
                 break;
