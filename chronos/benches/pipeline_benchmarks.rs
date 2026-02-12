@@ -3,28 +3,24 @@
 #![allow(clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
-use tardis_chronos::pipeline::{ContextAugmenter, QueryAnalyzer};
+use tardis_chronos::pipeline::{analyzer, ContextAugmenter};
 
 fn bench_query_analyzer(c: &mut Criterion) {
     let mut group = c.benchmark_group("query_analyzer");
 
-    group.bench_function("QueryAnalyzer::new", |b| {
-        b.iter(|| black_box(QueryAnalyzer::new()));
+    // QueryAnalyzer::new is removed (it was stateless anyway)
+
+    group.bench_function("analyzer::analyze_simple", |b| {
+        b.iter(|| black_box(analyzer::analyze("What is Rust?")));
     });
 
-    let analyzer = QueryAnalyzer::new();
-
-    group.bench_function("QueryAnalyzer::analyze_simple", |b| {
-        b.iter(|| black_box(analyzer.analyze("What is Rust?")));
+    group.bench_function("analyzer::analyze_temporal", |b| {
+        b.iter(|| black_box(analyzer::analyze("What did we discuss yesterday about async?")));
     });
 
-    group.bench_function("QueryAnalyzer::analyze_temporal", |b| {
-        b.iter(|| black_box(analyzer.analyze("What did we discuss yesterday about async?")));
-    });
-
-    group.bench_function("QueryAnalyzer::analyze_complex", |b| {
+    group.bench_function("analyzer::analyze_complex", |b| {
         b.iter(|| {
-            black_box(analyzer.analyze(
+            black_box(analyzer::analyze(
             "Last week before the meeting, what changes were made to the authentication system?"
         ))
         });
@@ -41,8 +37,7 @@ fn bench_context_augmenter(c: &mut Criterion) {
     });
 
     let augmenter = ContextAugmenter::new();
-    let analyzer = QueryAnalyzer::new();
-    let analysis = analyzer.analyze("What is Rust?").unwrap();
+    let analysis = analyzer::analyze("What is Rust?").unwrap();
 
     group.bench_function("ContextAugmenter::augment_empty", |b| {
         b.iter(|| black_box(augmenter.augment("What is Rust?", &[], &analysis)));

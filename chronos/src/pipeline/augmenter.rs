@@ -56,7 +56,7 @@ impl ContextAugmenter {
     ///
     /// ```
     /// use tardis_chronos::pipeline::{ContextAugmenter, ContextSource, ContextSourceType};
-    /// use tardis_chronos::pipeline::{QueryAnalyzer, AnalyzedQuery, QueryIntent};
+    /// use tardis_chronos::pipeline::{AnalyzedQuery, QueryIntent};
     /// use tardis_common::temporal::TemporalReference;
     /// use chrono::Utc;
     ///
@@ -156,7 +156,7 @@ impl ContextAugmenter {
 
             // Rough token estimate (4 chars per token)
             // Ceiling division to ensure non-empty sources cost at least 1 token
-            let source_tokens = (source.content.len() + 3) / 4;
+            let source_tokens = source.content.len().div_ceil(4);
 
             if token_estimate + source_tokens > self.max_context_tokens {
                 // Calculate remaining budget
@@ -165,13 +165,13 @@ impl ContextAugmenter {
 
                 // If we have space for at least some content, include it partially
                 if chars_to_take > 0 {
-                    let content: String = source.content.chars().take(chars_to_take).collect();
+                    let truncated_content: String = source.content.chars().take(chars_to_take).collect();
                     let _ = writeln!(
                         buffer,
                         "### {source_type} {} (relevance: {:.2})\n{}...\n",
                         i + 1,
                         source.relevance,
-                        content
+                        truncated_content
                     );
                 }
 
@@ -187,8 +187,7 @@ impl ContextAugmenter {
                 if sources_fully_dropped > 0 {
                     let _ = writeln!(
                         buffer,
-                        "\n... ({} more sources truncated)",
-                        sources_fully_dropped
+                        "\n... ({sources_fully_dropped} more sources truncated)"
                     );
                 }
                 break;
@@ -241,6 +240,7 @@ impl Default for ContextAugmenter {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
@@ -405,7 +405,7 @@ mod tests {
         let sources: Vec<ContextSource> = (0..20)
             .map(|i| ContextSource {
                 source_type: ContextSourceType::Knowledge,
-                content: format!("s{:02}", i),
+                content: format!("s{i:02}"),
                 relevance: 1.0,
                 entity_id: None,
             })
@@ -419,9 +419,8 @@ mod tests {
         // With limit=5, we expect 5 sources to be included (indices 0..5)
         for i in 0..5 {
             assert!(
-                result.contains(&format!("s{:02}", i)),
-                "Should contain source {}",
-                i
+                result.contains(&format!("s{i:02}")),
+                "Should contain source {i}"
             );
         }
 

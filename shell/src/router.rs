@@ -50,145 +50,117 @@ pub enum Intent {
     },
 }
 
-/// Router for classifying user input intent.
+const BUILTINS: &[&str] = &[
+    "help", "exit", "quit", "history", "remember", "recall", "models", "context",
+    "clear", "snapshot", "restore", "timeline", "forget", "export",
+];
+
+/// Route user input to an intent.
 ///
-/// The router maintains a list of built-in commands and uses prefix matching
-/// to determine the intent of the user's input.
-#[derive(Debug)]
-pub struct Router {
-    /// Built-in command names.
-    builtins: Vec<&'static str>,
-}
+/// # Examples
+///
+/// ```
+/// use tardis_shell::router::{self, Intent};
+///
+/// // Built-in command
+/// let intent = router::route("help me");
+/// matches!(intent, Intent::BuiltinCommand { command, .. } if command == "help");
+///
+/// // Shell command
+/// let intent = router::route("!ls -la");
+/// matches!(intent, Intent::ShellCommand { command } if command == "ls -la");
+///
+/// // Time travel
+/// let intent = router::route("@yesterday what happened?");
+/// matches!(intent, Intent::TimeTravel { timestamp, .. } if timestamp == "yesterday");
+///
+/// // Chronos query (default)
+/// let intent = router::route("What is the meaning of life?");
+/// matches!(intent, Intent::ChronosQuery { .. });
+/// ```
+#[must_use]
+pub fn route(input: &str) -> Intent {
+    let input = input.trim();
 
-impl Router {
-    /// Create a new router.
-    ///
-    /// Initializes the router with the standard list of built-in commands.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            builtins: vec![
-                "help", "exit", "quit", "history", "remember", "recall", "models", "context",
-                "clear", "snapshot", "restore", "timeline", "forget", "export",
-            ],
-        }
+    // Check for prefix commands
+    if let Some(cmd) = input.strip_prefix('!') {
+        return Intent::ShellCommand {
+            command: cmd.to_string(),
+        };
     }
 
-    /// Route user input to an intent.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tardis_shell::router::{Router, Intent};
-    ///
-    /// let router = Router::new();
-    ///
-    /// // Built-in command
-    /// let intent = router.route("help me");
-    /// matches!(intent, Intent::BuiltinCommand { command, .. } if command == "help");
-    ///
-    /// // Shell command
-    /// let intent = router.route("!ls -la");
-    /// matches!(intent, Intent::ShellCommand { command } if command == "ls -la");
-    ///
-    /// // Time travel
-    /// let intent = router.route("@yesterday what happened?");
-    /// matches!(intent, Intent::TimeTravel { timestamp, .. } if timestamp == "yesterday");
-    ///
-    /// // Chronos query (default)
-    /// let intent = router.route("What is the meaning of life?");
-    /// matches!(intent, Intent::ChronosQuery { .. });
-    /// ```
-    #[must_use]
-    pub fn route(&self, input: &str) -> Intent {
-        let input = input.trim();
+    if let Some(rest) = input.strip_prefix('@') {
+        return parse_time_travel(rest);
+    }
 
-        // Check for prefix commands
-        if let Some(cmd) = input.strip_prefix('!') {
-            return Intent::ShellCommand {
-                command: cmd.to_string(),
+    if let Some(query) = input.strip_prefix('?') {
+        return Intent::DirectQuery {
+            query: query.trim().to_string(),
+        };
+    }
+
+    // Check for built-in commands
+    let parts: Vec<&str> = input.splitn(2, ' ').collect();
+    let first_word = parts.first().map(|s| s.to_lowercase());
+
+    if let Some(ref cmd) = first_word {
+        if BUILTINS.contains(&cmd.as_str()) {
+            let args = if parts.len() > 1 {
+                parts[1].split_whitespace().map(String::from).collect()
+            } else {
+                Vec::new()
+            };
+
+            return Intent::BuiltinCommand {
+                command: cmd.clone(),
+                args,
             };
         }
-
-        if let Some(rest) = input.strip_prefix('@') {
-            return Self::parse_time_travel(rest);
-        }
-
-        if let Some(query) = input.strip_prefix('?') {
-            return Intent::DirectQuery {
-                query: query.trim().to_string(),
-            };
-        }
-
-        // Check for built-in commands
-        let parts: Vec<&str> = input.splitn(2, ' ').collect();
-        let first_word = parts.first().map(|s| s.to_lowercase());
-
-        if let Some(ref cmd) = first_word {
-            if self.builtins.contains(&cmd.as_str()) {
-                let args = if parts.len() > 1 {
-                    parts[1].split_whitespace().map(String::from).collect()
-                } else {
-                    Vec::new()
-                };
-
-                return Intent::BuiltinCommand {
-                    command: cmd.clone(),
-                    args,
-                };
-            }
-        }
-
-        // Default: Chronos query
-        Intent::ChronosQuery {
-            query: input.to_string(),
-            temporal_context: Self::detect_temporal_context(input),
-        }
     }
 
-    /// Parse a time-travel command.
-    fn parse_time_travel(input: &str) -> Intent {
-        // Expected format: @<timestamp> <query>
-        // e.g., "@yesterday what did we discuss"
-        // e.g., "@2024-03-15 show system state"
-
-        let parts: Vec<&str> = input.splitn(2, ' ').collect();
-
-        let timestamp = parts.first().unwrap_or(&"").to_string();
-        let query = parts.get(1).unwrap_or(&"").to_string();
-
-        Intent::TimeTravel { timestamp, query }
-    }
-
-    /// Detect temporal context in a query.
-    fn detect_temporal_context(query: &str) -> Option<String> {
-        let lower = query.to_lowercase();
-
-        let temporal_patterns = [
-            "yesterday",
-            "last week",
-            "last month",
-            "today",
-            "this morning",
-            "earlier",
-            "before",
-            "after",
-        ];
-
-        for pattern in temporal_patterns {
-            if lower.contains(pattern) {
-                return Some(pattern.to_string());
-            }
-        }
-
-        None
+    // Default: Chronos query
+    Intent::ChronosQuery {
+        query: input.to_string(),
+        temporal_context: detect_temporal_context(input),
     }
 }
 
-impl Default for Router {
-    fn default() -> Self {
-        Self::new()
+/// Parse a time-travel command.
+fn parse_time_travel(input: &str) -> Intent {
+    // Expected format: @<timestamp> <query>
+    // e.g., "@yesterday what did we discuss"
+    // e.g., "@2024-03-15 show system state"
+
+    let parts: Vec<&str> = input.splitn(2, ' ').collect();
+
+    let timestamp = parts.first().unwrap_or(&"").to_string();
+    let query = parts.get(1).unwrap_or(&"").to_string();
+
+    Intent::TimeTravel { timestamp, query }
+}
+
+/// Detect temporal context in a query.
+fn detect_temporal_context(query: &str) -> Option<String> {
+    let lower = query.to_lowercase();
+
+    let temporal_patterns = [
+        "yesterday",
+        "last week",
+        "last month",
+        "today",
+        "this morning",
+        "earlier",
+        "before",
+        "after",
+    ];
+
+    for pattern in temporal_patterns {
+        if lower.contains(pattern) {
+            return Some(pattern.to_string());
+        }
     }
+
+    None
 }
 
 #[cfg(test)]
@@ -198,8 +170,7 @@ mod tests {
 
     #[test]
     fn test_shell_command() {
-        let router = Router::new();
-        let intent = router.route("!ls -la");
+        let intent = route("!ls -la");
 
         match intent {
             Intent::ShellCommand { command } => assert_eq!(command, "ls -la"),
@@ -209,8 +180,7 @@ mod tests {
 
     #[test]
     fn test_builtin_command() {
-        let router = Router::new();
-        let intent = router.route("help");
+        let intent = route("help");
 
         match intent {
             Intent::BuiltinCommand { command, args } => {
@@ -223,8 +193,7 @@ mod tests {
 
     #[test]
     fn test_chronos_query() {
-        let router = Router::new();
-        let intent = router.route("what is rust?");
+        let intent = route("what is rust?");
 
         match intent {
             Intent::ChronosQuery { query, .. } => {
@@ -236,8 +205,7 @@ mod tests {
 
     #[test]
     fn test_time_travel() {
-        let router = Router::new();
-        let intent = router.route("@yesterday what did we discuss");
+        let intent = route("@yesterday what did we discuss");
 
         match intent {
             Intent::TimeTravel { timestamp, query } => {

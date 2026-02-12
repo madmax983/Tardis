@@ -30,11 +30,11 @@
 //! # }
 //! ```
 
-mod analyzer;
+pub mod analyzer;
 mod augmenter;
 mod retriever;
 
-pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
+pub use analyzer::{AnalyzedQuery, QueryIntent};
 pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
 
@@ -120,7 +120,6 @@ pub struct Chronos {
     gallifrey: Arc<Gallifrey>,
     #[cfg(feature = "telemetry")]
     telemetry: Option<Arc<TelemetryStore>>,
-    analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
 }
@@ -134,7 +133,6 @@ impl Chronos {
             gallifrey: Arc::clone(&gallifrey),
             #[cfg(feature = "telemetry")]
             telemetry: None,
-            analyzer: QueryAnalyzer::new(),
             retriever: Retriever::new(gallifrey),
             augmenter: ContextAugmenter::new(),
         }
@@ -173,7 +171,7 @@ impl Chronos {
         info!("Processing RAG query");
 
         // 1. Analyze the query
-        let analysis = self.analyzer.analyze(prompt)?;
+        let analysis = analyzer::analyze(prompt)?;
         info!("Query analyzed: {:?}", analysis.intent);
 
         // 2. Retrieve relevant context
