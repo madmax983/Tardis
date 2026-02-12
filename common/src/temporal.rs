@@ -65,6 +65,8 @@ impl TimeRange {
     }
 
     /// Close this range at the current time.
+    ///
+    /// This is typically used to mark the end of a transaction or validity period.
     #[must_use]
     pub fn close_now(&self) -> Self {
         Self {
@@ -279,6 +281,9 @@ impl TemporalQuery {
 ///
 /// // "2024-01-01"
 /// let abs = TemporalReference::Absolute(Utc::now());
+///
+/// // No explicit time mentioned (defaults to NOW)
+/// let implicit = TemporalReference::Implicit;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemporalReference {
