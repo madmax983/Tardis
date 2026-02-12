@@ -14,6 +14,8 @@ use tracing::{error, info};
 
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
+#[cfg(feature = "nova")]
+use crate::experimental::sonic::SonicScrewdriver;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -185,6 +187,32 @@ impl Repl {
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "sonic" | "fix" => {
+                if args.is_empty() {
+                    println!("Usage: sonic <file> or sonic repair <file>");
+                    return;
+                }
+
+                let screwdriver = SonicScrewdriver::new();
+                let path = std::path::Path::new(&args[args.len() - 1]);
+
+                // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
+                // If command is "fix", we repair.
+                // If command is "sonic" and first arg is "repair" or "fix", we repair.
+                let repair = command == "fix" || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
+
+                let result = if repair {
+                    screwdriver.repair(path)
+                } else {
+                    screwdriver.inspect(path)
+                };
+
+                match result {
+                    Ok(report) => println!("{}", report),
+                    Err(e) => println!("Sonic Screwdriver error: {}", e),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

@@ -47,3 +47,7 @@ pub mod commands;
 pub mod dashboard;
 pub mod repl;
 pub mod router;
+
+#[cfg(feature = "nova")]
+/// Experimental features.
+pub mod experimental;
