@@ -51,6 +51,7 @@ anyhow = { workspace = true }
 rustyline = "17"
 
 [dev-dependencies]
+tempfile = "3"
 criterion = { workspace = true }
 
 [[bench]]

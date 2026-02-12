@@ -13,6 +13,8 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
+use crate::experimental::sonic::SonicScrewdriver;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 
 /// The main REPL for Tardis shell.
@@ -33,6 +35,9 @@ pub struct Repl {
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]
     prophet: Option<Arc<Prophet>>,
+    /// Sonic Screwdriver (optional, Nova only).
+    #[cfg(feature = "nova")]
+    sonic: Option<Arc<SonicScrewdriver>>,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -50,6 +55,7 @@ impl Repl {
         gallifrey: Arc<Gallifrey>,
         telemetry_store: Option<Arc<TelemetryStore>>,
         #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
+        #[cfg(feature = "nova")] sonic: Option<Arc<SonicScrewdriver>>,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
@@ -66,6 +72,8 @@ impl Repl {
             telemetry_store,
             #[cfg(feature = "nova")]
             prophet,
+            #[cfg(feature = "nova")]
+            sonic,
             session_id,
             running: true,
         })
@@ -185,6 +193,36 @@ impl Repl {
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "sonic" => {
+                if let Some(sonic) = &self.sonic {
+                    let subcommand = args.first().map_or("help", String::as_str);
+                    match subcommand {
+                        "fix" | "buzz" => {
+                            println!("Sonic Screwdriver is buzzing... 🪄");
+                            match sonic.buzz().await {
+                                Ok(fix) => println!("Suggestion:\n{fix}"),
+                                Err(e) => println!("Sonic failed: {e}"),
+                            }
+                        }
+                        "scan" | "diagnose" => {
+                            let diagnosis = sonic.scan().await;
+                            println!("System Status: {:?}", diagnosis.status);
+                            if diagnosis.symptoms.is_empty() {
+                                println!("No symptoms detected.");
+                            } else {
+                                println!("Symptoms:");
+                                for s in &diagnosis.symptoms {
+                                    println!("  - {s}");
+                                }
+                            }
+                        }
+                        _ => println!("Sonic usage: sonic [fix|scan]"),
+                    }
+                } else {
+                    println!("Sonic Screwdriver not available.");
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

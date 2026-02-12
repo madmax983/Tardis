@@ -3930,6 +3930,7 @@ dependencies = [
  "tardis-gallifrey",
  "tardis-telemetry",
  "tardis-vortex",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

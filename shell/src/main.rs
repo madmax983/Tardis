@@ -16,6 +16,8 @@ use tardis_chronos::experimental::prophecy::Prophet;
 mod commands;
 #[cfg(feature = "nova")]
 mod dashboard;
+#[cfg(feature = "nova")]
+mod experimental;
 mod repl;
 mod router;
 
@@ -45,9 +47,22 @@ async fn main() -> Result<()> {
     #[cfg(feature = "nova")]
     let prophet = Arc::new(Prophet::new(vortex.clone()));
 
+    #[cfg(feature = "nova")]
+    let sonic = Arc::new(experimental::sonic::SonicScrewdriver::new(
+        gallifrey.clone(),
+        telemetry_store.clone(),
+        vortex.clone(),
+    ));
+
     // Create and run REPL
     #[cfg(feature = "nova")]
-    let mut repl = Repl::new(chronos, gallifrey, telemetry_store, Some(prophet))?;
+    let mut repl = Repl::new(
+        chronos,
+        gallifrey,
+        telemetry_store,
+        Some(prophet),
+        Some(sonic),
+    )?;
 
     #[cfg(not(feature = "nova"))]
     let mut repl = Repl::new(chronos, gallifrey, telemetry_store)?;

@@ -1,5 +1,11 @@
 #[cfg(feature = "nova")]
 /// The TUI Dashboard module.
+#[allow(
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    clippy::manual_range_contains,
+    clippy::cast_lossless
+)]
 pub mod tui {
     use anyhow::Result;
     use chrono::{DateTime, Utc};
@@ -24,7 +30,7 @@ pub mod tui {
     };
     #[cfg(feature = "nova")]
     use tardis_chronos::experimental::prophecy::Prophet;
-    use tardis_common::domain::Entity;
+    use tardis_gallifrey::domain::Entity;
     use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
 
