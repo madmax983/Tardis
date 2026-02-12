@@ -7,6 +7,12 @@
 
 use serde_json::{json, Value};
 
+/// Maximum allowed input text length (1MB) to prevent `DoS`.
+pub const MAX_TEXT_LEN: usize = 1024 * 1024;
+
+/// Maximum number of items to parse in a list or map to prevent unbounded allocation.
+pub const MAX_ITEMS: usize = 1000;
+
 /// The intent of the interpretation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
@@ -61,8 +67,14 @@ impl PsychicPaper {
     ///
     /// # Errors
     ///
-    /// Returns an error string if parsing fails.
+    /// Returns an error string if parsing fails or input is too large.
     pub fn interpret(&self, text: &str, intent: Intent) -> Result<Value, String> {
+        if text.len() > MAX_TEXT_LEN {
+            return Err(format!(
+                "Input text exceeds maximum length of {MAX_TEXT_LEN} bytes"
+            ));
+        }
+
         match intent {
             Intent::Auto => self.interpret_auto(text),
             Intent::Json => self.interpret_json(text),
@@ -95,7 +107,12 @@ impl PsychicPaper {
         if trimmed.contains(':') {
             // Check if it looks like KV lines
             // Heuristic: majority of lines have ':'
-            let lines: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
+            // Limit check to first 100 lines to avoid excessive processing on huge files
+            let lines: Vec<&str> = trimmed
+                .lines()
+                .take(100)
+                .filter(|l| !l.trim().is_empty())
+                .collect();
             if !lines.is_empty() {
                 let colon_count = lines.iter().filter(|l| l.contains(':')).count();
                 if colon_count >= lines.len() / 2 {
@@ -151,6 +168,7 @@ impl PsychicPaper {
     fn interpret_list(&self, text: &str) -> Result<Value, String> {
         let items: Vec<String> = text
             .lines()
+            .take(MAX_ITEMS)
             .map(|line| line.trim())
             .filter(|line| !line.is_empty())
             .map(|line| {
@@ -173,10 +191,12 @@ impl PsychicPaper {
 
         // Fallback: Try comma separation if single line and no bullets were found/stripped
         // "No bullets found" means we have exactly one item and it matches the original trimmed text.
+        // Also respect MAX_ITEMS
         if items.len() == 1 && items[0] == text.trim() && !text.contains('\n') && text.contains(',')
         {
             let items: Vec<String> = text
                 .split(',')
+                .take(MAX_ITEMS)
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -189,7 +209,7 @@ impl PsychicPaper {
     fn interpret_kv(&self, text: &str) -> Result<Value, String> {
         let mut map = serde_json::Map::new();
 
-        for line in text.lines() {
+        for line in text.lines().take(MAX_ITEMS) {
             let line = line.trim();
             if line.is_empty() {
                 continue;
@@ -306,5 +326,30 @@ Hope that helps."#;
         let paper = PsychicPaper::new();
         let result = paper.interpret(text, Intent::List).unwrap();
         assert_eq!(result, json!(["red", "green", "blue"]));
+    }
+
+    #[test]
+    fn test_interpret_max_len() {
+        let paper = PsychicPaper::new();
+        // Create 1MB + 1 byte string
+        let text = "a".repeat(MAX_TEXT_LEN + 1);
+        let result = paper.interpret(&text, Intent::Auto);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("exceeds maximum length"));
+    }
+
+    #[test]
+    fn test_interpret_max_items_list() {
+        let paper = PsychicPaper::new();
+        // Create 1500 lines
+        let mut text = String::new();
+        for i in 0..1500 {
+            text.push_str(&format!("- Item {}\n", i));
+        }
+
+        // This won't fail size check (1500 * ~10 bytes = 15KB)
+        let result = paper.interpret(&text, Intent::List).unwrap();
+        let array = result.as_array().unwrap();
+        assert_eq!(array.len(), MAX_ITEMS);
     }
 }

@@ -65,7 +65,7 @@ pub struct SystemDoctor {
 impl SystemDoctor {
     /// Create a new System Doctor.
     #[must_use]
-    pub fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
             telemetry,
             gallifrey,
@@ -97,10 +97,10 @@ impl SystemDoctor {
         let (total_latency, count) = completed_spans
             .iter()
             .filter_map(|s| s.data.duration_ns())
-            .fold((0, 0), |(sum, count), dur| (sum + dur, count + 1));
+            .fold((0u64, 0u64), |(sum, count), dur| (sum + dur, count + 1));
 
         let average_latency_ms = if count > 0 {
-            (total_latency / count as u64) / 1_000_000
+            (total_latency / count) / 1_000_000
         } else {
             0
         };
@@ -152,21 +152,17 @@ impl SystemDoctor {
         // Correlate with system changes (simple heuristic for now)
         // In a real version, we'd ask Gallifrey for recent "SystemState" changes
         // and ask Vortex to find causality.
-        let root_causes = if status != HealthStatus::Healthy {
+        let root_causes = if status == HealthStatus::Healthy {
+            Vec::new()
+        } else {
             // Mock causality
             vec!["Possible recent configuration change or high load".to_string()]
-        } else {
-            Vec::new()
         };
 
-        let prescription = if status != HealthStatus::Healthy {
-            Some(Prescription {
-                description: "Check recent system state changes and error logs.".to_string(),
-                auto_fix_command: None,
-            })
-        } else {
-            None
-        };
+        let prescription = (status != HealthStatus::Healthy).then(|| Prescription {
+            description: "Check recent system state changes and error logs.".to_string(),
+            auto_fix_command: None,
+        });
 
         Diagnosis {
             status,

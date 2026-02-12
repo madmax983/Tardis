@@ -22,3 +22,7 @@
 **2025-06-03 - RingBuffer Mixed Volatile Access**
 **Threat:** `RingBuffer::try_write` updated the `payload_len` field using a non-volatile write (`(*ptr).payload_len = ...`) after writing the struct header volatilely. This mixed volatile and non-volatile access to the same memory location, creating potential Undefined Behavior (data race) if a reader accessed it concurrently, as the compiler could reorder or tear the non-volatile write despite Seqlock protection.
 **Defense:** Refactored `try_write` to update the `payload_len` in the local `TelemetryEntryRaw` copy *before* the volatile write. Now uses a single `ptr::write_volatile` to write the entire header, ensuring all shared memory writes are volatile and atomic with respect to compiler optimizations.
+
+**2025-06-04 - PsychicPaper Unbounded Allocation**
+**Threat:** `PsychicPaper` interpreter allowed unbounded memory allocation (DoS) via "zip bomb" inputs (e.g. millions of newlines), as `interpret_list` and `interpret_kv` allocated strings for every line without limit.
+**Defense:** Introduced `MAX_TEXT_LEN` (1MB) and `MAX_ITEMS` (1000) limits. Modified `interpret` to reject oversized input and truncate lists/maps to prevent resource exhaustion. Hardened `augmenter.rs` and `doctor.rs` against clippy warnings and potential integer overflows.

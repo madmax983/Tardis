@@ -1,6 +1,15 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::needless_range_loop,
+    clippy::uninlined_format_args,
+    clippy::type_complexity
+)]
+
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
-use tardis_common::domain::Entity;
+use crate::domain::Entity;
 
 /// A 2D heatmap visualizing entity activity across Valid Time and Transaction Time.
 #[derive(Debug)]
@@ -117,9 +126,6 @@ impl TemporalHeatmap {
         ((v_min, v_max), (t_min, t_max))
     }
 
-    #[allow(clippy::cast_precision_loss)]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
     fn populate_grid(
         grid: &mut [Vec<usize>],
         history: &[Entity],
