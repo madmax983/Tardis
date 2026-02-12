@@ -352,3 +352,163 @@ impl Default for KnowledgeStore {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use chrono::{Utc};
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::thread;
+    use std::time::Duration as StdDuration;
+    use tardis_common::id::EntityId;
+    use tardis_common::temporal::BiTemporalInterval;
+
+    fn create_test_entity(name: &str, entity_type: &str) -> Entity {
+        Entity {
+            id: EntityId::new(),
+            entity_type: entity_type.to_string(),
+            name: name.to_string(),
+            properties: HashMap::new(),
+            embedding: None,
+            temporal: BiTemporalInterval::now(),
+            source: Some("test".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let store = KnowledgeStore::new();
+        let entity = create_test_entity("Test Entity", "Test");
+        let id = entity.id;
+
+        store.insert_entity(entity).unwrap();
+
+        let retrieved = store.get_entity(id).unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().name, "Test Entity");
+    }
+
+    #[test]
+    fn test_update_entity_bi_temporal() {
+        let store = KnowledgeStore::new();
+        let entity = create_test_entity("Original", "Test");
+        let id = entity.id;
+
+        store.insert_entity(entity).unwrap();
+
+        // Sleep to ensure measurable time difference for transaction time
+        thread::sleep(StdDuration::from_millis(10));
+
+        let mut updates = HashMap::new();
+        updates.insert("status".to_string(), json!("Updated"));
+        store.update_entity(id, updates).unwrap();
+
+        let history = store.get_entity_history(id).unwrap();
+        assert_eq!(history.len(), 2);
+
+        // Version 1 (Old)
+        let v1 = &history[0];
+        assert!(!v1.temporal.transaction_time.is_current(), "Old version should be superseded");
+        assert!(v1.temporal.valid_time.is_current(), "Old version valid time should remain current (unless corrected)");
+
+        // Version 2 (New)
+        let v2 = &history[1];
+        assert!(v2.temporal.transaction_time.is_current(), "New version should be current");
+        assert_eq!(v2.properties.get("status"), Some(&json!("Updated")));
+        assert_eq!(v2.name, "Original", "Name should be preserved");
+    }
+
+    #[test]
+    fn test_get_entity_at() {
+        let store = KnowledgeStore::new();
+
+        // T0: Before insert
+        let t0 = Utc::now();
+        thread::sleep(StdDuration::from_millis(10));
+
+        let entity = create_test_entity("Time Traveler", "Person");
+        let id = entity.id;
+        store.insert_entity(entity).unwrap();
+
+        // T1: After insert, before update
+        thread::sleep(StdDuration::from_millis(10));
+        let t1 = Utc::now();
+        thread::sleep(StdDuration::from_millis(10));
+
+        let mut updates = HashMap::new();
+        updates.insert("status".to_string(), json!("Changed"));
+        store.update_entity(id, updates).unwrap();
+
+        // T2: After update
+        thread::sleep(StdDuration::from_millis(10));
+        let t2 = Utc::now();
+
+        // Query at T0
+        let at_t0 = store.get_entity_at(id, t0, t0).unwrap();
+        assert!(at_t0.is_none());
+
+        // Query at T1
+        let at_t1 = store.get_entity_at(id, t1, t1).unwrap();
+        assert!(at_t1.is_some());
+        assert!(at_t1.unwrap().properties.is_empty());
+
+        // Query at T2
+        let at_t2 = store.get_entity_at(id, t2, t2).unwrap();
+        assert!(at_t2.is_some());
+        assert_eq!(at_t2.unwrap().properties.get("status"), Some(&json!("Changed")));
+    }
+
+    #[test]
+    fn test_find_by_type() {
+        let store = KnowledgeStore::new();
+        store.insert_entity(create_test_entity("A", "Type1")).unwrap();
+        store.insert_entity(create_test_entity("B", "Type2")).unwrap();
+        store.insert_entity(create_test_entity("C", "Type1")).unwrap();
+
+        let type1 = store.find_by_type("Type1").unwrap();
+        assert_eq!(type1.len(), 2);
+
+        let type2 = store.find_by_type("Type2").unwrap();
+        assert_eq!(type2.len(), 1);
+        assert_eq!(type2[0].name, "B");
+    }
+
+    #[test]
+    fn test_semantic_search_stub() {
+        let store = KnowledgeStore::new();
+        let mut entity = create_test_entity("Embedded", "Test");
+        entity.embedding = Some(vec![0.1, 0.2, 0.3]);
+        store.insert_entity(entity).unwrap();
+
+        let mut no_embed = create_test_entity("No Embed", "Test");
+        no_embed.embedding = None;
+        store.insert_entity(no_embed).unwrap();
+
+        let results = store.semantic_search(&[0.1, 0.2, 0.3], 10).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Embedded");
+    }
+
+    #[test]
+    fn test_update_non_existent_entity() {
+        let store = KnowledgeStore::new();
+        let id = EntityId::new();
+        let updates = HashMap::new();
+
+        let result = store.update_entity(id, updates);
+        assert!(result.is_err());
+        match result {
+             Err(GallifreyError::EntityNotFound(_)) => {},
+             _ => panic!("Expected EntityNotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_get_non_existent_entity() {
+        let store = KnowledgeStore::new();
+        let id = EntityId::new();
+        assert!(store.get_entity(id).unwrap().is_none());
+    }
+}
