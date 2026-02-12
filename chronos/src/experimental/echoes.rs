@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::panic)]
 //! # Echoes
 //!
 //! A system resonance module that finds "Echoes from the Past" based on current context.

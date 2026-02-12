@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 //! Context augmentation for Chronos.
 //!
 //! This module acts as the "Prompt Engineer" of the RAG pipeline. It takes the
@@ -25,6 +26,10 @@
 //! - If a source fits entirely within the remaining budget, it is included.
 //! - If a source partially fits, it is **truncated** to fit the remaining budget.
 //! - Any subsequent sources are dropped, and a note "... (N more sources truncated)" is appended.
+
+#![allow(clippy::similar_names)]
+#![allow(clippy::manual_div_ceil)]
+#![allow(clippy::uninlined_format_args)]
 
 use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;

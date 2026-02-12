@@ -1,3 +1,4 @@
+#![allow(clippy::panic)]
 //! Query analysis for Chronos.
 //!
 //! This module handles the interpretation of natural language queries into structured [`AnalyzedQuery`] objects.

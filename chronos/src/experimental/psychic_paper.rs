@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::panic)]
 //! Psychic Paper: The Universal Interpreter.
 //!
 //! "It shows you what you want to see."

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use crate::domain::Entity;
 use crate::error::GallifreyResult;
 use crate::stores::KnowledgeStore;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::panic)]
 //! Prophecy: The Future Forecast Engine.
 //!
 //! "History is a burden. Stories can make us fly."

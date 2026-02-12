@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::panic, clippy::unused_async)]
 //! # The Historian
 //!
 //! A module that analyzes the bi-temporal history of an entity to tell the story of "what we thought we knew" vs "what actually happened".

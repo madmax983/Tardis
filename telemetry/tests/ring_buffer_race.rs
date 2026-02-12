@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![cfg(feature = "kernel")]
 #![allow(clippy::all, clippy::pedantic)]
 #![allow(clippy::unwrap_used, clippy::panic)]

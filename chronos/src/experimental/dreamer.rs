@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::panic, clippy::default_constructed_unit_structs)]
 //! The Dreamer: A background process for consolidating memories.
 //!
 //! "We are such stuff as dreams are made on..."

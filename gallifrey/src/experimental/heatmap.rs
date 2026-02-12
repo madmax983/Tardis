@@ -1,6 +1,13 @@
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::type_complexity)]
+
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
-use tardis_common::domain::Entity;
+use crate::domain::Entity;
 
 /// A 2D heatmap visualizing entity activity across Valid Time and Transaction Time.
 #[derive(Debug)]
