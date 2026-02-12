@@ -108,7 +108,7 @@ impl ContextAugmenter {
         let mut augmented = String::with_capacity(capacity);
 
         // System context
-        self.write_system_context(&mut augmented, analysis);
+        Self::write_system_context(&mut augmented, analysis);
 
         // Retrieved context
         if !context.is_empty() {
@@ -122,14 +122,13 @@ impl ContextAugmenter {
 
         // Instructions
         augmented.push_str("\n\n## Instructions\n\n");
-        self.write_instructions(&mut augmented, analysis);
+        Self::write_instructions(&mut augmented, analysis);
 
         Ok(augmented)
     }
 
     /// Write system context header to buffer.
-    #[allow(clippy::unused_self)]
-    fn write_system_context(&self, buffer: &mut String, analysis: &AnalyzedQuery) {
+    fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery) {
         buffer.push_str("# Tardis AI Assistant\n\n");
         // Bolt: Optimized format string usage
         let _ = writeln!(
@@ -140,6 +139,19 @@ impl ContextAugmenter {
 
         if let Some(ref temporal) = analysis.temporal_description {
             let _ = writeln!(buffer, "Query temporal context: {temporal}");
+        }
+    }
+
+    /// Estimate tokens for content (4 chars per token).
+    const fn estimate_tokens(content: &str) -> usize {
+        content.len().div_ceil(4)
+    }
+
+    /// Truncate content to a specific character count without allocation.
+    fn truncate_content(content: &str, max_chars: usize) -> &str {
+        match content.char_indices().nth(max_chars) {
+            Some((idx, _)) => &content[..idx],
+            None => content,
         }
     }
 
@@ -156,7 +168,7 @@ impl ContextAugmenter {
 
             // Rough token estimate (4 chars per token)
             // Ceiling division to ensure non-empty sources cost at least 1 token
-            let source_tokens = (source.content.len() + 3) / 4;
+            let source_tokens = Self::estimate_tokens(&source.content);
 
             if token_estimate + source_tokens > self.max_context_tokens {
                 // Calculate remaining budget
@@ -165,13 +177,12 @@ impl ContextAugmenter {
 
                 // If we have space for at least some content, include it partially
                 if chars_to_take > 0 {
-                    let content: String = source.content.chars().take(chars_to_take).collect();
+                    let truncated_content = Self::truncate_content(&source.content, chars_to_take);
                     let _ = writeln!(
                         buffer,
-                        "### {source_type} {} (relevance: {:.2})\n{}...\n",
+                        "### {source_type} {} (relevance: {:.2})\n{truncated_content}...\n",
                         i + 1,
-                        source.relevance,
-                        content
+                        source.relevance
                     );
                 }
 
@@ -187,8 +198,7 @@ impl ContextAugmenter {
                 if sources_fully_dropped > 0 {
                     let _ = writeln!(
                         buffer,
-                        "\n... ({} more sources truncated)",
-                        sources_fully_dropped
+                        "\n... ({sources_fully_dropped} more sources truncated)"
                     );
                 }
                 break;
@@ -207,8 +217,7 @@ impl ContextAugmenter {
     }
 
     /// Write response instructions to buffer based on query analysis.
-    #[allow(clippy::unused_self)]
-    fn write_instructions(&self, buffer: &mut String, analysis: &AnalyzedQuery) {
+    fn write_instructions(buffer: &mut String, analysis: &AnalyzedQuery) {
         buffer.push_str("Respond based on the context provided. ");
 
         match analysis.intent {
@@ -397,7 +406,9 @@ mod tests {
 
     #[test]
     fn test_augment_many_small_sources() {
-        let augmenter = ContextAugmenter { max_context_tokens: 5 };
+        let augmenter = ContextAugmenter {
+            max_context_tokens: 5,
+        };
 
         // Create 20 sources of 3 chars each ("s00", "s01", etc.)
         // Current logic: 3/4 = 0 tokens. All 20 fit.

@@ -17,3 +17,7 @@
 **[Experimental Module Lint Suppression]
 **Learning:** Experimental modules often require `clippy::cast_precision_loss` and similar lints due to prototyping nature.
 **Action:** When refactoring, preserve these suppressions but scope them tightly to the specific helper functions where the operations occur.
+
+**[Unused Self Suppression]
+**Learning:** Suppressing `clippy::unused_self` hides opportunities to make functions pure/static (associated functions), improving clarity and testability.
+**Action:** Convert stateless methods to associated functions (remove `&self`) and update call sites.
