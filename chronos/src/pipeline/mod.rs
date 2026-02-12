@@ -12,9 +12,9 @@
 //! use tardis_gallifrey::Gallifrey;
 //!
 //! # async fn example() -> anyhow::Result<()> {
-//! // Initialize dependencies
-//! let vortex = Arc::new(Vortex::new()?);
-//! let gallifrey = Arc::new(Gallifrey::new());
+//! // Initialize dependencies (mocked for this example)
+//! # let vortex = Arc::new(Vortex::new()?);
+//! # let gallifrey = Arc::new(Gallifrey::new());
 //!
 //! // Create Chronos engine
 //! let chronos = Chronos::new(vortex, gallifrey);
@@ -49,6 +49,21 @@ use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
+///
+/// Controls how context is retrieved and filtered.
+///
+/// # Examples
+///
+/// ```rust
+/// use tardis_chronos::RagConfig;
+///
+/// let config = RagConfig {
+///     max_context_items: 5,
+///     include_knowledge: true,
+///     include_conversation: false,
+///     ..RagConfig::default()
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagConfig {
     /// Maximum number of context items to retrieve.
@@ -76,13 +91,15 @@ impl Default for RagConfig {
 }
 
 /// A source of context for RAG.
+///
+/// Represents a piece of information retrieved to answer a query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSource {
-    /// Source type.
+    /// Source type (where this information came from).
     pub source_type: ContextSourceType,
-    /// Content.
+    /// The actual text content.
     pub content: String,
-    /// Relevance score.
+    /// Relevance score (0.0 to 1.0).
     pub relevance: f32,
     /// Entity ID if from knowledge graph.
     pub entity_id: Option<EntityId>,
@@ -91,11 +108,11 @@ pub struct ContextSource {
 /// Type of context source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ContextSourceType {
-    /// Knowledge graph.
+    /// Knowledge graph (long-term memory).
     Knowledge,
-    /// Conversation history.
+    /// Conversation history (short-term memory).
     Conversation,
-    /// System state.
+    /// System state (real-time data).
     SystemState,
 }
 
@@ -160,7 +177,9 @@ impl Chronos {
     ///
     /// Currently, the inference step is **mocked**. It will return a static string
     /// indicating what *would* have been sent to the LLM, along with the retrieved context items.
-    /// This is temporary while the `vortex` crate is being integrated.
+    ///
+    /// **Why?** The `vortex` crate integration is in progress. This allows testing the
+    /// orchestration pipeline (analysis -> retrieval -> augmentation) without loading full LLM weights.
     ///
     /// # Errors
     ///
@@ -200,6 +219,9 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// This is a convenience wrapper around `Gallifrey::insert`. It creates an `Entity`
+    /// representing the memory and stores it in the Knowledge Graph.
     ///
     /// # Errors
     ///

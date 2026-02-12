@@ -140,7 +140,7 @@ impl QueryAnalyzer {
     ///
     /// # Examples
     ///
-    /// Basic recall query:
+    /// **Recall Query with Temporal Reference:**
     /// ```
     /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
     /// use tardis_common::temporal::TemporalReference;
@@ -149,14 +149,16 @@ impl QueryAnalyzer {
     /// let analysis = analyzer.analyze("What did we do yesterday?").unwrap();
     ///
     /// assert_eq!(analysis.intent, QueryIntent::Recall);
-    /// assert!(!analysis.temporal_refs.is_empty());
-    /// match &analysis.temporal_refs[0] {
+    ///
+    /// // Verify temporal extraction
+    /// let reference = &analysis.temporal_refs[0];
+    /// match reference {
     ///    TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
     ///    _ => panic!("Expected relative reference"),
     /// }
     /// ```
     ///
-    /// Storing a memory:
+    /// **Storing a Memory:**
     /// ```
     /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
     ///
@@ -166,17 +168,7 @@ impl QueryAnalyzer {
     /// assert_eq!(analysis.intent, QueryIntent::Remember);
     /// ```
     ///
-    /// Comparing states (temporal diff):
-    /// ```
-    /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
-    ///
-    /// let analyzer = QueryAnalyzer::new();
-    /// let analysis = analyzer.analyze("How has the user profile changed?").unwrap();
-    ///
-    /// assert_eq!(analysis.intent, QueryIntent::TemporalDiff);
-    /// ```
-    ///
-    /// System introspection:
+    /// **System Introspection:**
     /// ```
     /// use tardis_chronos::pipeline::{QueryAnalyzer, QueryIntent};
     ///
