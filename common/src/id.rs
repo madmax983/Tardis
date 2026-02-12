@@ -104,7 +104,7 @@ impl fmt::Display for SessionId {
 }
 
 /// Unique identifier for a system state snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SnapshotId(Uuid);
 
 impl SnapshotId {
@@ -124,6 +124,14 @@ impl SnapshotId {
     #[must_use]
     pub const fn as_uuid(&self) -> Uuid {
         self.0
+    }
+
+    /// Create a maximum possible snapshot ID.
+    ///
+    /// Useful for range queries.
+    #[must_use]
+    pub const fn max() -> Self {
+        Self(Uuid::from_u128(u128::MAX))
     }
 }
 

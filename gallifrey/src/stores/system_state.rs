@@ -8,7 +8,7 @@
 pub use crate::domain::{Change, Snapshot, SnapshotTrigger, SystemState};
 use crate::error::{GallifreyError, GallifreyResult};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::RwLock;
 use tardis_common::SnapshotId;
 
@@ -19,6 +19,9 @@ pub struct SystemStateStore {
     snapshots: RwLock<HashMap<SnapshotId, Snapshot>>,
     /// Snapshots by name for quick lookup.
     by_name: RwLock<HashMap<String, SnapshotId>>,
+    /// Timeline index for efficient temporal lookups (time -> id).
+    /// Uses tuple key (time, id) to handle potential timestamp collisions.
+    timeline: RwLock<BTreeSet<(DateTime<Utc>, SnapshotId)>>,
     /// Changes between snapshots.
     changes: RwLock<Vec<Change>>,
 }
@@ -30,6 +33,7 @@ impl SystemStateStore {
         Self {
             snapshots: RwLock::new(HashMap::new()),
             by_name: RwLock::new(HashMap::new()),
+            timeline: RwLock::new(BTreeSet::new()),
             changes: RwLock::new(Vec::new()),
         }
     }
@@ -64,6 +68,14 @@ impl SystemStateStore {
             .by_name
             .write()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        let mut timeline = self
+            .timeline
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        // Update timeline index
+        timeline.insert((snapshot.timestamp, id));
 
         snapshots.insert(id, snapshot);
         by_name.insert(name.to_string(), id);
@@ -112,16 +124,25 @@ impl SystemStateStore {
     ///
     /// Returns an error if the lock is poisoned.
     pub fn find_snapshot_at(&self, timestamp: DateTime<Utc>) -> GallifreyResult<Option<Snapshot>> {
-        let snapshots = self
-            .snapshots
+        let timeline = self
+            .timeline
             .read()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
-        Ok(snapshots
-            .values()
-            .filter(|s| s.timestamp <= timestamp)
-            .max_by_key(|s| s.timestamp)
-            .cloned())
+        // Bolt optimization: Use BTreeSet index for O(log N) lookup instead of O(N) scan.
+        // Look for the last entry <= (timestamp, MAX_UUID)
+        let id = match timeline
+            .range(..=(timestamp, SnapshotId::max()))
+            .next_back()
+        {
+            Some((_, id)) => *id,
+            None => return Ok(None),
+        };
+
+        // Important: Drop the timeline lock before acquiring snapshot lock
+        drop(timeline);
+
+        self.get_snapshot(id)
     }
 
     /// Record a change.
@@ -168,13 +189,24 @@ impl SystemStateStore {
     ///
     /// Returns an error if the lock is poisoned.
     pub fn list_snapshots(&self) -> GallifreyResult<Vec<Snapshot>> {
+        // Bolt: Acquire locks in consistent order (snapshots -> timeline) to avoid deadlocks
+        // with take_snapshot which acquires snapshots (write) -> timeline (write).
         let snapshots = self
             .snapshots
             .read()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
-        let mut list: Vec<_> = snapshots.values().cloned().collect();
-        list.sort_by_key(|s| s.timestamp);
+        let timeline = self
+            .timeline
+            .read()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        // Bolt optimization: Iterate timeline index for O(N) sorted retrieval
+        // instead of O(N log N) sort.
+        let list: Vec<_> = timeline
+            .iter()
+            .filter_map(|(_, id)| snapshots.get(id).cloned())
+            .collect();
 
         Ok(list)
     }
