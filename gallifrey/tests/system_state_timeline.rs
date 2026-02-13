@@ -44,10 +44,7 @@ fn test_find_snapshot_at_timeline() {
 
     // Check slightly after s1, before s2
     let mid_time = s1.timestamp + (s2.timestamp - s1.timestamp) / 2;
-    let f1_later = store
-        .find_snapshot_at(mid_time)
-        .unwrap()
-        .unwrap();
+    let f1_later = store.find_snapshot_at(mid_time).unwrap().unwrap();
     assert_eq!(f1_later.id, id1);
 
     // Check exact match s2
@@ -77,11 +74,17 @@ fn test_list_snapshots_order() {
         files: HashMap::new(),
     };
 
-    let id1 = store.take_snapshot("s1", SnapshotTrigger::Manual, state.clone()).unwrap();
+    let id1 = store
+        .take_snapshot("s1", SnapshotTrigger::Manual, state.clone())
+        .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(10));
-    let id2 = store.take_snapshot("s2", SnapshotTrigger::Manual, state.clone()).unwrap();
+    let id2 = store
+        .take_snapshot("s2", SnapshotTrigger::Manual, state.clone())
+        .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(10));
-    let id3 = store.take_snapshot("s3", SnapshotTrigger::Manual, state.clone()).unwrap();
+    let id3 = store
+        .take_snapshot("s3", SnapshotTrigger::Manual, state.clone())
+        .unwrap();
 
     let list = store.list_snapshots().unwrap();
     assert_eq!(list.len(), 3);

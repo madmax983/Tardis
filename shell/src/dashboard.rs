@@ -163,6 +163,12 @@ pub mod tui {
             }
         }
 
+        #[allow(
+            clippy::too_many_lines,
+            clippy::cast_precision_loss,
+            clippy::manual_range_contains,
+            clippy::cast_lossless
+        )]
         fn ui(&self, f: &mut Frame) {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)

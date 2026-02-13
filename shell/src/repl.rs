@@ -192,11 +192,24 @@ impl Repl {
             #[cfg(feature = "nova")]
             "sonic" | "fix" => {
                 if args.is_empty() {
-                    println!("Usage: sonic <file> or sonic repair <file>");
+                    println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
                     return;
                 }
 
-                let screwdriver = SonicScrewdriver::new();
+                let screwdriver = SonicScrewdriver::new(
+                    self.telemetry_store.clone(),
+                    Some(std::sync::Arc::clone(&self.gallifrey)),
+                );
+
+                if args[0] == "diagnose" {
+                    println!("{}", screwdriver.buzz());
+                    match screwdriver.diagnose().await {
+                        Ok(report) => println!("{report}"),
+                        Err(e) => println!("Diagnosis failed: {e}"),
+                    }
+                    return;
+                }
+
                 let path = std::path::Path::new(&args[args.len() - 1]);
 
                 // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
@@ -212,8 +225,8 @@ impl Repl {
                 };
 
                 match result {
-                    Ok(report) => println!("{}", report),
-                    Err(e) => println!("Sonic Screwdriver error: {}", e),
+                    Ok(report) => println!("{report}"),
+                    Err(e) => println!("Sonic Screwdriver error: {e}"),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
