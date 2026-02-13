@@ -58,7 +58,6 @@ pub struct Prescription {
 #[derive(Debug)]
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
-    #[allow(dead_code)]
     gallifrey: Arc<Gallifrey>,
 }
 
@@ -149,15 +148,29 @@ impl SystemDoctor {
             }
         }
 
-        // Correlate with system changes (simple heuristic for now)
-        // In a real version, we'd ask Gallifrey for recent "SystemState" changes
-        // and ask Vortex to find causality.
-        let root_causes = if status == HealthStatus::Healthy {
-            Vec::new()
-        } else {
-            // Mock causality
-            vec!["Possible recent configuration change or high load".to_string()]
-        };
+        // Correlate with system changes
+        let mut root_causes = Vec::new();
+        if status != HealthStatus::Healthy {
+            let now = Utc::now();
+            let window = Duration::minutes(5);
+            let from = now - window;
+
+            if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
+                for change in changes {
+                    root_causes.push(format!(
+                        "System change to {} at {} ({:?})",
+                        change.path, change.timestamp, change.change_type
+                    ));
+                }
+            }
+
+            if root_causes.is_empty() {
+                root_causes.push(
+                    "No recent system changes found. Possible external factor or load spike."
+                        .to_string(),
+                );
+            }
+        }
 
         let prescription = (status != HealthStatus::Healthy).then(|| Prescription {
             description: "Check recent system state changes and error logs.".to_string(),
