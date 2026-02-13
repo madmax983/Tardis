@@ -68,8 +68,20 @@ impl Router {
     pub fn new() -> Self {
         Self {
             builtins: vec![
-                "help", "exit", "quit", "history", "remember", "recall", "models", "context",
-                "clear", "snapshot", "restore", "timeline", "forget", "export",
+                "help",
+                "exit",
+                "quit",
+                "history",
+                "remember",
+                "recall",
+                "models",
+                "context",
+                "clear",
+                "snapshot",
+                "restore",
+                "timeline",
+                "forget",
+                "export",
                 #[cfg(feature = "nova")]
                 "sonic",
                 #[cfg(feature = "nova")]

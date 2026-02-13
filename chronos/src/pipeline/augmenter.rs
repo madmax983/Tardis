@@ -404,7 +404,9 @@ mod tests {
 
     #[test]
     fn test_augment_many_small_sources() {
-        let augmenter = ContextAugmenter { max_context_tokens: 5 };
+        let augmenter = ContextAugmenter {
+            max_context_tokens: 5,
+        };
 
         // Create 20 sources of 3 chars each ("s00", "s01", etc.)
         // Current logic: 3/4 = 0 tokens. All 20 fit.

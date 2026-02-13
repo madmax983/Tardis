@@ -12,6 +12,7 @@
 //! - `context`: Inspect session state.
 
 use std::sync::Arc;
+use tardis_chronos::Chronos;
 use tardis_common::SessionId;
 use tardis_gallifrey::Gallifrey;
 
@@ -192,6 +193,33 @@ impl CommandHandler {
         println!("  Project: (none set)");
         println!();
         println!("Use 'context project:<name>' to set project context.");
+    }
+
+    /// Remember information for later recall.
+    #[allow(clippy::unused_self)]
+    pub async fn remember(&self, chronos: &Arc<Chronos>, args: &[String]) {
+        let content = args.join(" ");
+        match chronos
+            .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
+            .await
+        {
+            Ok(id) => println!("Remembered: {id}"),
+            Err(e) => println!("Failed to remember: {e}"),
+        }
+    }
+
+    /// Recall stored memories.
+    #[allow(clippy::unused_self)]
+    pub async fn recall(&self, chronos: &Arc<Chronos>, args: &[String]) {
+        let query = args.join(" ");
+        match chronos.recall(&query, 5).await {
+            Ok(results) => {
+                for result in results {
+                    println!("- {}", result.content);
+                }
+            }
+            Err(e) => println!("Failed to recall: {e}"),
+        }
     }
 }
 
