@@ -2,28 +2,103 @@
 //!
 //! "It's a scientific instrument, not a magic wand!"
 //!
-//! A CLI tool for file repair and analysis, leveraging PsychicPaper
+//! A CLI tool for file repair and analysis, leveraging `PsychicPaper`
 //! for heuristic parsing and validation.
 
 use anyhow::{Context, Result};
 use serde_json::Value;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
+use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
+use tardis_gallifrey::Gallifrey;
+use tardis_telemetry::gallifrey::TelemetryStore;
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
 pub struct SonicScrewdriver {
     paper: PsychicPaper,
+    telemetry: Option<Arc<TelemetryStore>>,
+    gallifrey: Option<Arc<Gallifrey>>,
 }
 
 impl SonicScrewdriver {
     /// Create a new Sonic Screwdriver.
     #[must_use]
-    pub const fn new() -> Self {
+    pub const fn new(
+        telemetry: Option<Arc<TelemetryStore>>,
+        gallifrey: Option<Arc<Gallifrey>>,
+    ) -> Self {
         Self {
             paper: PsychicPaper::new(),
+            telemetry,
+            gallifrey,
         }
+    }
+
+    /// Run a system diagnosis.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if telemetry or gallifrey is not available.
+    pub async fn diagnose(&self) -> Result<String> {
+        let (Some(telemetry), Some(gallifrey)) = (&self.telemetry, &self.gallifrey) else {
+            return Ok("⚠️  Sonic Screwdriver needs telemetry and gallifrey to diagnose system health.\n   (Telemetry offline)".to_string());
+        };
+
+        let doctor = SystemDoctor::new(telemetry.clone(), gallifrey.clone());
+        let diagnosis = doctor.diagnose().await;
+
+        let mut report = String::new();
+        let _ = writeln!(report, "🔍  SYSTEM DIAGNOSIS");
+        let _ = writeln!(report, "====================\n");
+
+        match diagnosis.status {
+            HealthStatus::Healthy => {
+                let _ = writeln!(report, "Status: HEALTHY 🟢");
+            }
+            HealthStatus::Degraded => {
+                let _ = writeln!(report, "Status: DEGRADED 🟡");
+            }
+            HealthStatus::Critical => {
+                let _ = writeln!(report, "Status: CRITICAL 🔴");
+            }
+        }
+
+        if !diagnosis.symptoms.is_empty() {
+            let _ = writeln!(report, "\nSymptoms:");
+            for symptom in &diagnosis.symptoms {
+                let _ = writeln!(report, " - {symptom}");
+            }
+        }
+
+        if !diagnosis.root_causes.is_empty() {
+            let _ = writeln!(report, "\nPotential Causes:");
+            for cause in &diagnosis.root_causes {
+                let _ = writeln!(report, " - {cause}");
+            }
+        }
+
+        if let Some(prescription) = diagnosis.prescription {
+            let _ = writeln!(report, "\nPrescription:");
+            let _ = writeln!(report, " 💊 {}", prescription.description);
+            if let Some(cmd) = prescription.auto_fix_command {
+                let _ = writeln!(report, "    Run: {cmd}");
+            }
+        }
+
+        Ok(report)
+    }
+
+    /// "Buzz" the sonic screwdriver.
+    ///
+    /// Just for fun.
+    #[must_use]
+    #[allow(clippy::unused_self)]
+    pub fn buzz(&self) -> String {
+        "🔊 *Whirrrrrr-buzz-click-whirrrrrr*".to_string()
     }
 
     /// Inspect a file and return a diagnosis.
@@ -32,22 +107,25 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content =
-            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         let size = content.len();
         let lines = content.lines().count();
 
-        let mut diagnosis = format!("File: {:?}\nSize: {} bytes\nLines: {}\n", path, size, lines);
+        let mut diagnosis = format!(
+            "File: {}\nSize: {size} bytes\nLines: {lines}\n",
+            path.display()
+        );
 
         // Try to interpret as JSON
         match self.paper.interpret(&content, Intent::Json) {
             Ok(_) => diagnosis.push_str("Type: Valid JSON\nStatus: Healthy 🟢"),
             Err(_) => {
                 // Try other formats
-                if let Ok(_) = self.paper.interpret(&content, Intent::KeyValue) {
+                if self.paper.interpret(&content, Intent::KeyValue).is_ok() {
                     diagnosis.push_str("Type: Key-Value Pairs\nStatus: Healthy 🟢");
-                } else if let Ok(_) = self.paper.interpret(&content, Intent::List) {
+                } else if self.paper.interpret(&content, Intent::List).is_ok() {
                     diagnosis.push_str("Type: List\nStatus: Healthy 🟢");
                 } else {
                     match self.paper.interpret(&content, Intent::Auto) {
@@ -60,8 +138,10 @@ impl SonicScrewdriver {
                                 );
                             }
                         }
-                        Err(e) => diagnosis
-                            .push_str(&format!("Type: Unknown\nStatus: Broken 🔴\nError: {}", e)),
+                        Err(e) => {
+                            let _ =
+                                write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
+                        }
                     }
                 }
             }
@@ -80,37 +160,38 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read or written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content =
-            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
         fs::write(&backup_path, &content)
-            .with_context(|| format!("Failed to create backup: {:?}", backup_path))?;
+            .with_context(|| format!("Failed to create backup: {}", backup_path.display()))?;
 
         // Attempt repair via interpretation
         // We use Auto intent to let PsychicPaper figure it out
         let interpreted = self
             .paper
             .interpret(&content, Intent::Auto)
-            .map_err(|e| anyhow::anyhow!("Failed to interpret file: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to interpret file: {e}"))?;
 
         // If it's a string, we probably didn't parse anything structured
         if let Value::String(_) = interpreted {
             return Ok(format!(
-                "Could not identify structure to repair. Backup created at {:?}",
-                backup_path
+                "Could not identify structure to repair. Backup created at {}",
+                backup_path.display()
             ));
         }
 
         // Write back as pretty-printed JSON
         let fixed_content = serde_json::to_string_pretty(&interpreted)?;
         fs::write(path, fixed_content)
-            .with_context(|| format!("Failed to write fixed file: {:?}", path))?;
+            .with_context(|| format!("Failed to write fixed file: {}", path.display()))?;
 
         Ok(format!(
-            "Repaired file: {:?}\nBackup saved to: {:?}\nFormat: JSON (Normalized)",
-            path, backup_path
+            "Repaired file: {}\nBackup saved to: {}\nFormat: JSON (Normalized)",
+            path.display(),
+            backup_path.display()
         ))
     }
 }
@@ -146,7 +227,7 @@ mod tests {
     fn test_inspect_json() -> Result<()> {
         let (path, cleanup) = create_temp_file(r#"{"key": "value"}"#);
 
-        let sonic = SonicScrewdriver::new();
+        let sonic = SonicScrewdriver::new(None, None);
         let diagnosis = sonic.inspect(&path)?;
         assert!(diagnosis.contains("Valid JSON"));
 
@@ -159,7 +240,7 @@ mod tests {
         // PsychicPaper can handle markdown code blocks or messy JSON
         let (path, cleanup) = create_temp_file("```json\n{\"key\": \"value\"}\n```");
 
-        let sonic = SonicScrewdriver::new();
+        let sonic = SonicScrewdriver::new(None, None);
         let report = sonic.repair(&path)?;
 
         assert!(report.contains("Repaired file"));
