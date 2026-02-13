@@ -191,30 +191,7 @@ impl Repl {
             }
             #[cfg(feature = "nova")]
             "sonic" | "fix" => {
-                if args.is_empty() {
-                    println!("Usage: sonic <file> or sonic repair <file>");
-                    return;
-                }
-
-                let screwdriver = SonicScrewdriver::new();
-                let path = std::path::Path::new(&args[args.len() - 1]);
-
-                // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
-                // If command is "fix", we repair.
-                // If command is "sonic" and first arg is "repair" or "fix", we repair.
-                let repair = command == "fix"
-                    || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
-
-                let result = if repair {
-                    screwdriver.repair(path)
-                } else {
-                    screwdriver.inspect(path)
-                };
-
-                match result {
-                    Ok(report) => println!("{}", report),
-                    Err(e) => println!("Sonic Screwdriver error: {}", e),
-                }
+                self.handle_sonic(command, args).await;
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
@@ -262,5 +239,58 @@ impl Repl {
     async fn handle_direct_query(&self, query: &str) {
         println!("[Direct query: {query}]");
         println!("Direct queries not yet implemented.");
+    }
+
+    /// Handle the Sonic Screwdriver command.
+    #[cfg(feature = "nova")]
+    async fn handle_sonic(&self, command: &str, args: &[String]) {
+        let screwdriver = SonicScrewdriver::new(
+            self.telemetry_store.clone(),
+            Some(Arc::clone(&self.gallifrey)),
+        );
+
+        // Case 1: "sonic" or "sonic diagnose" -> System Diagnosis
+        if args.is_empty() || (command == "sonic" && args.len() == 1 && args[0] == "diagnose") {
+            println!("🏥 Running System Diagnosis...");
+            match screwdriver.diagnose_system().await {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Diagnosis failed: {e}"),
+            }
+            return;
+        }
+
+        // Case 2: "sonic buzz" -> Easter egg
+        if command == "sonic" && args.len() == 1 && args[0] == "buzz" {
+            println!("{}", screwdriver.buzz());
+            return;
+        }
+
+        // Case 3: "sonic <file>" or "sonic repair <file>" or "fix <file>" -> File Ops
+        let path_str = if args.is_empty() {
+            // Should be unreachable due to checks above, but safe fallback
+            println!("Usage: sonic [diagnose|buzz|<file>] or sonic repair <file>");
+            return;
+        } else {
+            &args[args.len() - 1]
+        };
+
+        let path = std::path::Path::new(path_str);
+
+        // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
+        // If command is "fix", we repair.
+        // If command is "sonic" and first arg is "repair" or "fix", we repair.
+        let repair = command == "fix"
+            || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
+
+        let result = if repair {
+            screwdriver.repair(path)
+        } else {
+            screwdriver.inspect(path)
+        };
+
+        match result {
+            Ok(report) => println!("{report}"),
+            Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
     }
 }

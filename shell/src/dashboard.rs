@@ -1,6 +1,13 @@
 #[cfg(feature = "nova")]
 /// The TUI Dashboard module.
 pub mod tui {
+    #![allow(
+        clippy::too_many_lines,
+        clippy::cast_precision_loss,
+        clippy::manual_range_contains,
+        clippy::cast_lossless
+    )]
+
     use anyhow::Result;
     use chrono::{DateTime, Utc};
     use crossterm::{
