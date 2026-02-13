@@ -56,7 +56,7 @@ impl ContextAugmenter {
     ///
     /// ```
     /// use tardis_chronos::pipeline::{ContextAugmenter, ContextSource, ContextSourceType};
-    /// use tardis_chronos::pipeline::{QueryAnalyzer, AnalyzedQuery, QueryIntent};
+    /// use tardis_chronos::pipeline::{AnalyzedQuery, QueryIntent};
     /// use tardis_common::temporal::TemporalReference;
     /// use chrono::Utc;
     ///

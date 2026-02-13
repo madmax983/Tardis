@@ -34,7 +34,7 @@ mod analyzer;
 mod augmenter;
 mod retriever;
 
-pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
+pub use analyzer::{analyze, AnalyzedQuery, QueryIntent};
 pub use augmenter::ContextAugmenter;
 pub use retriever::Retriever;
 
@@ -137,7 +137,6 @@ pub struct Chronos {
     gallifrey: Arc<Gallifrey>,
     #[cfg(feature = "telemetry")]
     telemetry: Option<Arc<TelemetryStore>>,
-    analyzer: QueryAnalyzer,
     retriever: Retriever,
     augmenter: ContextAugmenter,
 }
@@ -151,7 +150,6 @@ impl Chronos {
             gallifrey: Arc::clone(&gallifrey),
             #[cfg(feature = "telemetry")]
             telemetry: None,
-            analyzer: QueryAnalyzer::new(),
             retriever: Retriever::new(gallifrey),
             augmenter: ContextAugmenter::new(),
         }
@@ -192,7 +190,7 @@ impl Chronos {
         info!("Processing RAG query");
 
         // 1. Analyze the query
-        let analysis = self.analyzer.analyze(prompt)?;
+        let analysis = analyzer::analyze(prompt)?;
         info!("Query analyzed: {:?}", analysis.intent);
 
         // 2. Retrieve relevant context
@@ -254,9 +252,9 @@ impl Chronos {
 
         let id = self
             .gallifrey
-            .insert(entity)
-            .await
-            .map_err(ChronosError::Common)?;
+            .knowledge()
+            .insert_entity(entity)
+            .map_err(ChronosError::Gallifrey)?;
 
         Ok(id)
     }
@@ -273,9 +271,9 @@ impl Chronos {
         // Search knowledge graph
         let results = self
             .gallifrey
-            .search_knowledge(&[], limit)
-            .await
-            .map_err(ChronosError::Common)?;
+            .knowledge()
+            .semantic_search(&[], limit)
+            .map_err(ChronosError::Gallifrey)?;
 
         Ok(results
             .into_iter()

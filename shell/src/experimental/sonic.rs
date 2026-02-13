@@ -2,7 +2,7 @@
 //!
 //! "It's a scientific instrument, not a magic wand!"
 //!
-//! A CLI tool for file repair and analysis, leveraging PsychicPaper
+//! A CLI tool for file repair and analysis, leveraging `PsychicPaper`
 //! for heuristic parsing and validation.
 
 use anyhow::{Context, Result};
@@ -32,22 +32,25 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content =
-            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         let size = content.len();
         let lines = content.lines().count();
 
-        let mut diagnosis = format!("File: {:?}\nSize: {} bytes\nLines: {}\n", path, size, lines);
+        let mut diagnosis = format!(
+            "File: {}\nSize: {size} bytes\nLines: {lines}\n",
+            path.display()
+        );
 
         // Try to interpret as JSON
         match self.paper.interpret(&content, Intent::Json) {
             Ok(_) => diagnosis.push_str("Type: Valid JSON\nStatus: Healthy 🟢"),
             Err(_) => {
                 // Try other formats
-                if let Ok(_) = self.paper.interpret(&content, Intent::KeyValue) {
+                if self.paper.interpret(&content, Intent::KeyValue).is_ok() {
                     diagnosis.push_str("Type: Key-Value Pairs\nStatus: Healthy 🟢");
-                } else if let Ok(_) = self.paper.interpret(&content, Intent::List) {
+                } else if self.paper.interpret(&content, Intent::List).is_ok() {
                     diagnosis.push_str("Type: List\nStatus: Healthy 🟢");
                 } else {
                     match self.paper.interpret(&content, Intent::Auto) {
@@ -60,8 +63,11 @@ impl SonicScrewdriver {
                                 );
                             }
                         }
-                        Err(e) => diagnosis
-                            .push_str(&format!("Type: Unknown\nStatus: Broken 🔴\nError: {}", e)),
+                        Err(e) => {
+                            use std::fmt::Write;
+                            let _ =
+                                write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
+                        }
                     }
                 }
             }
@@ -80,37 +86,38 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read or written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content =
-            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
         fs::write(&backup_path, &content)
-            .with_context(|| format!("Failed to create backup: {:?}", backup_path))?;
+            .with_context(|| format!("Failed to create backup: {}", backup_path.display()))?;
 
         // Attempt repair via interpretation
         // We use Auto intent to let PsychicPaper figure it out
         let interpreted = self
             .paper
             .interpret(&content, Intent::Auto)
-            .map_err(|e| anyhow::anyhow!("Failed to interpret file: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to interpret file: {e}"))?;
 
         // If it's a string, we probably didn't parse anything structured
         if let Value::String(_) = interpreted {
             return Ok(format!(
-                "Could not identify structure to repair. Backup created at {:?}",
-                backup_path
+                "Could not identify structure to repair. Backup created at {}",
+                backup_path.display()
             ));
         }
 
         // Write back as pretty-printed JSON
         let fixed_content = serde_json::to_string_pretty(&interpreted)?;
         fs::write(path, fixed_content)
-            .with_context(|| format!("Failed to write fixed file: {:?}", path))?;
+            .with_context(|| format!("Failed to write fixed file: {}", path.display()))?;
 
         Ok(format!(
-            "Repaired file: {:?}\nBackup saved to: {:?}\nFormat: JSON (Normalized)",
-            path, backup_path
+            "Repaired file: {}\nBackup saved to: {}\nFormat: JSON (Normalized)",
+            path.display(),
+            backup_path.display()
         ))
     }
 }

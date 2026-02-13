@@ -1,6 +1,6 @@
 //! REPL (Read-Eval-Print Loop) for the Tardis shell.
 
-use crate::commands::CommandHandler;
+use crate::commands;
 use crate::router::{Intent, Router};
 use anyhow::Result;
 use rustyline::error::ReadlineError;
@@ -24,13 +24,12 @@ pub struct Repl {
     editor: DefaultEditor,
     /// Router for intent classification.
     router: Router,
-    /// Command handler for built-in commands.
-    commands: CommandHandler,
     /// Chronos RAG engine.
     chronos: Arc<Chronos>,
     /// Gallifrey database.
     gallifrey: Arc<Gallifrey>,
     /// Telemetry store (optional).
+    #[allow(dead_code)]
     telemetry_store: Option<Arc<TelemetryStore>>,
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]
@@ -62,7 +61,6 @@ impl Repl {
         Ok(Self {
             editor,
             router: Router::new(),
-            commands: CommandHandler::new(),
             chronos,
             gallifrey,
             telemetry_store,
@@ -141,12 +139,12 @@ impl Repl {
     /// Handle a built-in command.
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
-            "help" => self.commands.help(args),
+            "help" => commands::help(args),
             "exit" | "quit" => {
                 println!("Goodbye!");
                 self.running = false;
             }
-            "history" => self.commands.history(&self.gallifrey, self.session_id),
+            "history" => commands::history(&self.gallifrey, self.session_id),
             "remember" => {
                 let content = args.join(" ");
                 match self
@@ -169,8 +167,8 @@ impl Repl {
                     Err(e) => println!("Failed to recall: {e}"),
                 }
             }
-            "models" => self.commands.list_models(),
-            "context" => self.commands.show_context(self.session_id),
+            "models" => commands::list_models(),
+            "context" => commands::show_context(self.session_id),
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
@@ -212,8 +210,8 @@ impl Repl {
                 };
 
                 match result {
-                    Ok(report) => println!("{}", report),
-                    Err(e) => println!("Sonic Screwdriver error: {}", e),
+                    Ok(report) => println!("{report}"),
+                    Err(e) => println!("Sonic Screwdriver error: {e}"),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

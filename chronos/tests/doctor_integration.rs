@@ -28,7 +28,7 @@ async fn test_doctor_correlates_changes_with_errors() {
         old_value: None,
         new_value: None,
     };
-    gallifrey.record_change(change).await.unwrap();
+    gallifrey.system_state().record_change(change).unwrap();
 
     // 3. Record an error (e.g. 1 minute ago)
     let error_event = EventData {

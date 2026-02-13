@@ -77,9 +77,9 @@ impl Retriever {
 
         let entities = self
             .gallifrey
-            .search_knowledge(&embedding, config.max_context_items)
-            .await
-            .map_err(ChronosError::Common)?;
+            .knowledge()
+            .semantic_search(&embedding, config.max_context_items)
+            .map_err(ChronosError::Gallifrey)?;
 
         for e in entities {
             sources.push(ContextSource {
@@ -107,9 +107,9 @@ impl Retriever {
         if let Some(session_id) = config.session_id {
             let messages = self
                 .gallifrey
+                .conversation()
                 .get_recent_messages(session_id, 5)
-                .await
-                .map_err(ChronosError::Common)?;
+                .map_err(ChronosError::Gallifrey)?;
 
             for msg in messages {
                 sources.push(ContextSource {
@@ -125,9 +125,9 @@ impl Retriever {
         let embedding: Vec<f32> = Vec::new();
         let historical = self
             .gallifrey
-            .search_conversation(&embedding, config.max_context_items)
-            .await
-            .map_err(ChronosError::Common)?;
+            .conversation()
+            .semantic_search(&embedding, config.max_context_items)
+            .map_err(ChronosError::Gallifrey)?;
 
         for msg in historical {
             sources.push(ContextSource {
@@ -159,9 +159,9 @@ impl Retriever {
 
             if let Some(snapshot) = self
                 .gallifrey
-                .find_snapshot(resolved)
-                .await
-                .map_err(ChronosError::Common)?
+                .system_state()
+                .find_snapshot_at(resolved)
+                .map_err(ChronosError::Gallifrey)?
             {
                 sources.push(ContextSource {
                     source_type: ContextSourceType::SystemState,
