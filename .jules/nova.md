@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## Sonic System Diagnostics
+**Concept:** A "Sonic Screwdriver" CLI tool that integrates with the "System Doctor" to diagnose OS health using telemetry and system state.
+**Fate:** Merged (Experimental)
+**Lesson:** Giving a playful interface to serious observability tools makes them more accessible and fun to use.

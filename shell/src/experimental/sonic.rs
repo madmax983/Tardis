@@ -9,20 +9,102 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::doctor::{SystemDoctor, HealthStatus};
+use tardis_gallifrey::Gallifrey;
+use tardis_telemetry::gallifrey::TelemetryStore;
+
 /// The Sonic Screwdriver.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SonicScrewdriver {
     paper: PsychicPaper,
+    #[cfg(feature = "nova")]
+    doctor: Option<SystemDoctor>,
+}
+
+impl Default for SonicScrewdriver {
+    fn default() -> Self {
+        Self::new(None, None)
+    }
 }
 
 impl SonicScrewdriver {
     /// Create a new Sonic Screwdriver.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new(
+        #[allow(unused_variables)] telemetry: Option<Arc<TelemetryStore>>,
+        #[allow(unused_variables)] gallifrey: Option<Arc<Gallifrey>>,
+    ) -> Self {
+        #[cfg(feature = "nova")]
+        let doctor = if let (Some(telemetry), Some(gallifrey)) = (telemetry, gallifrey) {
+            Some(SystemDoctor::new(telemetry, gallifrey))
+        } else {
+            None
+        };
+
         Self {
             paper: PsychicPaper::new(),
+            #[cfg(feature = "nova")]
+            doctor,
+        }
+    }
+
+    /// Activate the sonic device (Easter Egg).
+    #[allow(clippy::unused_self)]
+    #[must_use]
+    pub fn buzz(&self) -> String {
+        "Bzzzzzzzt! (It doesn't do wood)".to_string()
+    }
+
+    /// Diagnose the system health.
+    ///
+    /// Delegates to the System Doctor if available.
+    #[cfg(feature = "nova")]
+    pub async fn diagnose_system(&self) -> Result<String> {
+        if let Some(doctor) = &self.doctor {
+            let diagnosis = doctor.diagnose().await;
+
+            let icon = match diagnosis.status {
+                HealthStatus::Healthy => "🟢",
+                HealthStatus::Degraded => "🟡",
+                HealthStatus::Critical => "🔴",
+            };
+
+            let mut report = format!(
+                "System Status: {:?} {}\n\nSymptoms:\n",
+                diagnosis.status, icon
+            );
+
+            if diagnosis.symptoms.is_empty() {
+                report.push_str("  - None (All systems nominal)\n");
+            } else {
+                for symptom in &diagnosis.symptoms {
+                    report.push_str(&format!("  - {}\n", symptom));
+                }
+            }
+
+            report.push_str("\nRoot Causes:\n");
+            if diagnosis.root_causes.is_empty() {
+                report.push_str("  - N/A\n");
+            } else {
+                for cause in &diagnosis.root_causes {
+                    report.push_str(&format!("  - {}\n", cause));
+                }
+            }
+
+            if let Some(rx) = diagnosis.prescription {
+                report.push_str(&format!("\nPrescription:\n  {}\n", rx.description));
+                if let Some(cmd) = rx.auto_fix_command {
+                    report.push_str(&format!("  Suggested Command: {}\n", cmd));
+                }
+            }
+
+            Ok(report)
+        } else {
+            Ok("Sonic Screwdriver is operating in limited mode (No System Doctor connection).\nCannot diagnose system.".to_string())
         }
     }
 
@@ -146,7 +228,7 @@ mod tests {
     fn test_inspect_json() -> Result<()> {
         let (path, cleanup) = create_temp_file(r#"{"key": "value"}"#);
 
-        let sonic = SonicScrewdriver::new();
+        let sonic = SonicScrewdriver::default();
         let diagnosis = sonic.inspect(&path)?;
         assert!(diagnosis.contains("Valid JSON"));
 
@@ -159,7 +241,7 @@ mod tests {
         // PsychicPaper can handle markdown code blocks or messy JSON
         let (path, cleanup) = create_temp_file("```json\n{\"key\": \"value\"}\n```");
 
-        let sonic = SonicScrewdriver::new();
+        let sonic = SonicScrewdriver::default();
         let report = sonic.repair(&path)?;
 
         assert!(report.contains("Repaired file"));
@@ -174,5 +256,11 @@ mod tests {
 
         cleanup();
         Ok(())
+    }
+
+    #[test]
+    fn test_buzz() {
+        let sonic = SonicScrewdriver::default();
+        assert_eq!(sonic.buzz(), "Bzzzzzzzt! (It doesn't do wood)");
     }
 }
