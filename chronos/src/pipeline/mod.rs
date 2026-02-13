@@ -12,14 +12,15 @@
 //! use tardis_gallifrey::Gallifrey;
 //!
 //! # async fn example() -> anyhow::Result<()> {
-//! // Initialize dependencies (mocked for this example)
-//! # let vortex = Arc::new(Vortex::new()?);
-//! # let gallifrey = Arc::new(Gallifrey::new());
+//! // 1. Initialize dependencies
+//! // In a real app, these would be shared instances
+//! let vortex = Arc::new(Vortex::new()?);
+//! let gallifrey = Arc::new(Gallifrey::new());
 //!
-//! // Create Chronos engine
+//! // 2. Create Chronos engine
 //! let chronos = Chronos::new(vortex, gallifrey);
 //!
-//! // Execute a RAG query
+//! // 3. Execute a RAG query
 //! let response = chronos.query(
 //!     "What happened in the last session?",
 //!     RagConfig::default()

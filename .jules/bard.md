@@ -17,3 +17,11 @@
 ## 2024-05-27 - The Silent Truncation
 **Confusion:** RAG responses were occasionally missing context without error, due to the `ContextAugmenter` silently truncating sources that exceeded the token budget.
 **Clarification:** Added a "Token Budgeting" section to `chronos/src/pipeline/augmenter.rs` explaining the 4-char heuristic and truncation logic.
+
+## 2026-02-13 - The Mock Mirage
+**Confusion:** Developers expecting full RAG pipeline functionality were confused by empty or static responses from `chronos::query`.
+**Clarification:** Explicitly documented `chronos::query` as using a mock inference engine until `vortex` integration is complete.
+
+## 2026-02-13 - The Bi-Temporal Blind Spot
+**Confusion:** Users struggled to understand why `update()` created a new version instead of overwriting data, leading to "ghost" data from the past.
+**Clarification:** Expanded the "Bi-Temporality" section in `gallifrey` docs to explain the "Append-Only" nature of updates and how to query valid vs. transaction time.

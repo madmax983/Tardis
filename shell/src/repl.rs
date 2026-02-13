@@ -31,6 +31,7 @@ pub struct Repl {
     /// Gallifrey database.
     gallifrey: Arc<Gallifrey>,
     /// Telemetry store (optional).
+    #[allow(dead_code)]
     telemetry_store: Option<Arc<TelemetryStore>>,
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]

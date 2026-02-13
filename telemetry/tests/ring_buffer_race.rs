@@ -1,11 +1,11 @@
-#![cfg(feature = "kernel")]
-#![allow(clippy::all, clippy::pedantic)]
-#![allow(clippy::unwrap_used, clippy::panic)]
-
 //! Reproduction test for RingBuffer race condition.
 //!
 //! Spawns multiple threads to write to the `RingBuffer` concurrently
 //! and verifies data integrity.
+
+#![cfg(feature = "kernel")]
+#![allow(clippy::all, clippy::pedantic)]
+#![allow(clippy::unwrap_used, clippy::panic)]
 
 use std::sync::{Arc, Barrier};
 use std::thread;
