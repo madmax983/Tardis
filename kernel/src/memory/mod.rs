@@ -6,8 +6,6 @@
 //! - Kernel heap allocation
 //! - Huge page support for AI workloads
 
-mod heap;
-
 use linked_list_allocator::LockedHeap;
 use uefi::table::boot::BootServices;
 
