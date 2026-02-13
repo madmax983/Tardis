@@ -16,20 +16,24 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
+//!     // 1. Initialize the engine
 //!     let vortex = Vortex::new()?;
 //!
+//!     // 2. Load a model (SafeTensors format)
+//!     // Note: This requires a valid model file at the specified path.
 //!     let handle = vortex.load_model(
-//!         "/models/phi-3-mini.safetensors",
+//!         "/path/to/models/phi-3-mini.safetensors",
 //!         ModelLoadConfig::default(),
 //!     ).await?;
 //!
+//!     // 3. Run inference
 //!     let response = vortex.infer(
 //!         handle,
 //!         "Explain quantum computing",
 //!         InferenceParams::default(),
 //!     ).await?;
 //!
-//!     println!("{}", response);
+//!     println!("Response: {}", response);
 //!     Ok(())
 //! }
 //! ```

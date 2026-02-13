@@ -78,10 +78,11 @@ impl CommandHandler {
         println!("    ?<query>          Direct LLM query (no RAG)");
         println!();
         println!("  EXAMPLES:");
-        println!("    What did we discuss about Rust?");
-        println!("    remember that the API uses JWT tokens");
-        println!("    @last-week show file changes");
-        println!("    !cargo build");
+        println!("    > What did we discuss about Rust?");
+        println!("    > remember that the API uses JWT tokens");
+        println!("    > @last-week show file changes");
+        println!("    > !cargo build");
+        println!("    > ?Write a poem about time travel");
         println!();
     }
 
@@ -105,6 +106,21 @@ impl CommandHandler {
                 println!("Examples:");
                 println!("  recall what I know about authentication");
                 println!("  recall project deadlines");
+            }
+            "models" => {
+                println!("models");
+                println!();
+                println!("List available LLM models and their status.");
+                println!("Use 'models load <path>' to load a specific model.");
+            }
+            "context" => {
+                println!("context [subcommand]");
+                println!();
+                println!("Inspect or modify the current session context.");
+                println!();
+                println!("Subcommands:");
+                println!("  (none)      Show summary");
+                println!("  project     Set project context");
             }
             "snapshot" => {
                 println!("snapshot <name>");

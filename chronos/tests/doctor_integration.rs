@@ -1,3 +1,5 @@
+//! Integration tests for System Doctor.
+
 #![cfg(feature = "nova")]
 #![allow(missing_docs)]
 #![allow(clippy::unwrap_used)]

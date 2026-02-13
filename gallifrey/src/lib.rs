@@ -17,6 +17,16 @@
 //! - "What is the system state *now*?" (Current Valid, Current Transaction)
 //! - "What did we *think* the system state was yesterday?" (Past Transaction, Past Valid)
 //!
+//! ### Update vs. Overwrite
+//!
+//! Gallifrey uses an append-only model. When you update an entity, the old version isn't deleted.
+//! Instead:
+//! - The **old version's** transaction time is closed (it is no longer "current" knowledge).
+//! - A **new version** is inserted with the current transaction time.
+//!
+//! This preserves the audit trail, allowing you to "time travel" back to see what the system
+//! knew at any point in the past.
+//!
 //! ## Getting Started
 //!
 //! ```rust
@@ -126,6 +136,11 @@ impl Gallifrey {
 
     /// Execute a query with optional temporal parameters.
     ///
+    /// # ⚠️ Experimental
+    ///
+    /// This method is currently a stub. It parses the query but returns an empty result set.
+    /// Full implementation is pending the GallifreyDB query engine integration.
+    ///
     /// # Errors
     ///
     /// Returns an error if the query parsing or execution fails.
@@ -195,9 +210,14 @@ impl Gallifrey {
 
     /// Travel to a point in time and get a snapshot.
     ///
+    /// # ⚠️ Experimental
+    ///
+    /// This method is currently a stub.
+    ///
     /// # Errors
     ///
     /// Returns an error if time travel fails.
+    #[doc(alias = "time-travel")]
     #[allow(clippy::unused_async)]
     pub async fn time_travel(
         &self,
