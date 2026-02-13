@@ -34,7 +34,7 @@ static SERIAL_INITIALIZED: AtomicBool = AtomicBool::new(false);
 /// during kernel initialization.
 #[cfg(target_arch = "x86_64")]
 #[allow(clippy::needless_return)]
-pub fn init() {
+pub unsafe fn init() {
     if SERIAL_INITIALIZED.swap(true, Ordering::SeqCst) {
         return; // Already initialized
     }
@@ -81,15 +81,23 @@ pub fn init() {
 }
 
 /// Initializes the serial port (non-x86_64 stub).
+///
+/// # Safety
+///
+/// Safe on non-x86_64 targets as it is a no-op, but marked unsafe for API consistency.
 #[cfg(not(target_arch = "x86_64"))]
-pub fn init() {
+pub unsafe fn init() {
     SERIAL_INITIALIZED.store(true, Ordering::SeqCst);
 }
 
 /// Writes a byte to the serial port.
+///
+/// # Safety
+///
+/// This function performs port I/O and should only be called in kernel context.
 #[cfg(all(target_arch = "x86_64", feature = "kernel"))]
 #[allow(clippy::needless_return)]
-pub fn write_byte(byte: u8) {
+pub unsafe fn write_byte(byte: u8) {
     // Suppress unused variable warning for tests where the unsafe block is cfg-gated out
     #[cfg(test)]
     let _ = byte;
@@ -119,25 +127,37 @@ pub fn write_byte(byte: u8) {
 }
 
 /// Writes a byte to the serial port (stub for non-kernel or non-x86_64).
+///
+/// # Safety
+///
+/// Safe as it is a no-op, but marked unsafe for API consistency.
 #[cfg(not(all(target_arch = "x86_64", feature = "kernel")))]
-pub fn write_byte(_byte: u8) {
+pub unsafe fn write_byte(_byte: u8) {
     // No-op in non-kernel builds
 }
 
 /// Writes a string to the serial port.
-pub fn write_str(s: &str) {
+///
+/// # Safety
+///
+/// This function calls `write_byte` which performs port I/O.
+pub unsafe fn write_str(s: &str) {
     for byte in s.bytes() {
         if byte == b'\n' {
-            write_byte(b'\r'); // CR before LF for terminal compatibility
+            unsafe { write_byte(b'\r') }; // CR before LF for terminal compatibility
         }
-        write_byte(byte);
+        unsafe { write_byte(byte) };
     }
 }
 
 /// Writes bytes to the serial port.
-pub fn write_bytes(bytes: &[u8]) {
+///
+/// # Safety
+///
+/// This function calls `write_byte` which performs port I/O.
+pub unsafe fn write_bytes(bytes: &[u8]) {
     for &byte in bytes {
-        write_byte(byte);
+        unsafe { write_byte(byte) };
     }
 }
 
@@ -145,32 +165,48 @@ pub fn write_bytes(bytes: &[u8]) {
 ///
 /// This is useful for early boot messages before the full logging
 /// infrastructure is available.
-pub fn write_line(prefix: &str, message: &str) {
-    write_str(prefix);
-    write_str(": ");
-    write_str(message);
-    write_str("\n");
+///
+/// # Safety
+///
+/// This function calls `write_str` which performs port I/O.
+pub unsafe fn write_line(prefix: &str, message: &str) {
+    unsafe {
+        write_str(prefix);
+        write_str(": ");
+        write_str(message);
+        write_str("\n");
+    }
 }
 
 /// Writes a panic message to the serial port.
 ///
 /// This formats the panic information for serial output and should
 /// be called from the panic handler.
-pub fn write_panic(message: &str, file: &str, line: u32) {
-    write_str("\n!!! KERNEL PANIC !!!\n");
-    write_str("Message: ");
-    write_str(message);
-    write_str("\nLocation: ");
-    write_str(file);
-    write_str(":");
-    write_u32(line);
-    write_str("\n\n");
+///
+/// # Safety
+///
+/// This function calls `write_str` which performs port I/O.
+pub unsafe fn write_panic(message: &str, file: &str, line: u32) {
+    unsafe {
+        write_str("\n!!! KERNEL PANIC !!!\n");
+        write_str("Message: ");
+        write_str(message);
+        write_str("\nLocation: ");
+        write_str(file);
+        write_str(":");
+        write_u32(line);
+        write_str("\n\n");
+    }
 }
 
 /// Writes an unsigned 32-bit integer to serial.
-fn write_u32(mut value: u32) {
+///
+/// # Safety
+///
+/// This function calls `write_byte` which performs port I/O.
+unsafe fn write_u32(mut value: u32) {
     if value == 0 {
-        write_byte(b'0');
+        unsafe { write_byte(b'0') };
         return;
     }
 
@@ -185,7 +221,7 @@ fn write_u32(mut value: u32) {
 
     while i > 0 {
         i -= 1;
-        write_byte(buf[i]);
+        unsafe { write_byte(buf[i]) };
     }
 }
 
@@ -196,8 +232,10 @@ mod tests {
     #[test]
     fn serial_init_idempotent() {
         // Multiple init calls should be safe
-        init();
-        init();
+        unsafe {
+            init();
+            init();
+        }
         assert!(SERIAL_INITIALIZED.load(Ordering::Relaxed));
     }
 }

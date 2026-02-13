@@ -76,7 +76,8 @@ impl KernelLogger {
         }
 
         if serial_enabled {
-            serial::init();
+            // SAFETY: We are in kernel initialization phase.
+            unsafe { serial::init() };
         }
 
         // Initialize the logger
@@ -171,13 +172,17 @@ impl KernelLogger {
     #[allow(clippy::unused_self)]
     fn write_serial(&self, level: Level, subsystem: Subsystem, message: &str) {
         // Format: [LEVEL] subsystem: message\n
-        serial::write_str("[");
-        serial::write_str(level.as_str());
-        serial::write_str("] ");
-        serial::write_str(subsystem.as_str());
-        serial::write_str(": ");
-        serial::write_str(message);
-        serial::write_str("\n");
+        // SAFETY: We assume we are in kernel context if KernelLogger is active with serial_enabled=true.
+        // This relies on the invariant established by `init`.
+        unsafe {
+            serial::write_str("[");
+            serial::write_str(level.as_str());
+            serial::write_str("] ");
+            serial::write_str(subsystem.as_str());
+            serial::write_str(": ");
+            serial::write_str(message);
+            serial::write_str("\n");
+        }
     }
 }
 

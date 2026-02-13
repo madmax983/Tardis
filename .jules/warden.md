@@ -22,3 +22,10 @@
 **2025-06-03 - RingBuffer Mixed Volatile Access**
 **Threat:** `RingBuffer::try_write` updated the `payload_len` field using a non-volatile write (`(*ptr).payload_len = ...`) after writing the struct header volatilely. This mixed volatile and non-volatile access to the same memory location, creating potential Undefined Behavior (data race) if a reader accessed it concurrently, as the compiler could reorder or tear the non-volatile write despite Seqlock protection.
 **Defense:** Refactored `try_write` to update the `payload_len` in the local `TelemetryEntryRaw` copy *before* the volatile write. Now uses a single `ptr::write_volatile` to write the entire header, ensuring all shared memory writes are volatile and atomic with respect to compiler optimizations.
+
+**2025-06-04 - Unsafe I/O and Dead Code**
+**Threat:** Publicly exposed functions in `telemetry::kernel::serial` (`init`, `write_byte`, etc.) performed raw I/O port access while being marked safe. Userspace applications enabling the `kernel` feature could inadvertently call these functions, causing segmentation faults or UB.
+**Defense:** Marked all `serial` module functions as `unsafe` and added comprehensive safety documentation requiring kernel context (Ring 0). Updated `KernelLogger` to wrap these calls in `unsafe` blocks.
+
+**Threat:** Unused `BumpAllocator` in `kernel/src/memory/heap.rs` contained Undefined Behavior (casting `&self` to `*mut Self` to mutate fields) and was dead code.
+**Defense:** Deleted `kernel/src/memory/heap.rs` and removed the module declaration, adhering to YAGNI and eliminating the safety risk.
