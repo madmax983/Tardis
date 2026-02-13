@@ -191,12 +191,32 @@ impl Repl {
             }
             #[cfg(feature = "nova")]
             "sonic" | "fix" => {
+                use tardis_chronos::experimental::doctor::SystemDoctor;
+
+                let doctor = self.telemetry_store.as_ref().map(|telemetry| {
+                    SystemDoctor::new(Arc::clone(telemetry), Arc::clone(&self.gallifrey))
+                });
+
+                let screwdriver = SonicScrewdriver::new(doctor);
+
                 if args.is_empty() {
-                    println!("Usage: sonic <file> or sonic repair <file>");
+                    println!(
+                        "Usage: sonic <file> | sonic repair <file> | sonic diagnose (system check)"
+                    );
                     return;
                 }
 
-                let screwdriver = SonicScrewdriver::new();
+                let subcmd = args[0].as_str();
+
+                if subcmd == "diagnose" || subcmd == "doctor" || subcmd == "system" {
+                    println!("Initiating Sonic Resonance Scan...");
+                    match screwdriver.diagnose_system().await {
+                        Ok(report) => println!("{}", report),
+                        Err(e) => println!("Diagnostics failed: {}", e),
+                    }
+                    return;
+                }
+
                 let path = std::path::Path::new(&args[args.len() - 1]);
 
                 // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")

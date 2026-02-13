@@ -32,6 +32,8 @@ pub struct Diagnosis {
     pub root_causes: Vec<String>,
     /// Recommended actions.
     pub prescription: Option<Prescription>,
+    /// AI-generated summary.
+    pub summary: Option<String>,
 }
 
 /// System health status.
@@ -177,11 +179,23 @@ impl SystemDoctor {
             auto_fix_command: None,
         });
 
+        let summary = if status == HealthStatus::Healthy {
+            Some("System status is nominal. No anomalies detected.".to_string())
+        } else {
+            Some(format!(
+                "System is {:?}. Detected {} symptoms and {} potential root causes.",
+                status,
+                symptoms.len(),
+                root_causes.len()
+            ))
+        };
+
         Diagnosis {
             status,
             symptoms,
             root_causes,
             prescription,
+            summary,
         }
     }
 }
