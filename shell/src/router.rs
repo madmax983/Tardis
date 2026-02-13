@@ -110,12 +110,12 @@ impl Router {
         // Check for prefix commands
         if let Some(cmd) = input.strip_prefix('!') {
             return Intent::ShellCommand {
-                command: cmd.to_string(),
+                command: cmd.trim().to_string(),
             };
         }
 
         if let Some(rest) = input.strip_prefix('@') {
-            return Self::parse_time_travel(rest);
+            return Self::parse_time_travel(rest.trim());
         }
 
         if let Some(query) = input.strip_prefix('?') {
@@ -249,6 +249,42 @@ mod tests {
                 assert_eq!(query, "what did we discuss");
             }
             _ => panic!("Expected TimeTravel"),
+        }
+    }
+
+    #[test]
+    fn test_time_travel_with_space() {
+        let router = Router::new();
+        let intent = router.route("@ yesterday query");
+
+        match intent {
+            Intent::TimeTravel { timestamp, query } => {
+                assert_eq!(timestamp, "yesterday");
+                assert_eq!(query, "query");
+            }
+            _ => panic!("Expected TimeTravel"),
+        }
+    }
+
+    #[test]
+    fn test_shell_command_with_space() {
+        let router = Router::new();
+        let intent = router.route("! ls");
+
+        match intent {
+            Intent::ShellCommand { command } => assert_eq!(command, "ls"),
+            _ => panic!("Expected ShellCommand"),
+        }
+    }
+
+    #[test]
+    fn test_shell_command_trailing_space() {
+        let router = Router::new();
+        let intent = router.route("!ls ");
+
+        match intent {
+            Intent::ShellCommand { command } => assert_eq!(command, "ls"),
+            _ => panic!("Expected ShellCommand"),
         }
     }
 }
