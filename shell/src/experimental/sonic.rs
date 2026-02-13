@@ -5,10 +5,10 @@
 //! A CLI tool for file repair and analysis, leveraging PsychicPaper
 //! for heuristic parsing and validation.
 
-use std::fs;
-use std::path::Path;
 use anyhow::{Context, Result};
 use serde_json::Value;
+use std::fs;
+use std::path::Path;
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 
 /// The Sonic Screwdriver.
@@ -32,16 +32,13 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content =
+            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
 
         let size = content.len();
         let lines = content.lines().count();
 
-        let mut diagnosis = format!(
-            "File: {:?}\nSize: {} bytes\nLines: {}\n",
-            path, size, lines
-        );
+        let mut diagnosis = format!("File: {:?}\nSize: {} bytes\nLines: {}\n", path, size, lines);
 
         // Try to interpret as JSON
         match self.paper.interpret(&content, Intent::Json) {
@@ -53,15 +50,18 @@ impl SonicScrewdriver {
                 } else if let Ok(_) = self.paper.interpret(&content, Intent::List) {
                     diagnosis.push_str("Type: List\nStatus: Healthy 🟢");
                 } else {
-                     match self.paper.interpret(&content, Intent::Auto) {
+                    match self.paper.interpret(&content, Intent::Auto) {
                         Ok(val) => {
                             if val.is_string() {
                                 diagnosis.push_str("Type: Unknown / Text\nStatus: Ambiguous 🟡");
                             } else {
-                                diagnosis.push_str("Type: Structured (Auto-detected)\nStatus: Healthy 🟢");
+                                diagnosis.push_str(
+                                    "Type: Structured (Auto-detected)\nStatus: Healthy 🟢",
+                                );
                             }
                         }
-                        Err(e) => diagnosis.push_str(&format!("Type: Unknown\nStatus: Broken 🔴\nError: {}", e)),
+                        Err(e) => diagnosis
+                            .push_str(&format!("Type: Unknown\nStatus: Broken 🔴\nError: {}", e)),
                     }
                 }
             }
@@ -80,8 +80,8 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read or written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {:?}", path))?;
+        let content =
+            fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
@@ -90,12 +90,17 @@ impl SonicScrewdriver {
 
         // Attempt repair via interpretation
         // We use Auto intent to let PsychicPaper figure it out
-        let interpreted = self.paper.interpret(&content, Intent::Auto)
+        let interpreted = self
+            .paper
+            .interpret(&content, Intent::Auto)
             .map_err(|e| anyhow::anyhow!("Failed to interpret file: {}", e))?;
 
         // If it's a string, we probably didn't parse anything structured
         if let Value::String(_) = interpreted {
-            return Ok(format!("Could not identify structure to repair. Backup created at {:?}", backup_path));
+            return Ok(format!(
+                "Could not identify structure to repair. Backup created at {:?}",
+                backup_path
+            ));
         }
 
         // Write back as pretty-printed JSON
@@ -113,8 +118,8 @@ impl SonicScrewdriver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use std::fs::File;
+    use std::io::Write;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn create_temp_file(content: &str) -> (std::path::PathBuf, impl FnOnce()) {
