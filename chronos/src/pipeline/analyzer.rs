@@ -9,6 +9,7 @@
 
 use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
+use std::fmt::Write;
 use tardis_common::temporal::TemporalReference;
 
 /// Analyzed query with extracted metadata.
@@ -263,23 +264,31 @@ impl QueryAnalyzer {
             return "current time".to_string();
         }
 
-        refs.iter()
-            .map(|r| match r {
+        let mut result = String::new();
+        for (i, r) in refs.iter().enumerate() {
+            if i > 0 {
+                result.push_str(", ");
+            }
+            match r {
                 TemporalReference::Relative { text, resolved } => {
-                    format!("{} ({})", text, resolved.format("%Y-%m-%d"))
+                    let _ = write!(result, "{} ({})", text, resolved.format("%Y-%m-%d"));
                 }
-                TemporalReference::Absolute(resolved) => resolved.format("%Y-%m-%d").to_string(),
+                TemporalReference::Absolute(resolved) => {
+                    let _ = write!(result, "{}", resolved.format("%Y-%m-%d"));
+                }
                 TemporalReference::EventBased { event, resolved } => {
                     if let Some(res) = resolved {
-                        format!("{} ({})", event, res.format("%Y-%m-%d"))
+                        let _ = write!(result, "{} ({})", event, res.format("%Y-%m-%d"));
                     } else {
-                        event.clone()
+                        result.push_str(event);
                     }
                 }
-                TemporalReference::Implicit => "implicit".to_string(),
-            })
-            .collect::<Vec<_>>()
-            .join(", ")
+                TemporalReference::Implicit => {
+                    result.push_str("implicit");
+                }
+            }
+        }
+        result
     }
 }
 
