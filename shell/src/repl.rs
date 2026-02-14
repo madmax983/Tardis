@@ -197,9 +197,14 @@ impl Repl {
                     return;
                 }
 
+                // Use current directory as root path for Sonic Screwdriver operations
+                // This prevents path traversal attacks outside the working directory.
+                let root_path = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+
                 let screwdriver = SonicScrewdriver::new(
                     self.telemetry_store.clone(),
                     Some(std::sync::Arc::clone(&self.gallifrey)),
+                    root_path,
                 );
 
                 if args[0] == "diagnose" {

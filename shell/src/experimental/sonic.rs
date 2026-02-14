@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
@@ -17,11 +17,23 @@ use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 
 /// The Sonic Screwdriver.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
     gallifrey: Option<Arc<Gallifrey>>,
+    root_path: PathBuf,
+}
+
+impl Default for SonicScrewdriver {
+    fn default() -> Self {
+        Self {
+            paper: PsychicPaper::new(),
+            telemetry: None,
+            gallifrey: None,
+            root_path: PathBuf::from("."),
+        }
+    }
 }
 
 impl SonicScrewdriver {
@@ -30,11 +42,13 @@ impl SonicScrewdriver {
     pub const fn new(
         telemetry: Option<Arc<TelemetryStore>>,
         gallifrey: Option<Arc<Gallifrey>>,
+        root_path: PathBuf,
     ) -> Self {
         Self {
             paper: PsychicPaper::new(),
             telemetry,
             gallifrey,
+            root_path,
         }
     }
 
@@ -101,14 +115,48 @@ impl SonicScrewdriver {
         "🔊 *Whirrrrrr-buzz-click-whirrrrrr*".to_string()
     }
 
+    /// Validate that a path is safe to access within the root directory.
+    fn validate_path(&self, path: &Path) -> Result<PathBuf> {
+        // Resolve absolute path
+        let absolute_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()?.join(path)
+        };
+
+        // Canonicalize to resolve symlinks and ..
+        // Note: canonicalize requires the file to exist.
+        // For inspect/repair, we expect the file to exist.
+        let canonical_path = absolute_path
+            .canonicalize()
+            .with_context(|| format!("Failed to resolve path: {}", path.display()))?;
+
+        // Canonicalize root path to ensure comparison is valid
+        let canonical_root = self
+            .root_path
+            .canonicalize()
+            .unwrap_or_else(|_| self.root_path.clone());
+
+        if !canonical_path.starts_with(&canonical_root) {
+            anyhow::bail!(
+                "Path traversal detected: Access denied to {}",
+                path.display()
+            );
+        }
+
+        Ok(canonical_path)
+    }
+
     /// Inspect a file and return a diagnosis.
     ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be read.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let safe_path = self.validate_path(path)?;
+
+        let content = fs::read_to_string(&safe_path)
+            .with_context(|| format!("Failed to read file: {}", safe_path.display()))?;
 
         let size = content.len();
         let lines = content.lines().count();
@@ -160,11 +208,13 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read or written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let safe_path = self.validate_path(path)?;
+
+        let content = fs::read_to_string(&safe_path)
+            .with_context(|| format!("Failed to read file: {}", safe_path.display()))?;
 
         // Create backup
-        let backup_path = path.with_extension("bak");
+        let backup_path = safe_path.with_extension("bak");
         fs::write(&backup_path, &content)
             .with_context(|| format!("Failed to create backup: {}", backup_path.display()))?;
 
@@ -185,12 +235,12 @@ impl SonicScrewdriver {
 
         // Write back as pretty-printed JSON
         let fixed_content = serde_json::to_string_pretty(&interpreted)?;
-        fs::write(path, fixed_content)
-            .with_context(|| format!("Failed to write fixed file: {}", path.display()))?;
+        fs::write(&safe_path, fixed_content)
+            .with_context(|| format!("Failed to write fixed file: {}", safe_path.display()))?;
 
         Ok(format!(
             "Repaired file: {}\nBackup saved to: {}\nFormat: JSON (Normalized)",
-            path.display(),
+            safe_path.display(),
             backup_path.display()
         ))
     }
@@ -227,7 +277,8 @@ mod tests {
     fn test_inspect_json() -> Result<()> {
         let (path, cleanup) = create_temp_file(r#"{"key": "value"}"#);
 
-        let sonic = SonicScrewdriver::new(None, None);
+        // Allow access to temp dir by setting root_path to temp dir
+        let sonic = SonicScrewdriver::new(None, None, std::env::temp_dir());
         let diagnosis = sonic.inspect(&path)?;
         assert!(diagnosis.contains("Valid JSON"));
 
@@ -236,11 +287,40 @@ mod tests {
     }
 
     #[test]
+    fn test_path_traversal_check() -> Result<()> {
+        // Create a dedicated root directory
+        let root = std::env::temp_dir().join("sonic_root");
+        fs::create_dir_all(&root)?;
+
+        // Create a secret file OUTSIDE the root
+        let secret_path = std::env::temp_dir().join("secret.txt");
+        fs::write(&secret_path, "secret data")?;
+
+        // Initialize SonicScrewdriver restricted to `root`
+        let sonic = SonicScrewdriver::new(None, None, root.clone());
+
+        // Try to access the secret file
+        let diagnosis = sonic.inspect(&secret_path);
+
+        // Should fail because secret_path is not inside root
+        assert!(diagnosis.is_err(), "Should prevent access to file outside root");
+        let err = diagnosis.unwrap_err();
+        assert!(err.to_string().contains("Path traversal detected"));
+
+        // Cleanup
+        let _ = fs::remove_file(secret_path);
+        let _ = fs::remove_dir_all(root);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_repair_malformed_json() -> Result<()> {
         // PsychicPaper can handle markdown code blocks or messy JSON
         let (path, cleanup) = create_temp_file("```json\n{\"key\": \"value\"}\n```");
 
-        let sonic = SonicScrewdriver::new(None, None);
+        // Allow access to temp dir
+        let sonic = SonicScrewdriver::new(None, None, std::env::temp_dir());
         let report = sonic.repair(&path)?;
 
         assert!(report.contains("Repaired file"));
