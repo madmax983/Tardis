@@ -133,7 +133,6 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    #[allow(dead_code)]
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     #[cfg(feature = "telemetry")]
@@ -144,6 +143,12 @@ pub struct Chronos {
 }
 
 impl Chronos {
+    /// Get the underlying Vortex engine.
+    #[must_use]
+    pub fn vortex(&self) -> Arc<Vortex> {
+        Arc::clone(&self.vortex)
+    }
+
     /// Create a new Chronos instance.
     #[must_use]
     pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {

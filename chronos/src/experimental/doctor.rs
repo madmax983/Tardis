@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
+use tardis_vortex::{InferenceParams, ModelHandle, ModelLoadConfig, Vortex};
 
 /// Vital signs of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,16 +60,32 @@ pub struct Prescription {
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
     gallifrey: Arc<Gallifrey>,
+    vortex: Option<Arc<Vortex>>,
+    model_handle: Option<ModelHandle>,
 }
 
 impl SystemDoctor {
     /// Create a new System Doctor.
     #[must_use]
-    pub const fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(
+        telemetry: Arc<TelemetryStore>,
+        gallifrey: Arc<Gallifrey>,
+        vortex: Option<Arc<Vortex>>,
+    ) -> Self {
         Self {
             telemetry,
             gallifrey,
+            vortex,
+            model_handle: None,
         }
+    }
+
+    /// Set a specific model to use for diagnosis.
+    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn with_model(mut self, handle: ModelHandle) -> Self {
+        self.model_handle = Some(handle);
+        self
     }
 
     /// Check system vitals.
@@ -172,10 +189,47 @@ impl SystemDoctor {
             }
         }
 
-        let prescription = (status != HealthStatus::Healthy).then(|| Prescription {
+        let mut prescription = (status != HealthStatus::Healthy).then(|| Prescription {
             description: "Check recent system state changes and error logs.".to_string(),
             auto_fix_command: None,
         });
+
+        // Enhance with AI if available
+        if status != HealthStatus::Healthy {
+            if let Some(vortex) = &self.vortex {
+                // Determine handle: use explicit if set, otherwise try to find/load one
+                let target_handle = if let Some(h) = self.model_handle {
+                    Some(h)
+                } else if let Some(model_info) = vortex.list_models().first() {
+                    vortex
+                        .load_model(
+                            model_info.path.to_str().unwrap_or(""),
+                            ModelLoadConfig::default(),
+                        )
+                        .await
+                        .ok()
+                } else {
+                    None
+                };
+
+                if let Some(handle) = target_handle {
+                    let prompt = format!(
+                        "System Diagnosis.\nSymptoms: {symptoms:?}\nRecent Changes: {root_causes:?}\n\nSuggest a root cause and a fix command."
+                    );
+
+                    if let Ok(response) = vortex
+                        .infer(handle, &prompt, InferenceParams::default())
+                        .await
+                    {
+                        // Simple heuristic parsing for now
+                        prescription = Some(Prescription {
+                            description: format!("AI Analysis: {response}"),
+                            auto_fix_command: None,
+                        });
+                    }
+                }
+            }
+        }
 
         Diagnosis {
             status,
@@ -200,7 +254,7 @@ mod tests {
         // Setup
         let telemetry = Arc::new(TelemetryStore::new());
         let gallifrey = Arc::new(Gallifrey::new());
-        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey);
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey, None);
 
         // Healthy check
         let diagnosis = doctor.diagnose().await;
@@ -241,5 +295,43 @@ mod tests {
             .symptoms
             .iter()
             .any(|s| s.contains("High latency")));
+    }
+
+    #[tokio::test]
+    async fn test_doctor_ai_diagnosis() {
+        // Setup
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let vortex = Arc::new(Vortex::new().unwrap());
+
+        // Mock inference
+        vortex.set_mock_inference(Box::new(|_, _, _| {
+            Ok("Root cause: flux capacitor overload".to_string())
+        }));
+
+        // Inject error to trigger diagnosis
+        let error_event = EventData {
+            span_id: None,
+            trace_id: TraceId::generate(),
+            timestamp: Utc::now(),
+            level: Level::Error,
+            message: "Flux instability".to_string(),
+            fields: HashMap::new(),
+            subsystem: Subsystem::Kernel,
+        };
+        telemetry.record_event(error_event).await.unwrap();
+
+        let handle = ModelHandle::new(1);
+        let doctor =
+            SystemDoctor::new(Arc::clone(&telemetry), gallifrey, Some(vortex)).with_model(handle);
+
+        let diagnosis = doctor.diagnose().await;
+
+        assert_ne!(diagnosis.status, HealthStatus::Healthy);
+        if let Some(prescription) = diagnosis.prescription {
+            assert!(prescription.description.contains("flux capacitor"));
+        } else {
+            panic!("Expected AI prescription");
+        }
     }
 }

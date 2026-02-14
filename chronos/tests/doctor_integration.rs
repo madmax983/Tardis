@@ -19,7 +19,7 @@ async fn test_doctor_correlates_changes_with_errors() {
     // 1. Setup
     let telemetry = Arc::new(TelemetryStore::new());
     let gallifrey = Arc::new(Gallifrey::new());
-    let doctor = SystemDoctor::new(Arc::clone(&telemetry), Arc::clone(&gallifrey));
+    let doctor = SystemDoctor::new(Arc::clone(&telemetry), Arc::clone(&gallifrey), None);
 
     // 2. Record a system change (e.g. 2 minutes ago)
     let change_time = Utc::now() - Duration::minutes(2);
