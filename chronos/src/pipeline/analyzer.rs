@@ -182,10 +182,21 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
+        self.analyze_at(query, Utc::now())
+    }
+
+    /// Analyze a query at a specific point in time.
+    ///
+    /// This is useful for deterministic testing or replaying historical queries.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if analysis fails.
+    pub fn analyze_at(&self, query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuery> {
         // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
         let query_lower = query.to_lowercase();
         let intent = self.classify_intent(&query_lower);
-        let temporal_refs = self.extract_temporal_refs(&query_lower, Utc::now());
+        let temporal_refs = self.extract_temporal_refs(&query_lower, now);
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -226,25 +237,19 @@ impl QueryAnalyzer {
         query_lower: &str,
         now: DateTime<Utc>,
     ) -> Vec<TemporalReference> {
-        let mut refs = Vec::new();
-
-        for rule in TEMPORAL_RULES {
-            if query_lower.contains(rule.keyword) {
-                let resolved = rule.resolve(now);
-
-                refs.push(TemporalReference::Relative {
-                    text: rule.keyword.to_string(),
-                    resolved,
-                });
-            }
-        }
-
         // TODO: Add more sophisticated temporal extraction
         // - NLP-based extraction
         // - Absolute date parsing
         // - Event-based references
 
-        refs
+        TEMPORAL_RULES
+            .iter()
+            .filter(|rule| query_lower.contains(rule.keyword))
+            .map(|rule| TemporalReference::Relative {
+                text: rule.keyword.to_string(),
+                resolved: rule.resolve(now),
+            })
+            .collect()
     }
 
     /// Extract entity mentions from a query.
@@ -259,27 +264,35 @@ impl QueryAnalyzer {
     /// Generate human-readable description of temporal context.
     #[allow(clippy::unused_self)]
     fn describe_temporal_context(&self, refs: &[TemporalReference]) -> String {
+        use std::fmt::Write;
+
         if refs.is_empty() {
             return "current time".to_string();
         }
 
-        refs.iter()
-            .map(|r| match r {
+        let mut buffer = String::with_capacity(refs.len() * 32);
+        for (i, r) in refs.iter().enumerate() {
+            if i > 0 {
+                buffer.push_str(", ");
+            }
+            match r {
                 TemporalReference::Relative { text, resolved } => {
-                    format!("{} ({})", text, resolved.format("%Y-%m-%d"))
+                    let _ = write!(buffer, "{} ({})", text, resolved.format("%Y-%m-%d"));
                 }
-                TemporalReference::Absolute(resolved) => resolved.format("%Y-%m-%d").to_string(),
+                TemporalReference::Absolute(resolved) => {
+                    let _ = write!(buffer, "{}", resolved.format("%Y-%m-%d"));
+                }
                 TemporalReference::EventBased { event, resolved } => {
                     if let Some(res) = resolved {
-                        format!("{} ({})", event, res.format("%Y-%m-%d"))
+                        let _ = write!(buffer, "{} ({})", event, res.format("%Y-%m-%d"));
                     } else {
-                        event.clone()
+                        buffer.push_str(event);
                     }
                 }
-                TemporalReference::Implicit => "implicit".to_string(),
-            })
-            .collect::<Vec<_>>()
-            .join(", ")
+                TemporalReference::Implicit => buffer.push_str("implicit"),
+            }
+        }
+        buffer
     }
 }
 
@@ -404,5 +417,31 @@ mod tests {
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         let desc = analyzer.describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
+    }
+
+    #[test]
+    fn test_analyze_at_determinism() {
+        let analyzer = QueryAnalyzer::new();
+        let now: DateTime<Utc> = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let query = "What happened yesterday?";
+        let analysis = analyzer.analyze_at(query, now).unwrap();
+
+        assert_eq!(analysis.intent, QueryIntent::Question);
+        assert_eq!(analysis.temporal_refs.len(), 1);
+
+        match &analysis.temporal_refs[0] {
+            TemporalReference::Relative { text, resolved } => {
+                assert_eq!(text, "yesterday");
+                assert_eq!(resolved.to_rfc3339(), "2023-12-31T12:00:00+00:00");
+            }
+            _ => panic!("Expected relative reference"),
+        }
+
+        let desc = analysis.temporal_description.as_ref().unwrap();
+        assert!(desc.contains("yesterday"));
+        assert!(desc.contains("2023-12-31"));
     }
 }
