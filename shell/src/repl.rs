@@ -13,6 +13,8 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
+use crate::experimental::chronograph::ChronoGraph;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
@@ -188,6 +190,21 @@ impl Repl {
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "map" => {
+                if args.is_empty() {
+                    println!("Usage: map <entity_name> [depth]");
+                    return;
+                }
+                let entity_name = &args[0];
+                let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
+
+                let graph = ChronoGraph::new(self.gallifrey.clone());
+                match graph.generate_map(entity_name, depth, None) {
+                    Ok(map) => println!("{map}"),
+                    Err(e) => println!("Failed to generate map: {e}"),
                 }
             }
             #[cfg(feature = "nova")]
