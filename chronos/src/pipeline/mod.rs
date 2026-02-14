@@ -166,6 +166,12 @@ impl Chronos {
         self
     }
 
+    /// Get the underlying Vortex engine.
+    #[must_use]
+    pub fn vortex(&self) -> Arc<Vortex> {
+        Arc::clone(&self.vortex)
+    }
+
     /// Execute a RAG query.
     ///
     /// The query process follows this pipeline:

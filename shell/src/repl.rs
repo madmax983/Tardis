@@ -140,6 +140,7 @@ impl Repl {
     }
 
     /// Handle a built-in command.
+    #[allow(clippy::too_many_lines)]
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
             "help" => self.commands.help(args),
@@ -170,7 +171,36 @@ impl Repl {
                     Err(e) => println!("Failed to recall: {e}"),
                 }
             }
-            "models" => self.commands.list_models(),
+            "models" => {
+                let vortex = self.chronos.vortex();
+                if args.len() > 1 && args[0] == "load" {
+                    let path = &args[1];
+                    println!("Loading model from {path}...");
+                    match vortex
+                        .load_model(path, tardis_vortex::ModelLoadConfig::default())
+                        .await
+                    {
+                        Ok(handle) => println!("Model loaded successfully! Handle: {handle}"),
+                        Err(e) => println!("Failed to load model: {e}"),
+                    }
+                } else {
+                    // List models
+                    let models = vortex.list_models();
+                    if models.is_empty() {
+                        println!("No models registered.");
+                    } else {
+                        println!("Available models ({}):", models.len());
+                        for model in models {
+                            println!(
+                                " - {} (Loaded: {}, Params: {})",
+                                model.name, model.loaded, model.parameters
+                            );
+                        }
+                    }
+                    println!();
+                    println!("Use 'models load <path>' to load a model.");
+                }
+            }
             "context" => self.commands.show_context(self.session_id),
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
@@ -200,6 +230,7 @@ impl Repl {
                 let screwdriver = SonicScrewdriver::new(
                     self.telemetry_store.clone(),
                     Some(std::sync::Arc::clone(&self.gallifrey)),
+                    Some(self.chronos.vortex()),
                 );
 
                 if args[0] == "diagnose" {

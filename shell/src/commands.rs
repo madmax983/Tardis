@@ -188,16 +188,6 @@ impl CommandHandler {
         }
     }
 
-    /// List available models.
-    #[allow(clippy::unused_self)]
-    pub fn list_models(&self) {
-        println!("Available models:");
-        println!();
-        println!("  (No models loaded yet)");
-        println!();
-        println!("Use 'models load <path>' to load a model.");
-    }
-
     /// Show current session context.
     #[allow(clippy::unused_self)]
     pub fn show_context(&self, session_id: SessionId) {

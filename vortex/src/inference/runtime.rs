@@ -354,6 +354,11 @@ impl Vortex {
         self.registry.list()
     }
 
+    /// List loaded models with their handles.
+    pub fn list_loaded_models(&self) -> Vec<(ModelHandle, ModelInfo)> {
+        self.registry.list_loaded()
+    }
+
     /// Get information about a specific model.
     pub fn model_info(&self, handle: ModelHandle) -> Option<ModelInfo> {
         let path = self.registry.get_path(handle)?;
@@ -403,6 +408,34 @@ impl Vortex {
         if let Ok(mut lock) = self.mock_load_model.write() {
             *lock = Some(mock);
         }
+    }
+
+    /// Manually register a mock model for testing.
+    ///
+    /// This bypasses the normal loading process and directly adds a model entry
+    /// to the registry, allowing `list_loaded_models` to find it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model cannot be registered.
+    pub fn register_mock_model(&self, name: &str) -> VortexResult<ModelHandle> {
+        let path = std::path::PathBuf::from(name);
+        let info = crate::model::ModelInfo {
+            name: name.to_string(),
+            path: path.clone(),
+            architecture: crate::model::Architecture::Unknown,
+            parameters: 0,
+            context_length: 0,
+            quantization: crate::model::Quantization::F32,
+            loaded: false,
+            memory_bytes: None,
+            num_layers: 0,
+            hidden_size: 0,
+            num_heads: 0,
+            vocab_size: 0,
+        };
+        self.registry.register(path.clone(), info)?;
+        self.registry.mark_loaded(&path, 0)
     }
 }
 

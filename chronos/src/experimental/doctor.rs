@@ -9,9 +9,11 @@ use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
+use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
+use tracing::{error, info};
 
 /// Vital signs of the system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Vitals {
     /// Number of errors in the last window.
     pub error_count: usize,
@@ -59,15 +61,21 @@ pub struct Prescription {
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
     gallifrey: Arc<Gallifrey>,
+    vortex: Option<Arc<Vortex>>,
 }
 
 impl SystemDoctor {
     /// Create a new System Doctor.
     #[must_use]
-    pub const fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(
+        telemetry: Arc<TelemetryStore>,
+        gallifrey: Arc<Gallifrey>,
+        vortex: Option<Arc<Vortex>>,
+    ) -> Self {
         Self {
             telemetry,
             gallifrey,
+            vortex,
         }
     }
 
@@ -116,6 +124,98 @@ impl SystemDoctor {
     pub async fn diagnose(&self) -> Diagnosis {
         let vitals = self.check_vitals();
 
+        // Gather context
+        let now = Utc::now();
+        let window = Duration::minutes(5);
+        let from = now - window;
+
+        let mut recent_changes = Vec::new();
+        if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
+            for change in changes {
+                recent_changes.push(format!(
+                    "System change to {} at {} ({:?})",
+                    change.path, change.timestamp, change.change_type
+                ));
+            }
+        }
+
+        // Try AI Diagnosis first
+        if let Some(vortex) = &self.vortex {
+            let loaded_models = vortex.list_loaded_models();
+            if let Some((handle, _)) = loaded_models.first() {
+                info!("Running AI diagnosis with model {}", handle);
+                if let Ok(diagnosis) = self
+                    .diagnose_with_ai(vortex, *handle, &vitals, &recent_changes)
+                    .await
+                {
+                    return diagnosis;
+                }
+                error!("AI Diagnosis failed, falling back to heuristic.");
+            }
+        }
+
+        // Fallback to Heuristic Diagnosis
+        self.diagnose_heuristic(vitals, recent_changes)
+    }
+
+    async fn diagnose_with_ai(
+        &self,
+        vortex: &Vortex,
+        handle: ModelHandle,
+        vitals: &Vitals,
+        changes: &[String],
+    ) -> anyhow::Result<Diagnosis> {
+        let changes_text = if changes.is_empty() {
+            "No recent changes.".to_string()
+        } else {
+            changes.join("\n")
+        };
+
+        let prompt = format!(
+            "Analyze the following system status and identify the root cause of any issues.\n\
+             \n\
+             METRICS:\n\
+             - Error Count: {}\n\
+             - Active Spans: {}\n\
+             - Average Latency: {} ms\n\
+             \n\
+             RECENT CHANGES:\n\
+             {}\n\
+             \n\
+             Provide a diagnosis in the following JSON format ONLY:\n\
+             {{\n\
+               \"status\": \"Healthy\" | \"Degraded\" | \"Critical\",\n\
+               \"symptoms\": [\"symptom1\", \"symptom2\"],\n\
+               \"root_causes\": [\"cause1\", \"cause2\"],\n\
+               \"prescription\": {{\n\
+                 \"description\": \"fix description\",\n\
+                 \"auto_fix_command\": \"optional command\"\n\
+               }}\n\
+             }}",
+            vitals.error_count, vitals.active_spans, vitals.average_latency_ms, changes_text
+        );
+
+        let params = InferenceParams {
+            max_tokens: 500,
+            temperature: 0.1, // Low temp for deterministic JSON
+            ..InferenceParams::default()
+        };
+
+        let response = vortex.infer(handle, &prompt, params).await?;
+
+        // Try to parse JSON from the response
+        // Find the first '{' and last '}'
+        let start = response.find('{').unwrap_or(0);
+        let end = response.rfind('}').map_or(response.len(), |i| i + 1);
+        let json_str = &response[start..end];
+
+        let diagnosis: Diagnosis = serde_json::from_str(json_str)?;
+
+        Ok(diagnosis)
+    }
+
+    #[allow(clippy::unused_self)]
+    fn diagnose_heuristic(&self, vitals: Vitals, changes: Vec<String>) -> Diagnosis {
         let mut status = HealthStatus::Healthy;
         let mut symptoms = Vec::new();
 
@@ -148,28 +248,12 @@ impl SystemDoctor {
             }
         }
 
-        // Correlate with system changes
-        let mut root_causes = Vec::new();
-        if status != HealthStatus::Healthy {
-            let now = Utc::now();
-            let window = Duration::minutes(5);
-            let from = now - window;
-
-            if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
-                for change in changes {
-                    root_causes.push(format!(
-                        "System change to {} at {} ({:?})",
-                        change.path, change.timestamp, change.change_type
-                    ));
-                }
-            }
-
-            if root_causes.is_empty() {
-                root_causes.push(
-                    "No recent system changes found. Possible external factor or load spike."
-                        .to_string(),
-                );
-            }
+        let mut root_causes = changes;
+        if status != HealthStatus::Healthy && root_causes.is_empty() {
+            root_causes.push(
+                "No recent system changes found. Possible external factor or load spike."
+                    .to_string(),
+            );
         }
 
         let prescription = (status != HealthStatus::Healthy).then(|| Prescription {
@@ -196,11 +280,12 @@ mod tests {
     use tardis_telemetry::userspace::layer::{EventData, SpanData};
 
     #[tokio::test]
-    async fn test_doctor_diagnosis() {
+    async fn test_doctor_diagnosis_heuristic() {
         // Setup
         let telemetry = Arc::new(TelemetryStore::new());
         let gallifrey = Arc::new(Gallifrey::new());
-        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey);
+        // No Vortex
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey, None);
 
         // Healthy check
         let diagnosis = doctor.diagnose().await;
@@ -241,5 +326,38 @@ mod tests {
             .symptoms
             .iter()
             .any(|s| s.contains("High latency")));
+    }
+
+    #[tokio::test]
+    async fn test_doctor_diagnosis_ai() {
+        // Setup
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let vortex = Arc::new(Vortex::new().unwrap());
+
+        // Mock a loaded model using manual registration
+        let _handle = vortex.register_mock_model("mock-model").unwrap();
+
+        // Mock inference response
+        vortex.set_mock_inference(Box::new(|_, _, _| {
+            Ok(r#"{
+                "status": "Critical",
+                "symptoms": ["AI detected error"],
+                "root_causes": ["Solar flare"],
+                "prescription": {
+                    "description": "Rotate shield frequencies",
+                    "auto_fix_command": "shields rotate"
+                }
+            }"#.to_string())
+        }));
+
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey, Some(vortex));
+
+        // Diagnosis should use AI
+        let diagnosis = doctor.diagnose().await;
+
+        assert_eq!(diagnosis.status, HealthStatus::Critical);
+        assert_eq!(diagnosis.root_causes[0], "Solar flare");
+        assert_eq!(diagnosis.prescription.unwrap().auto_fix_command.unwrap(), "shields rotate");
     }
 }
