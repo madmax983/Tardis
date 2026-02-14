@@ -15,6 +15,7 @@ use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
+use tardis_vortex::{InferenceParams, Vortex};
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
@@ -22,6 +23,7 @@ pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
     gallifrey: Option<Arc<Gallifrey>>,
+    vortex: Option<Arc<Vortex>>,
 }
 
 impl SonicScrewdriver {
@@ -30,11 +32,13 @@ impl SonicScrewdriver {
     pub const fn new(
         telemetry: Option<Arc<TelemetryStore>>,
         gallifrey: Option<Arc<Gallifrey>>,
+        vortex: Option<Arc<Vortex>>,
     ) -> Self {
         Self {
             paper: PsychicPaper::new(),
             telemetry,
             gallifrey,
+            vortex,
         }
     }
 
@@ -89,7 +93,37 @@ impl SonicScrewdriver {
             }
         }
 
+        // Add AI insight
+        if let Some(insight) = self.diagnose_with_ai(&report).await {
+            let _ = writeln!(report, "\n🧠 Sonic's Insight:");
+            let _ = writeln!(report, "   {}", insight.trim());
+        }
+
         Ok(report)
+    }
+
+    async fn diagnose_with_ai(&self, context: &str) -> Option<String> {
+        let vortex = self.vortex.as_ref()?;
+
+        // Find a loaded model
+        let loaded = vortex.list_loaded_models();
+        let (handle, _) = loaded.first()?;
+
+        let prompt = format!(
+            "You are the Sonic Screwdriver, a tool of the Time Lords. \
+            Analyze this system report and explain the situation briefly in character. \
+            Be witty but helpful.\n\n\
+            System Report:\n{context}\n\n\
+            Diagnosis:"
+        );
+
+        let params = InferenceParams {
+            max_tokens: 200,
+            temperature: 0.7,
+            ..InferenceParams::default()
+        };
+
+        vortex.infer(*handle, &prompt, params).await.ok()
     }
 
     /// "Buzz" the sonic screwdriver.
@@ -155,17 +189,20 @@ impl SonicScrewdriver {
     /// Currently supports:
     /// - Fixing malformed JSON (via lenient parsing + pretty print).
     /// - Normalizing KV/List formats.
+    /// - **Nova:** AI-assisted repair if heuristic parsing fails.
     ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be read or written.
-    pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
+    pub async fn repair(&self, path: &Path) -> Result<String> {
+        let content = tokio::fs::read_to_string(path)
+            .await
             .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
-        fs::write(&backup_path, &content)
+        tokio::fs::write(&backup_path, &content)
+            .await
             .with_context(|| format!("Failed to create backup: {}", backup_path.display()))?;
 
         // Attempt repair via interpretation
@@ -177,6 +214,38 @@ impl SonicScrewdriver {
 
         // If it's a string, we probably didn't parse anything structured
         if let Value::String(_) = interpreted {
+            // Try AI repair if available
+            if let Some(vortex) = &self.vortex {
+                 if let Some((handle, _)) = vortex.list_loaded_models().first() {
+                     let prompt = format!(
+                         "Fix this broken file content. Return ONLY the fixed content, no markdown, no explanations.\n\nContent:\n{content}"
+                     );
+
+                     let params = InferenceParams {
+                         max_tokens: 2048,
+                         temperature: 0.1, // Deterministic
+                         ..InferenceParams::default()
+                     };
+
+                     if let Ok(fixed) = vortex.infer(*handle, &prompt, params).await {
+                         // Verify the fix is structured
+                         if let Ok(verified) = self.paper.interpret(&fixed, Intent::Auto) {
+                             if !verified.is_string() {
+                                 let fixed_content = serde_json::to_string_pretty(&verified)?;
+                                 tokio::fs::write(path, fixed_content)
+                                     .await
+                                     .with_context(|| format!("Failed to write fixed file: {}", path.display()))?;
+
+                                 return Ok(format!(
+                                     "Repaired file using Vortex AI 🌪️\nBackup saved to: {}\nFormat: Auto-detected",
+                                     backup_path.display()
+                                 ));
+                             }
+                         }
+                     }
+                 }
+            }
+
             return Ok(format!(
                 "Could not identify structure to repair. Backup created at {}",
                 backup_path.display()
@@ -185,7 +254,8 @@ impl SonicScrewdriver {
 
         // Write back as pretty-printed JSON
         let fixed_content = serde_json::to_string_pretty(&interpreted)?;
-        fs::write(path, fixed_content)
+        tokio::fs::write(path, fixed_content)
+            .await
             .with_context(|| format!("Failed to write fixed file: {}", path.display()))?;
 
         Ok(format!(
@@ -227,7 +297,7 @@ mod tests {
     fn test_inspect_json() -> Result<()> {
         let (path, cleanup) = create_temp_file(r#"{"key": "value"}"#);
 
-        let sonic = SonicScrewdriver::new(None, None);
+        let sonic = SonicScrewdriver::new(None, None, None);
         let diagnosis = sonic.inspect(&path)?;
         assert!(diagnosis.contains("Valid JSON"));
 
@@ -235,13 +305,13 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_repair_malformed_json() -> Result<()> {
+    #[tokio::test]
+    async fn test_repair_malformed_json() -> Result<()> {
         // PsychicPaper can handle markdown code blocks or messy JSON
         let (path, cleanup) = create_temp_file("```json\n{\"key\": \"value\"}\n```");
 
-        let sonic = SonicScrewdriver::new(None, None);
-        let report = sonic.repair(&path)?;
+        let sonic = SonicScrewdriver::new(None, None, None);
+        let report = sonic.repair(&path).await?;
 
         assert!(report.contains("Repaired file"));
 
@@ -254,6 +324,18 @@ mod tests {
         assert!(backup_path.exists());
 
         cleanup();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_diagnose_no_ai() -> Result<()> {
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        // No Vortex provided
+        let sonic = SonicScrewdriver::new(Some(telemetry), Some(gallifrey), None);
+
+        let report = sonic.diagnose().await?;
+        assert!(report.contains("SYSTEM DIAGNOSIS"));
         Ok(())
     }
 }

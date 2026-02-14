@@ -158,6 +158,12 @@ impl Chronos {
         }
     }
 
+    /// Get the underlying Vortex instance.
+    #[must_use]
+    pub fn vortex(&self) -> Arc<Vortex> {
+        Arc::clone(&self.vortex)
+    }
+
     /// Attach a telemetry store to Chronos.
     #[cfg(feature = "telemetry")]
     #[must_use]
