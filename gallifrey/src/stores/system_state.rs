@@ -40,6 +40,29 @@ impl SystemStateStore {
 
     /// Take a snapshot.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::SystemStateStore;
+    /// use tardis_gallifrey::domain::{SystemState, SnapshotTrigger};
+    /// use std::collections::HashMap;
+    ///
+    /// let store = SystemStateStore::new();
+    /// let state = SystemState {
+    ///     processes: HashMap::new(),
+    ///     config: HashMap::new(),
+    ///     files: HashMap::new(),
+    /// };
+    ///
+    /// let snapshot_id = store.take_snapshot(
+    ///     "Initial State",
+    ///     SnapshotTrigger::Manual,
+    ///     state
+    /// ).unwrap();
+    ///
+    /// assert!(store.get_snapshot(snapshot_id).unwrap().is_some());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.

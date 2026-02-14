@@ -25,6 +25,15 @@
 //! - If a source fits entirely within the remaining budget, it is included.
 //! - If a source partially fits, it is **truncated** to fit the remaining budget.
 //! - Any subsequent sources are dropped, and a note "... (N more sources truncated)" is appended.
+//!
+//! # ⚠️ Silent Truncation Warning
+//!
+//! Because sources are processed in order of relevance, it is possible for a single large,
+//! highly relevant source to consume the entire token budget, causing all subsequent sources
+//! to be silently dropped.
+//!
+//! This is by design: we prioritize high-relevance context over quantity. However, if you are
+//! getting "missing context" errors, check if your top results are excessively long.
 
 use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;

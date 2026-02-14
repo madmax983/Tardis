@@ -33,6 +33,16 @@ impl ConversationStore {
 
     /// Create a new session.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::ConversationStore;
+    ///
+    /// let store = ConversationStore::new();
+    /// let session_id = store.create_session().unwrap();
+    /// assert!(store.get_session(session_id).unwrap().is_some());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
@@ -92,6 +102,34 @@ impl ConversationStore {
     }
 
     /// Add a message to a session.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_gallifrey::stores::ConversationStore;
+    /// use tardis_gallifrey::domain::{Message, Role};
+    /// use tardis_common::id::{EntityId, SessionId};
+    /// use chrono::Utc;
+    ///
+    /// let store = ConversationStore::new();
+    /// let session_id = store.create_session().unwrap();
+    ///
+    /// let message = Message {
+    ///     id: EntityId::new(),
+    ///     session_id,
+    ///     role: Role::User,
+    ///     content: "Hello, Tardis!".to_string(),
+    ///     timestamp: Utc::now(),
+    ///     embedding: None,
+    ///     entity_refs: vec![],
+    /// };
+    ///
+    /// store.add_message(message).unwrap();
+    ///
+    /// let messages = store.get_messages(session_id).unwrap();
+    /// assert_eq!(messages.len(), 1);
+    /// assert_eq!(messages[0].content, "Hello, Tardis!");
+    /// ```
     ///
     /// # Errors
     ///

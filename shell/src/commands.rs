@@ -150,6 +150,23 @@ impl CommandHandler {
     /// Show conversation history.
     ///
     /// Fetches and displays recent messages from the current session.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tardis_shell::commands::CommandHandler;
+    /// use tardis_gallifrey::Gallifrey;
+    /// use std::sync::Arc;
+    /// use tardis_common::id::SessionId;
+    ///
+    /// // 1. Setup
+    /// let handler = CommandHandler::new();
+    /// let gallifrey = Arc::new(Gallifrey::new());
+    /// let session_id = SessionId::new();
+    ///
+    /// // 2. Display history (will be empty)
+    /// handler.history(&gallifrey, session_id);
+    /// ```
     #[allow(clippy::unused_self)]
     pub fn history(&self, gallifrey: &Arc<Gallifrey>, session_id: SessionId) {
         match gallifrey.conversation().get_messages(session_id) {

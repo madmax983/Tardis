@@ -101,19 +101,19 @@ impl Router {
     ///
     /// // Built-in command
     /// let intent = router.route("help me");
-    /// matches!(intent, Intent::BuiltinCommand { command, .. } if command == "help");
+    /// assert!(matches!(intent, Intent::BuiltinCommand { command, .. } if command == "help"));
     ///
     /// // Shell command
     /// let intent = router.route("!ls -la");
-    /// matches!(intent, Intent::ShellCommand { command } if command == "ls -la");
+    /// assert!(matches!(intent, Intent::ShellCommand { command } if command == "ls -la"));
     ///
     /// // Time travel
     /// let intent = router.route("@yesterday what happened?");
-    /// matches!(intent, Intent::TimeTravel { timestamp, .. } if timestamp == "yesterday");
+    /// assert!(matches!(intent, Intent::TimeTravel { timestamp, .. } if timestamp == "yesterday"));
     ///
     /// // Chronos query (default)
     /// let intent = router.route("What is the meaning of life?");
-    /// matches!(intent, Intent::ChronosQuery { .. });
+    /// assert!(matches!(intent, Intent::ChronosQuery { .. }));
     /// ```
     #[must_use]
     pub fn route(&self, input: &str) -> Intent {
