@@ -6,22 +6,13 @@ use anyhow::Result;
 use std::sync::Arc;
 use tardis_chronos::Chronos;
 use tardis_gallifrey::Gallifrey;
+use tardis_shell::repl::Repl;
 use tardis_telemetry::{init, TelemetryConfig};
 use tardis_vortex::Vortex;
 use tracing::info;
 
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
-
-mod commands;
-#[cfg(feature = "nova")]
-mod dashboard;
-#[cfg(feature = "nova")]
-mod experimental;
-mod repl;
-mod router;
-
-use repl::Repl;
 
 #[tokio::main]
 async fn main() -> Result<()> {
