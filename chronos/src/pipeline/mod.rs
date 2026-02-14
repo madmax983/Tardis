@@ -133,7 +133,6 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    #[allow(dead_code)]
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
     #[cfg(feature = "telemetry")]
@@ -164,6 +163,12 @@ impl Chronos {
     pub fn with_telemetry(mut self, telemetry: Arc<TelemetryStore>) -> Self {
         self.telemetry = Some(telemetry);
         self
+    }
+
+    /// Get access to the underlying Vortex engine.
+    #[must_use]
+    pub fn vortex(&self) -> Arc<Vortex> {
+        Arc::clone(&self.vortex)
     }
 
     /// Execute a RAG query.

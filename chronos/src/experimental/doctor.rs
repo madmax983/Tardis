@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
+use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
 
 /// Vital signs of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +60,8 @@ pub struct Prescription {
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
     gallifrey: Arc<Gallifrey>,
+    vortex: Option<Arc<Vortex>>,
+    model_handle: Option<ModelHandle>,
 }
 
 impl SystemDoctor {
@@ -68,7 +71,24 @@ impl SystemDoctor {
         Self {
             telemetry,
             gallifrey,
+            vortex: None,
+            model_handle: None,
         }
+    }
+
+    /// Attach Vortex AI engine.
+    #[must_use]
+    pub fn with_vortex(mut self, vortex: Arc<Vortex>) -> Self {
+        self.vortex = Some(vortex);
+        self
+    }
+
+    /// Attach a model handle for AI inference.
+    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn with_model(mut self, handle: ModelHandle) -> Self {
+        self.model_handle = Some(handle);
+        self
     }
 
     /// Check system vitals.
@@ -112,7 +132,7 @@ impl SystemDoctor {
     }
 
     /// Run a full diagnosis.
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::too_many_lines)]
     pub async fn diagnose(&self) -> Diagnosis {
         let vitals = self.check_vitals();
 
@@ -148,32 +168,82 @@ impl SystemDoctor {
             }
         }
 
-        // Correlate with system changes
-        let mut root_causes = Vec::new();
-        if status != HealthStatus::Healthy {
-            let now = Utc::now();
-            let window = Duration::minutes(5);
-            let from = now - window;
+        // Gather system changes
+        let mut changes_desc = Vec::new();
+        let now = Utc::now();
+        let window = Duration::minutes(5);
+        let from = now - window;
 
-            if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
-                for change in changes {
-                    root_causes.push(format!(
-                        "System change to {} at {} ({:?})",
-                        change.path, change.timestamp, change.change_type
-                    ));
+        if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
+            for change in changes {
+                changes_desc.push(format!(
+                    "Change to {} at {} ({:?})",
+                    change.path, change.timestamp, change.change_type
+                ));
+            }
+        }
+
+        // Correlate with system changes (Heuristic or AI)
+        let mut root_causes = Vec::new();
+
+        if let (Some(vortex), Some(handle)) = (&self.vortex, self.model_handle) {
+            // AI-Enhanced Diagnosis
+            if status != HealthStatus::Healthy {
+                let changes_str = if changes_desc.is_empty() {
+                    "None".to_string()
+                } else {
+                    changes_desc.join("\n- ")
+                };
+
+                let prompt = format!(
+                    "System Doctor Diagnosis Request\n\
+                     Time: {}\n\n\
+                     Symptoms:\n- {}\n\n\
+                     Recent Changes:\n- {}\n\n\
+                     Analyze the correlation between the changes and symptoms.\n\
+                     Identify the root cause and suggest a fix.",
+                    now,
+                    symptoms.join("\n- "),
+                    changes_str
+                );
+
+                let params = InferenceParams {
+                    max_tokens: 200,
+                    temperature: 0.7,
+                    ..InferenceParams::default()
+                };
+
+                match vortex.infer(handle, &prompt, params).await {
+                    Ok(response) => {
+                        root_causes.push(format!("[AI] {}", response.trim()));
+                    }
+                    Err(e) => {
+                        root_causes.push(format!("[AI Error] Failed to consult Vortex: {e}"));
+                    }
                 }
             }
+        } else {
+            // Classic Heuristic Diagnosis
+            if status != HealthStatus::Healthy {
+                for desc in &changes_desc {
+                    root_causes.push(format!("System {desc}"));
+                }
 
-            if root_causes.is_empty() {
-                root_causes.push(
-                    "No recent system changes found. Possible external factor or load spike."
-                        .to_string(),
-                );
+                if root_causes.is_empty() {
+                    root_causes.push(
+                        "No recent system changes found. Possible external factor or load spike."
+                            .to_string(),
+                    );
+                }
             }
         }
 
         let prescription = (status != HealthStatus::Healthy).then(|| Prescription {
-            description: "Check recent system state changes and error logs.".to_string(),
+            description: if !root_causes.is_empty() && root_causes[0].contains("[AI]") {
+                "Follow AI recommendations above.".to_string()
+            } else {
+                "Check recent system state changes and error logs.".to_string()
+            },
             auto_fix_command: None,
         });
 
@@ -241,5 +311,46 @@ mod tests {
             .symptoms
             .iter()
             .any(|s| s.contains("High latency")));
+    }
+
+    #[tokio::test]
+    async fn test_doctor_ai_diagnosis() {
+        // Setup
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let vortex = Arc::new(Vortex::new().unwrap());
+
+        // Mock Vortex Inference
+        let mock_response = "The high latency is likely caused by the kernel explosion.";
+        vortex.set_mock_inference(Box::new(move |_handle, _prompt, _params| {
+            Ok(mock_response.to_string())
+        }));
+
+        let handle = ModelHandle::new(1); // Dummy handle
+
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey)
+            .with_vortex(vortex)
+            .with_model(handle);
+
+        // Inject an error to trigger diagnosis
+        let error_event = EventData {
+            span_id: None,
+            trace_id: TraceId::generate(),
+            timestamp: Utc::now(),
+            level: Level::Error,
+            message: "Something exploded".to_string(),
+            fields: HashMap::new(),
+            subsystem: Subsystem::Kernel,
+        };
+        telemetry.record_event(error_event).await.unwrap();
+
+        // Diagnose
+        let diagnosis = doctor.diagnose().await;
+
+        // Verify AI usage
+        assert_ne!(diagnosis.status, HealthStatus::Healthy);
+        assert!(!diagnosis.root_causes.is_empty());
+        assert!(diagnosis.root_causes[0].contains("[AI]"));
+        assert!(diagnosis.root_causes[0].contains("kernel explosion"));
     }
 }

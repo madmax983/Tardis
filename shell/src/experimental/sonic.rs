@@ -15,6 +15,7 @@ use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
+use tardis_vortex::{ModelHandle, Vortex};
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
@@ -22,6 +23,8 @@ pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
     gallifrey: Option<Arc<Gallifrey>>,
+    vortex: Option<Arc<Vortex>>,
+    model_handle: Option<ModelHandle>,
 }
 
 impl SonicScrewdriver {
@@ -30,11 +33,15 @@ impl SonicScrewdriver {
     pub const fn new(
         telemetry: Option<Arc<TelemetryStore>>,
         gallifrey: Option<Arc<Gallifrey>>,
+        vortex: Option<Arc<Vortex>>,
+        model_handle: Option<ModelHandle>,
     ) -> Self {
         Self {
             paper: PsychicPaper::new(),
             telemetry,
             gallifrey,
+            vortex,
+            model_handle,
         }
     }
 
@@ -48,7 +55,16 @@ impl SonicScrewdriver {
             return Ok("⚠️  Sonic Screwdriver needs telemetry and gallifrey to diagnose system health.\n   (Telemetry offline)".to_string());
         };
 
-        let doctor = SystemDoctor::new(telemetry.clone(), gallifrey.clone());
+        let mut doctor = SystemDoctor::new(telemetry.clone(), gallifrey.clone());
+
+        if let Some(vortex) = &self.vortex {
+            doctor = doctor.with_vortex(vortex.clone());
+        }
+
+        if let Some(handle) = self.model_handle {
+            doctor = doctor.with_model(handle);
+        }
+
         let diagnosis = doctor.diagnose().await;
 
         let mut report = String::new();
@@ -227,7 +243,7 @@ mod tests {
     fn test_inspect_json() -> Result<()> {
         let (path, cleanup) = create_temp_file(r#"{"key": "value"}"#);
 
-        let sonic = SonicScrewdriver::new(None, None);
+        let sonic = SonicScrewdriver::new(None, None, None, None);
         let diagnosis = sonic.inspect(&path)?;
         assert!(diagnosis.contains("Valid JSON"));
 
@@ -240,7 +256,7 @@ mod tests {
         // PsychicPaper can handle markdown code blocks or messy JSON
         let (path, cleanup) = create_temp_file("```json\n{\"key\": \"value\"}\n```");
 
-        let sonic = SonicScrewdriver::new(None, None);
+        let sonic = SonicScrewdriver::new(None, None, None, None);
         let report = sonic.repair(&path)?;
 
         assert!(report.contains("Repaired file"));
