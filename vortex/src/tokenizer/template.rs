@@ -77,11 +77,25 @@ fn apply_llama2_template(messages: &[ChatMessage], add_generation_prompt: bool) 
                 result.push_str(" [/INST]");
             }
             ChatRole::Assistant => {
+                // If there's a pending system message, flush it before assistant response
+                if let Some(sys) = system_msg.take() {
+                    result.push_str("[INST] <<SYS>>\n");
+                    result.push_str(sys);
+                    result.push_str("\n<</SYS>>\n\n [/INST]");
+                }
+
                 result.push(' ');
                 result.push_str(&msg.content);
                 result.push_str(" </s><s>");
             }
         }
+    }
+
+    // Flush pending system message if no User/Assistant message consumed it
+    if let Some(sys) = system_msg {
+        result.push_str("[INST] <<SYS>>\n");
+        result.push_str(sys);
+        result.push_str("\n<</SYS>>\n\n [/INST]");
     }
 
     // Add space after [/INST] for assistant to generate
@@ -207,5 +221,31 @@ mod tests {
         assert!(result.contains(" Hello! </s><s>"));
         assert!(result.contains("[INST] How are you? [/INST]"));
         assert!(result.ends_with(" [/INST] "));
+    }
+
+    #[test]
+    fn test_apply_llama2_template_system_only() {
+        let messages = vec![ChatMessage::system("You are a poet")];
+
+        let result = apply_llama2_template(&messages, true);
+        assert!(result.contains("You are a poet"), "Should contain system message");
+        assert!(result.starts_with("[INST]"), "Should start with [INST]");
+        assert!(result.ends_with(" [/INST] "), "Should end with space for generation");
+    }
+
+    #[test]
+    fn test_apply_llama2_template_system_assistant() {
+        let messages = vec![
+            ChatMessage::system("Sys"),
+            ChatMessage::assistant("Hi"),
+        ];
+
+        let result = apply_llama2_template(&messages, true);
+        assert!(result.contains("Sys"), "Should contain system message");
+        assert!(result.contains("Hi"), "Should contain assistant message");
+        // Structure: [INST] <<SYS>>\nSys\n<</SYS>>\n\n [/INST] Hi </s><s>
+        assert!(result.contains("[INST]"), "Should contain INST block");
+        assert!(result.contains(" [/INST]"), "Should contain closing INST");
+        assert!(result.ends_with(" Hi </s><s>"), "Should end with assistant response");
     }
 }
