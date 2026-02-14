@@ -200,6 +200,8 @@ impl Repl {
                 let screwdriver = SonicScrewdriver::new(
                     self.telemetry_store.clone(),
                     Some(std::sync::Arc::clone(&self.gallifrey)),
+                    Some(self.chronos.vortex()),
+                    None, // TODO: Pass loaded model handle if available
                 );
 
                 if args[0] == "diagnose" {
