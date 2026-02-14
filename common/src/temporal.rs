@@ -64,6 +64,18 @@ impl TimeRange {
         }
     }
 
+    /// Check if this range is currently active relative to a specific time.
+    ///
+    /// Use this when checking multiple ranges against the same "now" timestamp
+    /// to avoid repeated calls to `Utc::now()`.
+    #[must_use]
+    pub fn is_current_relative_to(&self, now: DateTime<Utc>) -> bool {
+        match self.end {
+            Some(end) => end > now,
+            None => true,
+        }
+    }
+
     /// Close this range at the current time.
     ///
     /// This is typically used to mark the end of a transaction or validity period.
@@ -141,6 +153,15 @@ impl BiTemporalInterval {
     #[must_use]
     pub fn is_current(&self) -> bool {
         self.valid_time.is_current() && self.transaction_time.is_current()
+    }
+
+    /// Check if this interval is current relative to a specific time.
+    ///
+    /// Use this when checking multiple intervals against the same "now" timestamp
+    /// to avoid repeated calls to `Utc::now()`.
+    #[must_use]
+    pub fn is_current_relative_to(&self, now: DateTime<Utc>) -> bool {
+        self.valid_time.is_current_relative_to(now) && self.transaction_time.is_current_relative_to(now)
     }
 
     /// Close the transaction time (mark as superseded).
@@ -444,6 +465,18 @@ mod tests {
 
         // Implicit returns current time, so we just check it returns Some
         assert!(TemporalReference::Implicit.resolved().is_some());
+    }
+
+    #[test]
+    fn is_current_relative_to_check() {
+        let now = Utc::now();
+        let valid_time = TimeRange::bounded(now - Duration::hours(2), now - Duration::hours(1));
+        let interval = BiTemporalInterval::with_valid_time(valid_time);
+
+        assert!(!interval.is_current_relative_to(now));
+
+        let current_interval = BiTemporalInterval::now();
+        assert!(current_interval.is_current_relative_to(now));
     }
 
     proptest! {

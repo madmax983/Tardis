@@ -57,6 +57,40 @@ fn bench_knowledge_store(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_knowledge_store_populated(c: &mut Criterion) {
+    let mut group = c.benchmark_group("knowledge_store_populated");
+    group.throughput(Throughput::Elements(1000));
+
+    let store = KnowledgeStore::new();
+    let mut ids = Vec::new();
+    for i in 0..1000 {
+        let entity = Entity {
+            id: EntityId::new(),
+            entity_type: (if i % 2 == 0 { "Concept" } else { "Other" }).to_string(),
+            name: format!("Entity {}", i),
+            properties: HashMap::new(),
+            embedding: None,
+            temporal: BiTemporalInterval::now(),
+            source: None,
+        };
+        let id = store.insert_entity(entity).unwrap();
+        ids.push(id);
+    }
+
+    // Update 500 entities to create history
+    for i in 0..500 {
+        let mut updates = HashMap::new();
+        updates.insert("updated".to_string(), serde_json::json!(true));
+        store.update_entity(ids[i], updates).unwrap();
+    }
+
+    group.bench_function("KnowledgeStore::find_by_type_1000_history", |b| {
+        b.iter(|| black_box(store.find_by_type("Concept")));
+    });
+
+    group.finish();
+}
+
 fn bench_conversation_store(c: &mut Criterion) {
     let mut group = c.benchmark_group("conversation_store");
 
@@ -105,6 +139,7 @@ fn bench_bi_temporal(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_knowledge_store,
+    bench_knowledge_store_populated,
     bench_conversation_store,
     bench_bi_temporal,
 );

@@ -91,9 +91,10 @@ impl KnowledgeStore {
             .read()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
+        let now = Utc::now();
         Ok(entities
             .get(&id)
-            .and_then(|versions| versions.iter().find(|e| e.temporal.is_current()))
+            .and_then(|versions| versions.iter().find(|e| e.temporal.is_current_relative_to(now)))
             .cloned())
     }
 
@@ -237,10 +238,12 @@ impl KnowledgeStore {
             .get_mut(&id)
             .ok_or_else(|| GallifreyError::EntityNotFound(id.to_string()))?;
 
+        let now = Utc::now();
+
         // Find current version and supersede it
         let current = versions
             .iter_mut()
-            .find(|e| e.temporal.is_current())
+            .find(|e| e.temporal.is_current_relative_to(now))
             .ok_or_else(|| GallifreyError::EntityNotFound(id.to_string()))?;
 
         // Create new version with updates
@@ -288,10 +291,12 @@ impl KnowledgeStore {
             .read()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
+        let now = Utc::now();
+
         Ok(entities
             .values()
             .flat_map(|versions| versions.iter())
-            .filter(|e| e.temporal.is_current() && e.entity_type == entity_type)
+            .filter(|e| e.temporal.is_current_relative_to(now) && e.entity_type == entity_type)
             .cloned()
             .collect())
     }
@@ -312,10 +317,12 @@ impl KnowledgeStore {
             .read()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
+        let now = Utc::now();
+
         Ok(entities
             .values()
             .flat_map(|versions| versions.iter())
-            .filter(|e| e.temporal.is_current() && e.embedding.is_some())
+            .filter(|e| e.temporal.is_current_relative_to(now) && e.embedding.is_some())
             .take(limit)
             .cloned()
             .collect())
