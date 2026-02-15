@@ -124,21 +124,10 @@ impl ChronoGraph {
             }
 
             let indent_rel = "  ".repeat(current_depth + 1);
-            writeln!(
-                output,
-                "{}|--[{}]-->",
-                indent_rel, rel.relationship_type
-            )?;
+            writeln!(output, "{}|--[{}]-->", indent_rel, rel.relationship_type)?;
 
             if let Some(target) = self.resolve_entity(rel.target, time)? {
-                self.traverse(
-                    &target,
-                    max_depth,
-                    current_depth + 1,
-                    time,
-                    visited,
-                    output,
-                )?;
+                self.traverse(&target, max_depth, current_depth + 1, time, visited, output)?;
             } else {
                 writeln!(output, "{indent_rel}(Unknown Entity)")?;
             }
@@ -183,9 +172,7 @@ impl ChronoGraph {
                 .get_entity_at(id, t, Utc::now())
                 .map_err(|e| anyhow!(e.to_string()))
         } else {
-            knowledge
-                .get_entity(id)
-                .map_err(|e| anyhow!(e.to_string()))
+            knowledge.get_entity(id).map_err(|e| anyhow!(e.to_string()))
         }
     }
 }
@@ -245,46 +232,46 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronograph_cycle() {
-         let gallifrey = Arc::new(Gallifrey::new());
-         let graph = ChronoGraph::new(gallifrey.clone());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let graph = ChronoGraph::new(gallifrey.clone());
 
-         let id_a = EntityId::new();
-         let id_b = EntityId::new();
+        let id_a = EntityId::new();
+        let id_b = EntityId::new();
 
-         let entity_a = create_test_entity("A", id_a);
-         let entity_b = create_test_entity("B", id_b);
+        let entity_a = create_test_entity("A", id_a);
+        let entity_b = create_test_entity("B", id_b);
 
-         gallifrey.insert(entity_a).await.unwrap();
-         gallifrey.insert(entity_b).await.unwrap();
+        gallifrey.insert(entity_a).await.unwrap();
+        gallifrey.insert(entity_b).await.unwrap();
 
-         // A -> B
-         let rel1 = Relationship {
-             id: EntityId::new(),
-             relationship_type: "TO".to_string(),
-             source: id_a,
-             target: id_b,
-             properties: HashMap::new(),
-             temporal: BiTemporalInterval::now(),
-         };
-         // B -> A
-         let rel2 = Relationship {
-             id: EntityId::new(),
-             relationship_type: "BACK".to_string(),
-             source: id_b,
-             target: id_a,
-             properties: HashMap::new(),
-             temporal: BiTemporalInterval::now(),
-         };
+        // A -> B
+        let rel1 = Relationship {
+            id: EntityId::new(),
+            relationship_type: "TO".to_string(),
+            source: id_a,
+            target: id_b,
+            properties: HashMap::new(),
+            temporal: BiTemporalInterval::now(),
+        };
+        // B -> A
+        let rel2 = Relationship {
+            id: EntityId::new(),
+            relationship_type: "BACK".to_string(),
+            source: id_b,
+            target: id_a,
+            properties: HashMap::new(),
+            temporal: BiTemporalInterval::now(),
+        };
 
-         gallifrey.knowledge().insert_relationship(rel1).unwrap();
-         gallifrey.knowledge().insert_relationship(rel2).unwrap();
+        gallifrey.knowledge().insert_relationship(rel1).unwrap();
+        gallifrey.knowledge().insert_relationship(rel2).unwrap();
 
-         let map = graph.generate_map("A", 3, None).unwrap();
-         println!("{}", map);
+        let map = graph.generate_map("A", 3, None).unwrap();
+        println!("{}", map);
 
-         // Should contain A, B, and a cycle marker
-         assert!(map.contains("A (Test)"));
-         assert!(map.contains("B (Test)"));
-         assert!(map.contains("🔄"));
+        // Should contain A, B, and a cycle marker
+        assert!(map.contains("A (Test)"));
+        assert!(map.contains("B (Test)"));
+        assert!(map.contains("🔄"));
     }
 }

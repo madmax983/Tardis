@@ -34,3 +34,7 @@
 **Concept:** A CLI command `heatmap <entity>` that renders the Temporal Heatmap in the terminal.
 **Fate:** Merged
 **Lesson:** ASCII art is surprisingly effective for communicating complex 2D time data.
+## The Simulator (Timeline)
+**Concept:** A copy-on-write overlay that allows "What-If" scenarios on the Knowledge Graph without corrupting the main timeline.
+**Fate:** Merged (Experimental)
+**Lesson:** Bi-temporal data is great for history, but for hypothetical futures, we need a lightweight branching mechanism that doesn't persist until committed.
