@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
@@ -16,6 +17,9 @@ use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::{ModelHandle, Vortex};
+
+/// Maximum file size supported for inspection/repair (10MB).
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
@@ -28,6 +32,43 @@ pub struct SonicScrewdriver {
 }
 
 impl SonicScrewdriver {
+    /// Safely read a file with a size limit.
+    fn read_file_capped(path: &Path) -> Result<String> {
+        let file = fs::File::open(path)
+            .with_context(|| format!("Failed to open file: {}", path.display()))?;
+
+        let metadata = file.metadata()?;
+        if !metadata.is_file() {
+            return Err(anyhow::anyhow!("Not a regular file: {}", path.display()));
+        }
+
+        // Fast path check
+        if metadata.len() > MAX_FILE_SIZE {
+            return Err(anyhow::anyhow!(
+                "File too large (exceeds {}MB limit): {}",
+                MAX_FILE_SIZE / 1024 / 1024,
+                path.display()
+            ));
+        }
+
+        // Read with limit (plus 1 byte to detect truncation/growth)
+        let mut reader = file.take(MAX_FILE_SIZE + 1);
+        let mut content = String::new();
+        reader
+            .read_to_string(&mut content)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+
+        if content.len() as u64 > MAX_FILE_SIZE {
+            return Err(anyhow::anyhow!(
+                "File too large (exceeds {}MB limit): {}",
+                MAX_FILE_SIZE / 1024 / 1024,
+                path.display()
+            ));
+        }
+
+        Ok(content)
+    }
+
     /// Create a new Sonic Screwdriver.
     #[must_use]
     pub const fn new(
@@ -121,11 +162,9 @@ impl SonicScrewdriver {
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be read.
+    /// Returns an error if the file cannot be read, is not a regular file, or exceeds the size limit.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
-
+        let content = Self::read_file_capped(path)?;
         let size = content.len();
         let lines = content.lines().count();
 
@@ -174,10 +213,9 @@ impl SonicScrewdriver {
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be read or written.
+    /// Returns an error if the file cannot be read, written, or exceeds the size limit.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content = Self::read_file_capped(path)?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
