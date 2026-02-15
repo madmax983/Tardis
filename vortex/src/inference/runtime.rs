@@ -354,6 +354,11 @@ impl Vortex {
         self.registry.list()
     }
 
+    /// List loaded models and their handles.
+    pub fn list_loaded_models(&self) -> Vec<(ModelHandle, ModelInfo)> {
+        self.registry.list_loaded()
+    }
+
     /// Get information about a specific model.
     pub fn model_info(&self, handle: ModelHandle) -> Option<ModelInfo> {
         let path = self.registry.get_path(handle)?;

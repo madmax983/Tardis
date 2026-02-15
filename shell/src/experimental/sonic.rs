@@ -272,4 +272,61 @@ mod tests {
         cleanup();
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_doctor_integration() {
+        use std::collections::HashMap;
+        use tardis_telemetry::types::{Level, Subsystem, TraceId};
+        use tardis_telemetry::userspace::layer::EventData;
+
+        // Setup dependencies
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let vortex = Arc::new(Vortex::new().unwrap());
+
+        // Mock model loading
+        let mock_handle = ModelHandle::new(42);
+        vortex.set_mock_load_model(Box::new(move |_path, _config| Ok(mock_handle)));
+
+        // Load a "dummy" model to get a valid handle in registry
+        let handle = vortex
+            .load_model(
+                "/dummy/model",
+                tardis_vortex::ModelLoadConfig::default(),
+            )
+            .await
+            .unwrap();
+
+        // Mock inference
+        let expected_diagnosis = "AI Diagnosis: Capacitor fluxing";
+        vortex.set_mock_inference(Box::new(move |_handle, _prompt, _params| {
+            Ok(expected_diagnosis.to_string())
+        }));
+
+        // Inject an error to trigger diagnosis
+        let error_event = EventData {
+            span_id: None,
+            trace_id: TraceId::generate(),
+            timestamp: chrono::Utc::now(),
+            level: Level::Error,
+            message: "Flux capacitor unstable".to_string(),
+            fields: HashMap::new(),
+            subsystem: Subsystem::Kernel,
+        };
+        telemetry.record_event(error_event).await.unwrap();
+
+        // Run Sonic Screwdriver
+        let sonic = SonicScrewdriver::new(
+            Some(telemetry),
+            Some(gallifrey),
+            Some(vortex),
+            Some(handle),
+        );
+
+        let report = sonic.diagnose().await.unwrap();
+
+        // Verify report contains AI diagnosis
+        assert!(report.contains("AI Diagnosis: Capacitor fluxing"));
+        assert!(report.contains("Status: DEGRADED"));
+    }
 }
