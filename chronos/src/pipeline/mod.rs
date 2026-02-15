@@ -53,6 +53,13 @@ use tracing::{info, instrument};
 ///
 /// Controls how context is retrieved and filtered.
 ///
+/// # Token Budget & Truncation
+///
+/// Chronos enforces a strict token budget (default: 4096 tokens) to prevent context window overflow.
+/// Retrieved context items are prioritized by relevance. If the budget is exceeded:
+/// 1. Lower-relevance items are dropped entirely.
+/// 2. The last included item may be silently truncated to fit the remaining space.
+///
 /// # Examples
 ///
 /// ```rust
@@ -94,6 +101,9 @@ impl Default for RagConfig {
 /// A source of context for RAG.
 ///
 /// Represents a piece of information retrieved to answer a query.
+///
+/// **Note:** The `content` of a source may be truncated by the [`ContextAugmenter`]
+/// if it exceeds the remaining token budget.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSource {
     /// Source type (where this information came from).

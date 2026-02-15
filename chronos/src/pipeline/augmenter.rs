@@ -15,16 +15,19 @@
 //! 4.  **Instructions**: Dynamic instructions based on the query intent (e.g.,
 //!     "Focus on recall" vs "Compare states").
 //!
-//! # Token Budgeting
+//! # Token Budgeting & Silent Truncation
 //!
 //! The `ContextAugmenter` operates with a strict token limit (default: 4096 tokens) to prevent
-//! overflowing the LLM's context window.
+//! overflowing the LLM's context window. This is enforced via a **Silent Truncation** policy:
 //!
-//! - It uses a heuristic of **4 characters per token**.
-//! - It iterates through retrieved sources in order of relevance (assumed pre-sorted).
-//! - If a source fits entirely within the remaining budget, it is included.
-//! - If a source partially fits, it is **truncated** to fit the remaining budget.
-//! - Any subsequent sources are dropped, and a note "... (N more sources truncated)" is appended.
+//! 1.  **Strict Limit**: The budget is hard-capped (no "soft" overflow).
+//! 2.  **Heuristic**: Tokens are estimated at **4 characters per token**.
+//! 3.  **Priority**: Sources are processed in order of relevance (assumed pre-sorted).
+//! 4.  **Truncation**:
+//!     -   If a source fits entirely, it is included.
+//!     -   If it partially fits, it is **silently truncated** to fill the remaining budget.
+//!     -   Any subsequent sources are **dropped entirely**, and a summary note
+//!         (e.g., "... (N more sources truncated)") is appended.
 
 use super::{ContextSource, ContextSourceType};
 use crate::error::ChronosResult;
