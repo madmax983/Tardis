@@ -1,4 +1,4 @@
-//! ChronoGraph 🗺️
+//! `ChronoGraph` 🗺️
 //!
 //! A visualizer for the bi-temporal knowledge graph.
 //!
@@ -14,16 +14,16 @@ use tardis_common::id::EntityId;
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::Gallifrey;
 
-/// The ChronoGraph visualizer.
+/// The `ChronoGraph` visualizer.
 #[derive(Debug)]
 pub struct ChronoGraph {
     gallifrey: Arc<Gallifrey>,
 }
 
 impl ChronoGraph {
-    /// Create a new ChronoGraph.
+    /// Create a new `ChronoGraph`.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 
@@ -42,9 +42,9 @@ impl ChronoGraph {
         let mut visited = HashSet::new();
         let mut map = String::new();
 
-        writeln!(map, "🗺️  Time Map: {} (Depth: {})", entity_name, depth)?;
+        writeln!(map, "🗺️  Time Map: {entity_name} (Depth: {depth})")?;
         if let Some(t) = time {
-            writeln!(map, "🕒  Time: {}", t)?;
+            writeln!(map, "🕒  Time: {t}")?;
         } else {
             writeln!(map, "🕒  Time: NOW (Current Valid)")?;
         }
@@ -53,6 +53,87 @@ impl ChronoGraph {
         self.traverse(&root, depth, 0, time, &mut visited, &mut map)?;
 
         Ok(map)
+    }
+
+    /// Generate a bi-temporal timeline of an entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity is not found.
+    pub fn generate_timeline(&self, entity_name: &str) -> Result<String> {
+        // Use find_entity_by_name with None to search current valid time,
+        // but scan_history in find_entity_by_name will search everything if we modify it or use scan_history directly here.
+        // Actually find_entity_by_name uses scan_history but filters.
+        // We should just find the entity ID first.
+        let root = self.find_entity_by_name(entity_name, None)?;
+
+        let mut history = self
+            .gallifrey
+            .knowledge()
+            .get_entity_history(root.id)
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        // Sort by valid time start (primary) and transaction time start (secondary)
+        history.sort_by(|a, b| {
+            a.temporal
+                .valid_time
+                .start
+                .cmp(&b.temporal.valid_time.start)
+                .then(
+                    a.temporal
+                        .transaction_time
+                        .start
+                        .cmp(&b.temporal.transaction_time.start),
+                )
+        });
+
+        let mut timeline = String::new();
+        writeln!(
+            timeline,
+            "⏳ Timeline: {} ({})",
+            root.name, root.entity_type
+        )?;
+        writeln!(timeline, "========================================")?;
+
+        for (i, version) in history.iter().enumerate() {
+            writeln!(timeline, "\n[v{}]", i + 1)?;
+
+            // Format Valid Time
+            let vt_start = version
+                .temporal
+                .valid_time
+                .start
+                .format("%Y-%m-%d %H:%M:%S");
+            let vt_end = match version.temporal.valid_time.end {
+                Some(t) => t.format("%Y-%m-%d %H:%M:%S").to_string(),
+                None => "FOREVER".to_string(),
+            };
+            writeln!(timeline, "  Valid:        {vt_start} -> {vt_end}")?;
+
+            // Format Transaction Time
+            let tt_start = version
+                .temporal
+                .transaction_time
+                .start
+                .format("%Y-%m-%d %H:%M:%S");
+            let tt_end = match version.temporal.transaction_time.end {
+                Some(t) => t.format("%Y-%m-%d %H:%M:%S").to_string(),
+                None => "CURRENT".to_string(),
+            };
+            writeln!(timeline, "  Transaction:  {tt_start} -> {tt_end}")?;
+
+            // Show properties
+            if !version.properties.is_empty() {
+                // Pretty print properties
+                let props = serde_json::to_string_pretty(&version.properties)
+                    .unwrap_or_else(|_| format!("{:?}", version.properties));
+                // Indent properties
+                let indented_props = props.replace('\n', "\n    ");
+                writeln!(timeline, "  Properties:   {indented_props}")?;
+            }
+        }
+
+        Ok(timeline)
     }
 
     fn find_entity_by_name(&self, name: &str, time: Option<DateTime<Utc>>) -> Result<Entity> {
@@ -80,7 +161,7 @@ impl ChronoGraph {
             }
         })?;
 
-        found.ok_or_else(|| anyhow!("Entity '{}' not found", name))
+        found.ok_or_else(|| anyhow!("Entity '{name}' not found"))
     }
 
     fn traverse(
@@ -124,11 +205,7 @@ impl ChronoGraph {
             }
 
             let indent_rel = "  ".repeat(current_depth + 1);
-            writeln!(
-                output,
-                "{}|--[{}]-->",
-                indent_rel, rel.relationship_type
-            )?;
+            writeln!(output, "{}|--[{}]-->", indent_rel, rel.relationship_type)?;
 
             if let Some(target) = self.resolve_entity(rel.target, time)? {
                 self.traverse(
@@ -140,7 +217,7 @@ impl ChronoGraph {
                     output,
                 )?;
             } else {
-                writeln!(output, "{}(Unknown Entity)", indent_rel)?;
+                writeln!(output, "{indent_rel}(Unknown Entity)")?;
             }
         }
 
@@ -193,7 +270,10 @@ impl ChronoGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::collections::HashMap;
+    use std::thread;
+    use std::time::Duration;
     use tardis_common::temporal::BiTemporalInterval;
     use tardis_gallifrey::domain::Relationship;
 
@@ -245,46 +325,77 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronograph_cycle() {
-         let gallifrey = Arc::new(Gallifrey::new());
-         let graph = ChronoGraph::new(gallifrey.clone());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let graph = ChronoGraph::new(gallifrey.clone());
 
-         let id_a = EntityId::new();
-         let id_b = EntityId::new();
+        let id_a = EntityId::new();
+        let id_b = EntityId::new();
 
-         let entity_a = create_test_entity("A", id_a);
-         let entity_b = create_test_entity("B", id_b);
+        let entity_a = create_test_entity("A", id_a);
+        let entity_b = create_test_entity("B", id_b);
 
-         gallifrey.insert(entity_a).await.unwrap();
-         gallifrey.insert(entity_b).await.unwrap();
+        gallifrey.insert(entity_a).await.unwrap();
+        gallifrey.insert(entity_b).await.unwrap();
 
-         // A -> B
-         let rel1 = Relationship {
-             id: EntityId::new(),
-             relationship_type: "TO".to_string(),
-             source: id_a,
-             target: id_b,
-             properties: HashMap::new(),
-             temporal: BiTemporalInterval::now(),
-         };
-         // B -> A
-         let rel2 = Relationship {
-             id: EntityId::new(),
-             relationship_type: "BACK".to_string(),
-             source: id_b,
-             target: id_a,
-             properties: HashMap::new(),
-             temporal: BiTemporalInterval::now(),
-         };
+        // A -> B
+        let rel1 = Relationship {
+            id: EntityId::new(),
+            relationship_type: "TO".to_string(),
+            source: id_a,
+            target: id_b,
+            properties: HashMap::new(),
+            temporal: BiTemporalInterval::now(),
+        };
+        // B -> A
+        let rel2 = Relationship {
+            id: EntityId::new(),
+            relationship_type: "BACK".to_string(),
+            source: id_b,
+            target: id_a,
+            properties: HashMap::new(),
+            temporal: BiTemporalInterval::now(),
+        };
 
-         gallifrey.knowledge().insert_relationship(rel1).unwrap();
-         gallifrey.knowledge().insert_relationship(rel2).unwrap();
+        gallifrey.knowledge().insert_relationship(rel1).unwrap();
+        gallifrey.knowledge().insert_relationship(rel2).unwrap();
 
-         let map = graph.generate_map("A", 3, None).unwrap();
-         println!("{}", map);
+        let map = graph.generate_map("A", 3, None).unwrap();
+        println!("{}", map);
 
-         // Should contain A, B, and a cycle marker
-         assert!(map.contains("A (Test)"));
-         assert!(map.contains("B (Test)"));
-         assert!(map.contains("🔄"));
+        // Should contain A, B, and a cycle marker
+        assert!(map.contains("A (Test)"));
+        assert!(map.contains("B (Test)"));
+        assert!(map.contains("🔄"));
+    }
+
+    #[tokio::test]
+    async fn test_chronograph_timeline() {
+        let gallifrey = Arc::new(Gallifrey::new());
+        let graph = ChronoGraph::new(gallifrey.clone());
+
+        let id = EntityId::new();
+        let mut entity = create_test_entity("Timelord", id);
+        entity
+            .properties
+            .insert("regeneration".to_string(), json!(1));
+        gallifrey.insert(entity).await.unwrap();
+
+        // Sleep to ensure measurable time difference
+        thread::sleep(Duration::from_millis(10));
+
+        // Update
+        gallifrey
+            .update(id, json!({"regeneration": 2}))
+            .await
+            .unwrap();
+
+        let timeline = graph.generate_timeline("Timelord").unwrap();
+        println!("{}", timeline);
+
+        assert!(timeline.contains("[v1]"));
+        assert!(timeline.contains("[v2]"));
+        assert!(timeline.contains("regeneration"));
+        assert!(timeline.contains("1"));
+        assert!(timeline.contains("2"));
     }
 }

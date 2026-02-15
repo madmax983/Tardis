@@ -139,6 +139,7 @@ impl Repl {
     }
 
     /// Handle a built-in command.
+    #[allow(clippy::too_many_lines)]
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
             "help" => commands::help(args),
@@ -187,6 +188,20 @@ impl Repl {
                         }
                     }
                     Err(e) => println!("Failed to initialize dashboard: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "timeline" => {
+                if args.is_empty() {
+                    println!("Usage: timeline <entity_name>");
+                    return;
+                }
+                let entity_name = &args[0];
+
+                let graph = ChronoGraph::new(self.gallifrey.clone());
+                match graph.generate_timeline(entity_name) {
+                    Ok(timeline) => println!("{timeline}"),
+                    Err(e) => println!("Failed to generate timeline: {e}"),
                 }
             }
             #[cfg(feature = "nova")]
