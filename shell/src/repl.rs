@@ -139,6 +139,7 @@ impl Repl {
     }
 
     /// Handle a built-in command.
+    #[allow(clippy::too_many_lines)]
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
             "help" => commands::help(args),
@@ -211,11 +212,14 @@ impl Repl {
                     return;
                 }
 
+                let loaded_models = self.chronos.vortex().list_loaded_models();
+                let model_handle = loaded_models.first().map(|(h, _)| *h);
+
                 let screwdriver = SonicScrewdriver::new(
                     self.telemetry_store.clone(),
                     Some(std::sync::Arc::clone(&self.gallifrey)),
                     Some(self.chronos.vortex()),
-                    None, // TODO: Pass loaded model handle if available
+                    model_handle,
                 );
 
                 if args[0] == "diagnose" {
