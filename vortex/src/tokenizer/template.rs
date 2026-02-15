@@ -228,17 +228,20 @@ mod tests {
         let messages = vec![ChatMessage::system("You are a poet")];
 
         let result = apply_llama2_template(&messages, true);
-        assert!(result.contains("You are a poet"), "Should contain system message");
+        assert!(
+            result.contains("You are a poet"),
+            "Should contain system message"
+        );
         assert!(result.starts_with("[INST]"), "Should start with [INST]");
-        assert!(result.ends_with(" [/INST] "), "Should end with space for generation");
+        assert!(
+            result.ends_with(" [/INST] "),
+            "Should end with space for generation"
+        );
     }
 
     #[test]
     fn test_apply_llama2_template_system_assistant() {
-        let messages = vec![
-            ChatMessage::system("Sys"),
-            ChatMessage::assistant("Hi"),
-        ];
+        let messages = vec![ChatMessage::system("Sys"), ChatMessage::assistant("Hi")];
 
         let result = apply_llama2_template(&messages, true);
         assert!(result.contains("Sys"), "Should contain system message");
@@ -246,6 +249,9 @@ mod tests {
         // Structure: [INST] <<SYS>>\nSys\n<</SYS>>\n\n [/INST] Hi </s><s>
         assert!(result.contains("[INST]"), "Should contain INST block");
         assert!(result.contains(" [/INST]"), "Should contain closing INST");
-        assert!(result.ends_with(" Hi </s><s>"), "Should end with assistant response");
+        assert!(
+            result.ends_with(" Hi </s><s>"),
+            "Should end with assistant response"
+        );
     }
 }
