@@ -1,4 +1,4 @@
-//! ChronoGraph 🗺️
+//! `ChronoGraph` 🗺️
 //!
 //! A visualizer for the bi-temporal knowledge graph.
 //!
@@ -14,16 +14,16 @@ use tardis_common::id::EntityId;
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::Gallifrey;
 
-/// The ChronoGraph visualizer.
+/// The `ChronoGraph` visualizer.
 #[derive(Debug)]
 pub struct ChronoGraph {
     gallifrey: Arc<Gallifrey>,
 }
 
 impl ChronoGraph {
-    /// Create a new ChronoGraph.
+    /// Create a new `ChronoGraph`.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
         Self { gallifrey }
     }
 
@@ -42,9 +42,9 @@ impl ChronoGraph {
         let mut visited = HashSet::new();
         let mut map = String::new();
 
-        writeln!(map, "🗺️  Time Map: {} (Depth: {})", entity_name, depth)?;
+        writeln!(map, "🗺️  Time Map: {entity_name} (Depth: {depth})")?;
         if let Some(t) = time {
-            writeln!(map, "🕒  Time: {}", t)?;
+            writeln!(map, "🕒  Time: {t}")?;
         } else {
             writeln!(map, "🕒  Time: NOW (Current Valid)")?;
         }
@@ -80,7 +80,7 @@ impl ChronoGraph {
             }
         })?;
 
-        found.ok_or_else(|| anyhow!("Entity '{}' not found", name))
+        found.ok_or_else(|| anyhow!("Entity '{name}' not found"))
     }
 
     fn traverse(
@@ -140,7 +140,7 @@ impl ChronoGraph {
                     output,
                 )?;
             } else {
-                writeln!(output, "{}(Unknown Entity)", indent_rel)?;
+                writeln!(output, "{indent_rel}(Unknown Entity)")?;
             }
         }
 

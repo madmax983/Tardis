@@ -29,3 +29,8 @@
 **Concept:** A metric to quantify the stability of the knowledge base by measuring the "drift" between Valid Time and Transaction Time (Retcons vs Prophecies).
 **Fate:** Merged (Experimental)
 **Lesson:** We can now mathematically prove if the system is "living in the moment" or constantly rewriting history.
+
+## Shell Heatmap Command
+**Concept:** A CLI command `heatmap <entity>` that renders the Temporal Heatmap in the terminal.
+**Fate:** Merged
+**Lesson:** ASCII art is surprisingly effective for communicating complex 2D time data.

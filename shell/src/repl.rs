@@ -15,6 +15,8 @@ use tracing::{error, info};
 #[cfg(feature = "nova")]
 use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
+use crate::experimental::heatmap_cmd;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
@@ -139,6 +141,7 @@ impl Repl {
     }
 
     /// Handle a built-in command.
+    #[allow(clippy::too_many_lines)]
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
             "help" => commands::help(args),
@@ -202,6 +205,13 @@ impl Repl {
                 match graph.generate_map(entity_name, depth, None) {
                     Ok(map) => println!("{map}"),
                     Err(e) => println!("Failed to generate map: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "heatmap" => {
+                match heatmap_cmd::run(&self.gallifrey, args) {
+                    Ok(report) => println!("{report}"),
+                    Err(e) => println!("Failed to generate heatmap: {e}"),
                 }
             }
             #[cfg(feature = "nova")]

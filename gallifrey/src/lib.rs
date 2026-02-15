@@ -139,7 +139,7 @@ impl Gallifrey {
     /// # ⚠️ Experimental
     ///
     /// This method is currently a stub. It parses the query but returns an empty result set.
-    /// Full implementation is pending the GallifreyDB query engine integration.
+    /// Full implementation is pending the `GallifreyDB` query engine integration.
     ///
     /// # Errors
     ///
