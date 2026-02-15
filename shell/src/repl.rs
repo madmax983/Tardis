@@ -147,106 +147,119 @@ impl Repl {
                 self.running = false;
             }
             "history" => commands::history(&self.gallifrey, self.session_id),
-            "remember" => {
-                let content = args.join(" ");
-                match self
-                    .chronos
-                    .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
-                    .await
-                {
-                    Ok(id) => println!("Remembered: {id}"),
-                    Err(e) => println!("Failed to remember: {e}"),
-                }
-            }
-            "recall" => {
-                let query = args.join(" ");
-                match self.chronos.recall(&query, 5).await {
-                    Ok(results) => {
-                        for result in results {
-                            println!("- {}", result.content);
-                        }
-                    }
-                    Err(e) => println!("Failed to recall: {e}"),
-                }
-            }
+            "remember" => self.handle_remember(args).await,
+            "recall" => self.handle_recall(args).await,
             "models" => commands::list_models(),
             "context" => commands::show_context(self.session_id),
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
             #[cfg(feature = "nova")]
-            "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(
-                    std::sync::Arc::clone(&self.gallifrey),
-                    self.telemetry_store.clone(),
-                    self.prophet.clone(),
-                ) {
-                    Ok(mut dashboard) => {
-                        if let Err(e) = dashboard.run() {
-                            println!("Dashboard failed: {e}");
-                        }
-                    }
-                    Err(e) => println!("Failed to initialize dashboard: {e}"),
-                }
-            }
+            "dashboard" => self.handle_dashboard(),
             #[cfg(feature = "nova")]
-            "map" => {
-                if args.is_empty() {
-                    println!("Usage: map <entity_name> [depth]");
-                    return;
-                }
-                let entity_name = &args[0];
-                let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
-
-                let graph = ChronoGraph::new(self.gallifrey.clone());
-                match graph.generate_map(entity_name, depth, None) {
-                    Ok(map) => println!("{map}"),
-                    Err(e) => println!("Failed to generate map: {e}"),
-                }
-            }
+            "map" => self.handle_map(args),
             #[cfg(feature = "nova")]
-            "sonic" | "fix" => {
-                if args.is_empty() {
-                    println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
-                    return;
-                }
-
-                let screwdriver = SonicScrewdriver::new(
-                    self.telemetry_store.clone(),
-                    Some(std::sync::Arc::clone(&self.gallifrey)),
-                    Some(self.chronos.vortex()),
-                    None, // TODO: Pass loaded model handle if available
-                );
-
-                if args[0] == "diagnose" {
-                    println!("{}", screwdriver.buzz());
-                    match screwdriver.diagnose().await {
-                        Ok(report) => println!("{report}"),
-                        Err(e) => println!("Diagnosis failed: {e}"),
-                    }
-                    return;
-                }
-
-                let path = std::path::Path::new(&args[args.len() - 1]);
-
-                // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
-                // If command is "fix", we repair.
-                // If command is "sonic" and first arg is "repair" or "fix", we repair.
-                let repair = command == "fix"
-                    || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
-
-                let result = if repair {
-                    screwdriver.repair(path)
-                } else {
-                    screwdriver.inspect(path)
-                };
-
-                match result {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Sonic Screwdriver error: {e}"),
-                }
-            }
+            "sonic" | "fix" => self.handle_sonic(command, args).await,
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
+        }
+    }
+
+    async fn handle_remember(&self, args: &[String]) {
+        let content = args.join(" ");
+        match self
+            .chronos
+            .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
+            .await
+        {
+            Ok(id) => println!("Remembered: {id}"),
+            Err(e) => println!("Failed to remember: {e}"),
+        }
+    }
+
+    async fn handle_recall(&self, args: &[String]) {
+        let query = args.join(" ");
+        match self.chronos.recall(&query, 5).await {
+            Ok(results) => {
+                for result in results {
+                    println!("- {}", result.content);
+                }
+            }
+            Err(e) => println!("Failed to recall: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_dashboard(&self) {
+        match crate::dashboard::tui::Dashboard::new(
+            std::sync::Arc::clone(&self.gallifrey),
+            self.telemetry_store.clone(),
+            self.prophet.clone(),
+        ) {
+            Ok(mut dashboard) => {
+                if let Err(e) = dashboard.run() {
+                    println!("Dashboard failed: {e}");
+                }
+            }
+            Err(e) => println!("Failed to initialize dashboard: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_map(&self, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: map <entity_name> [depth]");
+            return;
+        }
+        let entity_name = &args[0];
+        let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
+
+        let graph = ChronoGraph::new(self.gallifrey.clone());
+        match graph.generate_map(entity_name, depth, None) {
+            Ok(map) => println!("{map}"),
+            Err(e) => println!("Failed to generate map: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_sonic(&self, command: &str, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
+            return;
+        }
+
+        let screwdriver = SonicScrewdriver::new(
+            self.telemetry_store.clone(),
+            Some(std::sync::Arc::clone(&self.gallifrey)),
+            Some(self.chronos.vortex()),
+            None, // TODO: Pass loaded model handle if available
+        );
+
+        if args[0] == "diagnose" {
+            println!("{}", screwdriver.buzz());
+            match screwdriver.diagnose().await {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Diagnosis failed: {e}"),
+            }
+            return;
+        }
+
+        let path = std::path::Path::new(&args[args.len() - 1]);
+
+        // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
+        // If command is "fix", we repair.
+        // If command is "sonic" and first arg is "repair" or "fix", we repair.
+        let repair =
+            command == "fix" || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
+
+        let result = if repair {
+            screwdriver.repair(path)
+        } else {
+            screwdriver.inspect(path)
+        };
+
+        match result {
+            Ok(report) => println!("{report}"),
+            Err(e) => println!("Sonic Screwdriver error: {e}"),
         }
     }
 

@@ -183,10 +183,22 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
+        self.analyze_at(query, Utc::now())
+    }
+
+    /// Analyze a query at a specific point in time.
+    ///
+    /// This method is identical to `analyze`, but allows specifying the current time
+    /// for deterministic temporal resolution.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if analysis fails.
+    pub fn analyze_at(&self, query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuery> {
         // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
         let query_lower = query.to_lowercase();
         let intent = self.classify_intent(&query_lower);
-        let temporal_refs = self.extract_temporal_refs(&query_lower, Utc::now());
+        let temporal_refs = self.extract_temporal_refs(&query_lower, now);
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -413,5 +425,26 @@ mod tests {
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         let desc = analyzer.describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
+    }
+
+    #[test]
+    fn test_analyze_at_deterministic() {
+        let analyzer = QueryAnalyzer::new();
+        let now = DateTime::parse_from_rfc3339("2024-03-15T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let analysis = analyzer
+            .analyze_at("What happened yesterday?", now)
+            .unwrap();
+
+        assert_eq!(analysis.temporal_refs.len(), 1);
+        match &analysis.temporal_refs[0] {
+            TemporalReference::Relative { text, resolved } => {
+                assert_eq!(text, "yesterday");
+                assert_eq!(resolved.to_rfc3339(), "2024-03-14T12:00:00+00:00");
+            }
+            _ => panic!("Expected relative reference"),
+        }
     }
 }
