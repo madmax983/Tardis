@@ -183,10 +183,21 @@ impl QueryAnalyzer {
     ///
     /// Returns an error if analysis fails.
     pub fn analyze(&self, query: &str) -> ChronosResult<AnalyzedQuery> {
+        self.analyze_at(query, Utc::now())
+    }
+
+    /// Analyze a query at a specific point in time.
+    ///
+    /// This is useful for deterministic testing or processing historical queries.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if analysis fails.
+    pub fn analyze_at(&self, query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuery> {
         // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
         let query_lower = query.to_lowercase();
         let intent = self.classify_intent(&query_lower);
-        let temporal_refs = self.extract_temporal_refs(&query_lower, Utc::now());
+        let temporal_refs = self.extract_temporal_refs(&query_lower, now);
         let entities = self.extract_entities(query);
 
         let temporal_description = if temporal_refs.is_empty() {
@@ -413,5 +424,142 @@ mod tests {
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         let desc = analyzer.describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod deterministic_tests {
+    use super::*;
+
+    // Helper to get a fixed "now"
+    fn get_fixed_now() -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339("2024-03-15T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    #[test]
+    fn test_analyze_at_temporal_resolution() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        // "yesterday" -> 2024-03-14
+        let res = analyzer
+            .analyze_at("What happened yesterday?", now)
+            .unwrap();
+        assert_eq!(res.temporal_refs.len(), 1);
+        assert_eq!(
+            res.temporal_refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-14T12:00:00+00:00"
+        );
+
+        // "last week" -> 2024-03-08
+        let res = analyzer.analyze_at("Check last week logs", now).unwrap();
+        assert_eq!(res.temporal_refs.len(), 1);
+        assert_eq!(
+            res.temporal_refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-08T12:00:00+00:00"
+        );
+
+        // "today" -> 2024-03-15
+        let res = analyzer.analyze_at("Do it today", now).unwrap();
+        assert_eq!(res.temporal_refs.len(), 1);
+        assert_eq!(
+            res.temporal_refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-15T12:00:00+00:00"
+        );
+    }
+
+    #[test]
+    fn test_analyze_at_intent_classification() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        let cases = vec![
+            ("Remember that I like pizza", QueryIntent::Remember),
+            ("Please remember this conversation", QueryIntent::Remember),
+            ("What did we discuss?", QueryIntent::Recall),
+            ("Recall the meeting notes", QueryIntent::Recall),
+            ("How has it changed?", QueryIntent::TemporalDiff),
+            ("Take a system snapshot", QueryIntent::SystemQuery),
+            ("Is this a question?", QueryIntent::Question),
+            ("Just chatting", QueryIntent::Chat),
+        ];
+
+        for (query, expected) in cases {
+            let res = analyzer.analyze_at(query, now).unwrap();
+            assert_eq!(res.intent, expected, "Failed for query: {}", query);
+        }
+    }
+
+    #[test]
+    fn test_analyze_at_mixed_references() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        // "yesterday" and "today"
+        let res = analyzer
+            .analyze_at("Compare yesterday and today", now)
+            .unwrap();
+        assert_eq!(res.temporal_refs.len(), 2);
+
+        // Order depends on implementation (TEMPORAL_RULES order or scan order).
+        // TEMPORAL_RULES: yesterday, last week, today.
+        // It iterates over rules and checks contains.
+        // "yesterday" (rule 1) matches. Added first.
+        // "today" (rule 3) matches. Added second.
+
+        let texts: Vec<String> = res
+            .temporal_refs
+            .iter()
+            .map(|r| match r {
+                TemporalReference::Relative { text, .. } => text.clone(),
+                _ => panic!("Expected relative"),
+            })
+            .collect();
+
+        assert!(texts.contains(&"yesterday".to_string()));
+        assert!(texts.contains(&"today".to_string()));
+    }
+
+    #[test]
+    fn test_analyze_at_case_insensitivity() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        let res = analyzer
+            .analyze_at("WHAT HAPPENED YESTERDAY?", now)
+            .unwrap();
+        assert_eq!(res.temporal_refs.len(), 1);
+        match &res.temporal_refs[0] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
+            _ => panic!("Expected relative reference"),
+        }
+    }
+
+    #[test]
+    fn test_analyze_at_no_temporal_reference() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        let res = analyzer.analyze_at("Hello world", now).unwrap();
+        assert!(res.temporal_refs.is_empty());
+        assert!(res.temporal_description.is_none());
+    }
+
+    #[test]
+    fn test_analyze_at_mixed_intents_edge_case() {
+        let analyzer = QueryAnalyzer::new();
+        let now = get_fixed_now();
+
+        // "Remember this: recall is important"
+        // Matches "remember this" -> Remember (First rule)
+        // Matches "recall" -> Recall (Second rule)
+        // Should pick Remember because it's first in INTENT_RULES.
+        let res = analyzer
+            .analyze_at("Remember this: recall is important", now)
+            .unwrap();
+        assert_eq!(res.intent, QueryIntent::Remember);
     }
 }

@@ -208,14 +208,7 @@ impl ChronoGraph {
             writeln!(output, "{}|--[{}]-->", indent_rel, rel.relationship_type)?;
 
             if let Some(target) = self.resolve_entity(rel.target, time)? {
-                self.traverse(
-                    &target,
-                    max_depth,
-                    current_depth + 1,
-                    time,
-                    visited,
-                    output,
-                )?;
+                self.traverse(&target, max_depth, current_depth + 1, time, visited, output)?;
             } else {
                 writeln!(output, "{indent_rel}(Unknown Entity)")?;
             }
@@ -260,9 +253,7 @@ impl ChronoGraph {
                 .get_entity_at(id, t, Utc::now())
                 .map_err(|e| anyhow!(e.to_string()))
         } else {
-            knowledge
-                .get_entity(id)
-                .map_err(|e| anyhow!(e.to_string()))
+            knowledge.get_entity(id).map_err(|e| anyhow!(e.to_string()))
         }
     }
 }

@@ -15,9 +15,13 @@ use tracing::{error, info};
 #[cfg(feature = "nova")]
 use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
+use crate::experimental::heatmap_cmd;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
+#[cfg(feature = "nova")]
+use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -220,6 +224,13 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
+            "heatmap" => {
+                match heatmap_cmd::run(&self.gallifrey, args) {
+                    Ok(report) => println!("{report}"),
+                    Err(e) => println!("Failed to generate heatmap: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
             "sonic" | "fix" => {
                 if args.is_empty() {
                     println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
@@ -259,6 +270,57 @@ impl Repl {
                 match result {
                     Ok(report) => println!("{report}"),
                     Err(e) => println!("Sonic Screwdriver error: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "capsule" => {
+                if args.len() < 2 {
+                    println!(
+                        "Usage: capsule capture <entity> <file> [depth] | capsule restore <file>"
+                    );
+                    return;
+                }
+
+                let subcommand = &args[0];
+                match subcommand.as_str() {
+                    "capture" => {
+                        if args.len() < 3 {
+                            println!("Usage: capsule capture <entity> <file> [depth]");
+                            return;
+                        }
+                        let entity_name = &args[1];
+                        let file_path = &args[2];
+                        let depth = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+
+                        match TimeCapsule::capture(&self.gallifrey, entity_name, depth) {
+                            Ok(capsule) => match capsule.save_to_file(file_path) {
+                                Ok(()) => println!(
+                                    "Captured {} entities and {} relationships to {}",
+                                    capsule.entities.len(),
+                                    capsule.relationships.len(),
+                                    file_path
+                                ),
+                                Err(e) => println!("Failed to save capsule: {e}"),
+                            },
+                            Err(e) => println!("Failed to capture capsule: {e}"),
+                        }
+                    }
+                    "restore" => {
+                        let file_path = &args[1];
+                        match TimeCapsule::load_from_file(file_path) {
+                            Ok(capsule) => {
+                                let count = capsule.entities.len();
+                                match capsule.restore(&self.gallifrey).await {
+                                    Ok(()) => {
+                                        println!("Restored {count} entities from {file_path}")
+                                    }
+                                    Err(e) => println!("Failed to restore capsule: {e}"),
+                                }
+                            }
+                            Err(e) => println!("Failed to load capsule: {e}"),
+                        }
+                    }
+                    _ => println!("Unknown capsule command: {subcommand}"),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
