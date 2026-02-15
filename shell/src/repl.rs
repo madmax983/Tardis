@@ -195,6 +195,20 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
+            "timeline" => {
+                if args.is_empty() {
+                    println!("Usage: timeline <entity_name>");
+                    return;
+                }
+                let entity_name = &args[0];
+
+                let graph = ChronoGraph::new(self.gallifrey.clone());
+                match graph.generate_timeline(entity_name) {
+                    Ok(timeline) => println!("{timeline}"),
+                    Err(e) => println!("Failed to generate timeline: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
             "map" => {
                 if args.is_empty() {
                     println!("Usage: map <entity_name> [depth]");
