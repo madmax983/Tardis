@@ -8,6 +8,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// A range of time with optional end (open-ended if None).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,7 +162,8 @@ impl BiTemporalInterval {
     /// to avoid repeated calls to `Utc::now()`.
     #[must_use]
     pub fn is_current_relative_to(&self, now: DateTime<Utc>) -> bool {
-        self.valid_time.is_current_relative_to(now) && self.transaction_time.is_current_relative_to(now)
+        self.valid_time.is_current_relative_to(now)
+            && self.transaction_time.is_current_relative_to(now)
     }
 
     /// Close the transaction time (mark as superseded).
@@ -296,7 +298,7 @@ impl TemporalQuery {
 ///
 /// // "yesterday"
 /// let rel = TemporalReference::Relative {
-///     text: "yesterday".to_string(),
+///     text: "yesterday".into(),
 ///     resolved: Utc::now(), // In practice, this would be calculated
 /// };
 ///
@@ -310,8 +312,10 @@ impl TemporalQuery {
 pub enum TemporalReference {
     /// Relative reference like "yesterday", "last week".
     Relative {
-        /// The original text
-        text: String,
+        /// The original text.
+        ///
+        /// Uses `Cow<'static, str>` to avoid allocations for static keywords (e.g., "yesterday").
+        text: Cow<'static, str>,
         /// Resolved timestamp
         resolved: DateTime<Utc>,
     },
@@ -319,8 +323,10 @@ pub enum TemporalReference {
     Absolute(DateTime<Utc>),
     /// Event-based reference like "before the update".
     EventBased {
-        /// The event description
-        event: String,
+        /// The event description.
+        ///
+        /// Uses `Cow<'static, str>` to avoid allocations for static event names.
+        event: Cow<'static, str>,
         /// Resolved timestamp (if found)
         resolved: Option<DateTime<Utc>>,
     },

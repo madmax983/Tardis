@@ -9,6 +9,7 @@
 
 use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
+use std::borrow::Cow;
 use std::fmt::Write;
 use tardis_common::temporal::TemporalReference;
 
@@ -216,7 +217,7 @@ fn extract_temporal_refs(query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalR
             let resolved = rule.resolve(now);
 
             refs.push(TemporalReference::Relative {
-                text: rule.keyword.to_string(),
+                text: Cow::Borrowed(rule.keyword),
                 resolved,
             });
         }
@@ -464,7 +465,7 @@ mod deterministic_tests {
             .temporal_refs
             .iter()
             .map(|r| match r {
-                TemporalReference::Relative { text, .. } => text.clone(),
+                TemporalReference::Relative { text, .. } => text.clone().into_owned(),
                 _ => panic!("Expected relative"),
             })
             .collect();
