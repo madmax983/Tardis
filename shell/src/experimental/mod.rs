@@ -2,4 +2,8 @@
 pub mod chronograph;
 #[cfg(feature = "nova")]
 pub mod heatmap_cmd;
+#[cfg(feature = "nova")]
+pub mod sim_cmd;
+#[cfg(feature = "nova")]
+pub mod simulacrum;
 pub mod sonic;

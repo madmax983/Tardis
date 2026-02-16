@@ -17,6 +17,10 @@ use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
+use crate::experimental::sim_cmd;
+#[cfg(feature = "nova")]
+use crate::experimental::simulacrum::Simulacrum;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
@@ -40,6 +44,9 @@ pub struct Repl {
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]
     prophet: Option<Arc<Prophet>>,
+    /// Simulation manager (optional, Nova only).
+    #[cfg(feature = "nova")]
+    simulacrum: Simulacrum,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -64,6 +71,9 @@ impl Repl {
         let session_id = gallifrey.conversation().create_session()?;
         info!("Created session: {}", session_id);
 
+        #[cfg(feature = "nova")]
+        let simulacrum = Simulacrum::new(gallifrey.clone());
+
         Ok(Self {
             editor,
             router: Router::new(),
@@ -72,6 +82,8 @@ impl Repl {
             telemetry_store,
             #[cfg(feature = "nova")]
             prophet,
+            #[cfg(feature = "nova")]
+            simulacrum,
             session_id,
             running: true,
         })
@@ -224,12 +236,10 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
-            "heatmap" => {
-                match heatmap_cmd::run(&self.gallifrey, args) {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Failed to generate heatmap: {e}"),
-                }
-            }
+            "heatmap" => match heatmap_cmd::run(&self.gallifrey, args) {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Failed to generate heatmap: {e}"),
+            },
             #[cfg(feature = "nova")]
             "sonic" | "fix" => {
                 if args.is_empty() {
@@ -315,7 +325,7 @@ impl Repl {
                                 let count = capsule.entities.len();
                                 match capsule.restore(&self.gallifrey).await {
                                     Ok(()) => {
-                                        println!("Restored {count} entities from {file_path}")
+                                        println!("Restored {count} entities from {file_path}");
                                     }
                                     Err(e) => println!("Failed to restore capsule: {e}"),
                                 }
@@ -326,6 +336,11 @@ impl Repl {
                     _ => println!("Unknown capsule command: {subcommand}"),
                 }
             }
+            #[cfg(feature = "nova")]
+            "sim" => match sim_cmd::run(&mut self.simulacrum, args) {
+                Ok(output) => println!("{output}"),
+                Err(e) => println!("Simulation error: {e}"),
+            },
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }

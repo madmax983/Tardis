@@ -94,7 +94,11 @@ impl KnowledgeStore {
         let now = Utc::now();
         Ok(entities
             .get(&id)
-            .and_then(|versions| versions.iter().find(|e| e.temporal.is_current_relative_to(now)))
+            .and_then(|versions| {
+                versions
+                    .iter()
+                    .find(|e| e.temporal.is_current_relative_to(now))
+            })
             .cloned())
     }
 
