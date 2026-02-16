@@ -15,6 +15,8 @@ use tracing::{error, info};
 #[cfg(feature = "nova")]
 use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
+use crate::experimental::biographer::Biographer;
+#[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
@@ -231,6 +233,28 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
+            "biography" | "bio" => {
+                if args.is_empty() {
+                    println!("Usage: biography <entity_name>");
+                    return;
+                }
+                let entity_name = args.join(" ");
+
+                let loaded_models = self.chronos.vortex().list_loaded_models();
+                let model_handle = loaded_models.first().map(|(h, _)| *h);
+
+                let biographer = Biographer::new(
+                    std::sync::Arc::clone(&self.gallifrey),
+                    self.chronos.vortex(),
+                    model_handle,
+                );
+
+                match biographer.biography(&entity_name).await {
+                    Ok(bio) => println!("\n{bio}\n"),
+                    Err(e) => println!("Failed to generate biography: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
             "sonic" | "fix" => {
                 if args.is_empty() {
                     println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
@@ -315,7 +339,7 @@ impl Repl {
                                 let count = capsule.entities.len();
                                 match capsule.restore(&self.gallifrey).await {
                                     Ok(()) => {
-                                        println!("Restored {count} entities from {file_path}")
+                                        println!("Restored {count} entities from {file_path}");
                                     }
                                     Err(e) => println!("Failed to restore capsule: {e}"),
                                 }
