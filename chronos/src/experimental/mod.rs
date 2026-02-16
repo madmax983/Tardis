@@ -19,3 +19,6 @@ pub mod historian;
 
 #[cfg(feature = "nova")]
 pub mod doctor;
+
+#[cfg(feature = "nova")]
+pub mod curiosity;

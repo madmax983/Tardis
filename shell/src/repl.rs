@@ -21,6 +21,8 @@ use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::curiosity::Curiosity;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
@@ -273,6 +275,25 @@ impl Repl {
                 match result {
                     Ok(report) => println!("{report}"),
                     Err(e) => println!("Sonic Screwdriver error: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "ask" | "curiosity" => {
+                let loaded_models = self.chronos.vortex().list_loaded_models();
+                if let Some((handle, _)) = loaded_models.first() {
+                    let curiosity = Curiosity::new(
+                        std::sync::Arc::clone(&self.gallifrey),
+                        self.chronos.vortex(),
+                        *handle,
+                    );
+
+                    println!("🤔 Curiosity is scanning...");
+                    match curiosity.ask().await {
+                        Ok(question) => println!("{question}"),
+                        Err(e) => println!("Curiosity failed: {e}"),
+                    }
+                } else {
+                    println!("Curiosity needs a loaded model. Use 'models load <path>'.");
                 }
             }
             #[cfg(feature = "nova")]
