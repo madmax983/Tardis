@@ -218,17 +218,19 @@ impl QueryAnalyzer {
     /// Classify the intent of a query.
     #[allow(clippy::unused_self)]
     fn classify_intent(&self, query_lower: &str) -> QueryIntent {
-        for rule in INTENT_RULES {
-            if rule.matches(query_lower) {
-                return rule.intent.clone();
-            }
-        }
-
-        if query_lower.ends_with('?') {
-            return QueryIntent::Question;
-        }
-
-        QueryIntent::Chat
+        INTENT_RULES
+            .iter()
+            .find(|rule| rule.matches(query_lower))
+            .map_or_else(
+                || {
+                    if query_lower.ends_with('?') {
+                        QueryIntent::Question
+                    } else {
+                        QueryIntent::Chat
+                    }
+                },
+                |rule| rule.intent.clone(),
+            )
     }
 
     /// Extract temporal references from a query.
@@ -238,25 +240,19 @@ impl QueryAnalyzer {
         query_lower: &str,
         now: DateTime<Utc>,
     ) -> Vec<TemporalReference> {
-        let mut refs = Vec::new();
-
-        for rule in TEMPORAL_RULES {
-            if query_lower.contains(rule.keyword) {
-                let resolved = rule.resolve(now);
-
-                refs.push(TemporalReference::Relative {
-                    text: rule.keyword.to_string(),
-                    resolved,
-                });
-            }
-        }
-
         // TODO: Add more sophisticated temporal extraction
         // - NLP-based extraction
         // - Absolute date parsing
         // - Event-based references
 
-        refs
+        TEMPORAL_RULES
+            .iter()
+            .filter(|rule| query_lower.contains(rule.keyword))
+            .map(|rule| TemporalReference::Relative {
+                text: rule.keyword.to_string(),
+                resolved: rule.resolve(now),
+            })
+            .collect()
     }
 
     /// Extract entity mentions from a query.
@@ -280,24 +276,7 @@ impl QueryAnalyzer {
             if i > 0 {
                 result.push_str(", ");
             }
-            match r {
-                TemporalReference::Relative { text, resolved } => {
-                    let _ = write!(result, "{} ({})", text, resolved.format("%Y-%m-%d"));
-                }
-                TemporalReference::Absolute(resolved) => {
-                    let _ = write!(result, "{}", resolved.format("%Y-%m-%d"));
-                }
-                TemporalReference::EventBased { event, resolved } => {
-                    if let Some(res) = resolved {
-                        let _ = write!(result, "{} ({})", event, res.format("%Y-%m-%d"));
-                    } else {
-                        result.push_str(event);
-                    }
-                }
-                TemporalReference::Implicit => {
-                    result.push_str("implicit");
-                }
-            }
+            let _ = write!(result, "{r}");
         }
         result
     }

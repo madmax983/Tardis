@@ -328,6 +328,29 @@ pub enum TemporalReference {
     Implicit,
 }
 
+impl std::fmt::Display for TemporalReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Relative { text, resolved } => {
+                write!(f, "{} ({})", text, resolved.format("%Y-%m-%d"))
+            }
+            Self::Absolute(resolved) => {
+                write!(f, "{}", resolved.format("%Y-%m-%d"))
+            }
+            Self::EventBased { event, resolved } => {
+                if let Some(res) = resolved {
+                    write!(f, "{} ({})", event, res.format("%Y-%m-%d"))
+                } else {
+                    write!(f, "{event}")
+                }
+            }
+            Self::Implicit => {
+                write!(f, "implicit")
+            }
+        }
+    }
+}
+
 impl TemporalReference {
     /// Get the resolved timestamp, if available.
     #[must_use]
