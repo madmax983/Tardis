@@ -6,10 +6,10 @@
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
-use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
+use tardis_vortex::{InferenceParams, ModelHandle, VortexService};
 
 /// Vital signs of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,15 +59,15 @@ pub struct Prescription {
 #[derive(Debug)]
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
-    gallifrey: Arc<Gallifrey>,
-    vortex: Option<Arc<Vortex>>,
+    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Option<Arc<dyn VortexService>>,
     model_handle: Option<ModelHandle>,
 }
 
 impl SystemDoctor {
     /// Create a new System Doctor.
     #[must_use]
-    pub const fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(telemetry: Arc<TelemetryStore>, gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self {
             telemetry,
             gallifrey,
@@ -78,7 +78,7 @@ impl SystemDoctor {
 
     /// Attach Vortex AI engine.
     #[must_use]
-    pub fn with_vortex(mut self, vortex: Arc<Vortex>) -> Self {
+    pub fn with_vortex(mut self, vortex: Arc<dyn VortexService>) -> Self {
         self.vortex = Some(vortex);
         self
     }
@@ -174,7 +174,7 @@ impl SystemDoctor {
         let window = Duration::minutes(5);
         let from = now - window;
 
-        if let Ok(changes) = self.gallifrey.system_state().get_changes(from, now) {
+        if let Ok(changes) = self.gallifrey.get_system_changes(from, now).await {
             for change in changes {
                 changes_desc.push(format!(
                     "Change to {} at {} ({:?})",

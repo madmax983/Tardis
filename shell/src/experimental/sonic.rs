@@ -13,27 +13,27 @@ use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_telemetry::gallifrey::TelemetryStore;
-use tardis_vortex::{ModelHandle, Vortex};
+use tardis_vortex::{ModelHandle, VortexService};
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
 pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
-    gallifrey: Option<Arc<Gallifrey>>,
-    vortex: Option<Arc<Vortex>>,
+    gallifrey: Option<Arc<dyn GallifreyService>>,
+    vortex: Option<Arc<dyn VortexService>>,
     model_handle: Option<ModelHandle>,
 }
 
 impl SonicScrewdriver {
     /// Create a new Sonic Screwdriver.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         telemetry: Option<Arc<TelemetryStore>>,
-        gallifrey: Option<Arc<Gallifrey>>,
-        vortex: Option<Arc<Vortex>>,
+        gallifrey: Option<Arc<dyn GallifreyService>>,
+        vortex: Option<Arc<dyn VortexService>>,
         model_handle: Option<ModelHandle>,
     ) -> Self {
         Self {

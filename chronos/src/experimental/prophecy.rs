@@ -13,20 +13,20 @@ use tardis_common::id::{EntityId, ModelHandle};
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
 use tardis_gallifrey::domain::Entity;
 use tardis_vortex::InferenceParams;
-use tardis_vortex::Vortex;
+use tardis_vortex::VortexService;
 use tracing::{info, instrument};
 
 /// The Prophet engine.
 #[derive(Debug)]
 pub struct Prophet {
-    vortex: Arc<Vortex>,
+    vortex: Arc<dyn VortexService>,
     paper: PsychicPaper,
 }
 
 impl Prophet {
     /// Create a new Prophet.
     #[must_use]
-    pub const fn new(vortex: Arc<Vortex>) -> Self {
+    pub fn new(vortex: Arc<dyn VortexService>) -> Self {
         Self {
             vortex,
             paper: PsychicPaper::new(),

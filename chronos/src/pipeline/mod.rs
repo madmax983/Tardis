@@ -43,10 +43,10 @@ use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::{EntityId, SessionId};
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 #[cfg(feature = "telemetry")]
 use tardis_telemetry::gallifrey::TelemetryStore;
-use tardis_vortex::Vortex;
+use tardis_vortex::VortexService;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -143,8 +143,8 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    vortex: Arc<Vortex>,
-    gallifrey: Arc<Gallifrey>,
+    vortex: Arc<dyn VortexService>,
+    gallifrey: Arc<dyn GallifreyService>,
     #[cfg(feature = "telemetry")]
     telemetry: Option<Arc<TelemetryStore>>,
     analyzer: QueryAnalyzer,
@@ -155,7 +155,7 @@ pub struct Chronos {
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(vortex: Arc<dyn VortexService>, gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self {
             vortex,
             gallifrey: Arc::clone(&gallifrey),
@@ -177,7 +177,7 @@ impl Chronos {
 
     /// Get access to the underlying Vortex engine.
     #[must_use]
-    pub fn vortex(&self) -> Arc<Vortex> {
+    pub fn vortex(&self) -> Arc<dyn VortexService> {
         Arc::clone(&self.vortex)
     }
 

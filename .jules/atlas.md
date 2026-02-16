@@ -64,3 +64,11 @@
 2. Moved `common::llm` to `vortex::config` (the Inference Engine).
 3. Updated `common` to only contain shared primitives (`id`, `error`, `temporal`).
 **Stability:** Enforced strict domain boundaries. `common` is now truly common.
+
+**[Architect] Completing the Great Decoupling**
+**Tangle:** `Chronos` was still coupled to concrete `Vortex` and `Gallifrey` structs, preventing true decoupling and mocking. The previous journal entry claiming this was done was premature or referred to a different branch.
+**Blueprint:**
+1. Defined `GallifreyService` trait in `gallifrey` and implemented it for `Gallifrey`.
+2. Defined `VortexService` trait in `vortex` and implemented it for `Vortex`.
+3. Refactored `Chronos`, `Retriever`, `SystemDoctor`, `Prophet`, and `SonicScrewdriver` to use `Arc<dyn Service>`.
+**Stability:** Enforced Dependency Inversion Principle. `Chronos` core logic is now strictly decoupled from infrastructure implementations.

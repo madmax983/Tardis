@@ -91,6 +91,76 @@ use tardis_common::id::{EntityId, SessionId};
 use tardis_common::temporal::TemporalQuery;
 
 use crate::query::QueryResult;
+use async_trait::async_trait;
+
+use std::fmt::Debug;
+
+/// Core service trait for Gallifrey.
+#[async_trait]
+pub trait GallifreyService: Send + Sync + Debug {
+    /// Execute a query with optional temporal parameters.
+    async fn query(
+        &self,
+        query: &str,
+        temporal: TemporalQuery,
+    ) -> tardis_common::Result<QueryResult>;
+
+    /// Insert a node into the knowledge graph.
+    async fn insert(&self, node: Entity) -> tardis_common::Result<EntityId>;
+
+    /// Update an existing node.
+    async fn update(
+        &self,
+        id: EntityId,
+        properties: serde_json::Value,
+    ) -> tardis_common::Result<()>;
+
+    /// Get the history of an entity.
+    async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>>;
+
+    /// Travel to a point in time and get a snapshot.
+    async fn time_travel(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<QueryResult>;
+
+    /// Semantic search for entities.
+    async fn search_knowledge(
+        &self,
+        embedding: &[f32],
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Entity>>;
+
+    /// Get recent messages from a session.
+    async fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Message>>;
+
+    /// Semantic search for messages.
+    async fn search_conversation(
+        &self,
+        embedding: &[f32],
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Message>>;
+
+    /// Find a system snapshot at a specific time.
+    async fn find_snapshot(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Option<Snapshot>>;
+
+    /// Record a system change.
+    async fn record_change(&self, change: Change) -> tardis_common::Result<()>;
+
+    /// Get changes between two timestamps.
+    async fn get_system_changes(
+        &self,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Vec<Change>>;
+}
 
 /// The main Gallifrey database instance.
 ///
@@ -308,6 +378,99 @@ impl Gallifrey {
         self.system_state
             .record_change(change)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// Get changes between two timestamps.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if changes cannot be retrieved.
+    #[allow(clippy::unused_async)]
+    pub async fn get_system_changes(
+        &self,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Vec<Change>> {
+        self.system_state
+            .get_changes(from, to)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+}
+
+#[async_trait]
+impl GallifreyService for Gallifrey {
+    async fn query(
+        &self,
+        query: &str,
+        temporal: TemporalQuery,
+    ) -> tardis_common::Result<QueryResult> {
+        self.query(query, temporal).await
+    }
+
+    async fn insert(&self, node: Entity) -> tardis_common::Result<EntityId> {
+        self.insert(node).await
+    }
+
+    async fn update(
+        &self,
+        id: EntityId,
+        properties: serde_json::Value,
+    ) -> tardis_common::Result<()> {
+        self.update(id, properties).await
+    }
+
+    async fn get_history(&self, id: EntityId) -> tardis_common::Result<Vec<Entity>> {
+        self.get_history(id).await
+    }
+
+    async fn time_travel(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<QueryResult> {
+        self.time_travel(timestamp).await
+    }
+
+    async fn search_knowledge(
+        &self,
+        embedding: &[f32],
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Entity>> {
+        self.search_knowledge(embedding, limit).await
+    }
+
+    async fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Message>> {
+        self.get_recent_messages(session_id, limit).await
+    }
+
+    async fn search_conversation(
+        &self,
+        embedding: &[f32],
+        limit: usize,
+    ) -> tardis_common::Result<Vec<Message>> {
+        self.search_conversation(embedding, limit).await
+    }
+
+    async fn find_snapshot(
+        &self,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Option<Snapshot>> {
+        self.find_snapshot(timestamp).await
+    }
+
+    async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
+        self.record_change(change).await
+    }
+
+    async fn get_system_changes(
+        &self,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Vec<Change>> {
+        self.get_system_changes(from, to).await
     }
 }
 
