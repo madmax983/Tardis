@@ -259,6 +259,7 @@ impl ChronoGraph {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -307,7 +308,7 @@ mod tests {
         gallifrey.knowledge().insert_relationship(rel).unwrap();
 
         let map = graph.generate_map("A", 2, None).unwrap();
-        println!("{}", map);
+        println!("{map}");
 
         assert!(map.contains("A (Test)"));
         assert!(map.contains("LINKS_TO"));
@@ -351,7 +352,7 @@ mod tests {
         gallifrey.knowledge().insert_relationship(rel2).unwrap();
 
         let map = graph.generate_map("A", 3, None).unwrap();
-        println!("{}", map);
+        println!("{map}");
 
         // Should contain A, B, and a cycle marker
         assert!(map.contains("A (Test)"));
@@ -381,12 +382,12 @@ mod tests {
             .unwrap();
 
         let timeline = graph.generate_timeline("Timelord").unwrap();
-        println!("{}", timeline);
+        println!("{timeline}");
 
         assert!(timeline.contains("[v1]"));
         assert!(timeline.contains("[v2]"));
         assert!(timeline.contains("regeneration"));
-        assert!(timeline.contains("1"));
-        assert!(timeline.contains("2"));
+        assert!(timeline.contains('1'));
+        assert!(timeline.contains('2'));
     }
 }

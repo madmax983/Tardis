@@ -213,6 +213,7 @@ impl SonicScrewdriver {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs::File;
@@ -224,9 +225,9 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("sonic_test_{}.tmp", nanos));
+        let path = std::env::temp_dir().join(format!("sonic_test_{nanos}.tmp"));
         let mut file = File::create(&path).unwrap();
-        write!(file, "{}", content).unwrap();
+        write!(file, "{content}").unwrap();
 
         let path_clone = path.clone();
         let cleanup = move || {
