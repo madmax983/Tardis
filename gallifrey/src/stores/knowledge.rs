@@ -94,7 +94,7 @@ impl KnowledgeStore {
         let now = Utc::now();
         Ok(entities
             .get(&id)
-            .and_then(|versions| versions.iter().find(|e| e.temporal.is_current_relative_to(now)))
+            .and_then(|versions| versions.iter().find(|e| e.temporal.active_at(now, now)))
             .cloned())
     }
 
@@ -296,7 +296,7 @@ impl KnowledgeStore {
         Ok(entities
             .values()
             .flat_map(|versions| versions.iter())
-            .filter(|e| e.temporal.is_current_relative_to(now) && e.entity_type == entity_type)
+            .filter(|e| e.temporal.active_at(now, now) && e.entity_type == entity_type)
             .cloned()
             .collect())
     }
@@ -322,7 +322,7 @@ impl KnowledgeStore {
         Ok(entities
             .values()
             .flat_map(|versions| versions.iter())
-            .filter(|e| e.temporal.is_current_relative_to(now) && e.embedding.is_some())
+            .filter(|e| e.temporal.active_at(now, now) && e.embedding.is_some())
             .take(limit)
             .cloned()
             .collect())
