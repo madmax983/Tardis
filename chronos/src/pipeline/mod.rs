@@ -35,9 +35,9 @@ mod analyzer;
 mod augmenter;
 mod retriever;
 
-pub use analyzer::{AnalyzedQuery, QueryAnalyzer, QueryIntent};
-pub use augmenter::ContextAugmenter;
-pub use retriever::Retriever;
+pub use analyzer::{analyze, analyze_at, AnalyzedQuery, QueryIntent};
+pub use augmenter::augment;
+pub use retriever::retrieve;
 
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
@@ -84,6 +84,8 @@ pub struct RagConfig {
     pub include_system_state: bool,
     /// Current session ID.
     pub session_id: Option<SessionId>,
+    /// Maximum number of tokens for context.
+    pub max_context_tokens: usize,
 }
 
 impl Default for RagConfig {
@@ -94,6 +96,7 @@ impl Default for RagConfig {
             include_conversation: true,
             include_system_state: false,
             session_id: None,
+            max_context_tokens: 4096,
         }
     }
 }
@@ -147,9 +150,6 @@ pub struct Chronos {
     gallifrey: Arc<Gallifrey>,
     #[cfg(feature = "telemetry")]
     telemetry: Option<Arc<TelemetryStore>>,
-    analyzer: QueryAnalyzer,
-    retriever: Retriever,
-    augmenter: ContextAugmenter,
 }
 
 impl Chronos {
@@ -158,12 +158,9 @@ impl Chronos {
     pub fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
             vortex,
-            gallifrey: Arc::clone(&gallifrey),
+            gallifrey,
             #[cfg(feature = "telemetry")]
             telemetry: None,
-            analyzer: QueryAnalyzer::new(),
-            retriever: Retriever::new(gallifrey),
-            augmenter: ContextAugmenter::new(),
         }
     }
 
@@ -208,15 +205,15 @@ impl Chronos {
         info!("Processing RAG query");
 
         // 1. Analyze the query
-        let analysis = self.analyzer.analyze(prompt)?;
+        let analysis = analyzer::analyze(prompt)?;
         info!("Query analyzed: {:?}", analysis.intent);
 
         // 2. Retrieve relevant context
-        let context = self.retriever.retrieve(&analysis, &config).await?;
+        let context = retriever::retrieve(&self.gallifrey, &analysis, &config).await?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let _augmented_prompt = self.augmenter.augment(prompt, &context, &analysis)?;
+        let _augmented_prompt = augmenter::augment(prompt, &context, &analysis, &config)?;
 
         // 4. Run inference
         // TODO: Use actual model handle

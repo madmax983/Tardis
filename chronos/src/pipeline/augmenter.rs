@@ -17,7 +17,7 @@
 //!
 //! # Token Budgeting & Silent Truncation
 //!
-//! The `ContextAugmenter` operates with a strict token limit (default: 4096 tokens) to prevent
+//! The augmenter operates with a strict token limit (defined in `RagConfig`) to prevent
 //! overflowing the LLM's context window. This is enforced via a **Silent Truncation** policy:
 //!
 //! 1.  **Strict Limit**: The budget is hard-capped (no "soft" overflow).
@@ -29,225 +29,200 @@
 //!     -   Any subsequent sources are **dropped entirely**, and a summary note
 //!         (e.g., "... (N more sources truncated)") is appended.
 
-use super::{ContextSource, ContextSourceType};
+use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::ChronosResult;
 use crate::pipeline::analyzer::AnalyzedQuery;
 use chrono::Utc;
 use std::fmt::Write;
 
-/// Context augmenter for building RAG prompts.
+/// Augment a prompt with retrieved context.
 ///
-/// This struct manages token limits and formatting logic for prompt construction.
-#[derive(Debug)]
-pub struct ContextAugmenter {
-    /// Maximum tokens for context.
-    max_context_tokens: usize,
+/// # Examples
+///
+/// ```
+/// use tardis_chronos::pipeline::{augment, ContextSource, ContextSourceType, RagConfig};
+/// use tardis_chronos::pipeline::{AnalyzedQuery, QueryIntent};
+/// use tardis_common::temporal::TemporalReference;
+/// use chrono::Utc;
+///
+/// // 1. Setup the input data
+/// let config = RagConfig::default();
+/// let prompt = "Who is the Doctor?";
+///
+/// // Mock an analyzed query
+/// let analysis = AnalyzedQuery {
+///     text: prompt.to_string(),
+///     intent: QueryIntent::Question,
+///     temporal_refs: vec![],
+///     temporal_description: None,
+///     entities: vec![],
+/// };
+///
+/// // Mock retrieved context
+/// let context = vec![
+///     ContextSource {
+///         source_type: ContextSourceType::Knowledge,
+///         content: "The Doctor is a Time Lord from Gallifrey.".to_string(),
+///         relevance: 0.95,
+///         entity_id: None,
+///     }
+/// ];
+///
+/// // 2. Generate the augmented prompt
+/// let result = augment(prompt, &context, &analysis, &config).unwrap();
+///
+/// // 3. Verify the structure
+/// assert!(result.contains("# Tardis AI Assistant"));
+/// assert!(result.contains("## Retrieved Context"));
+/// assert!(result.contains("The Doctor is a Time Lord"));
+/// assert!(result.contains("## User Query"));
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if augmentation fails (e.g., formatting errors).
+pub fn augment(
+    prompt: &str,
+    context: &[ContextSource],
+    analysis: &AnalyzedQuery,
+    config: &RagConfig,
+) -> ChronosResult<String> {
+    let max_context_tokens = config.max_context_tokens;
+
+    // Bolt: Pre-allocate buffer to avoid re-allocations.
+    // 4 chars per token + 1KB overhead for system prompts/instructions.
+    let capacity = max_context_tokens * 4 + 1024;
+    let mut augmented = String::with_capacity(capacity);
+
+    // System context
+    write_system_context(&mut augmented, analysis);
+
+    // Retrieved context
+    if !context.is_empty() {
+        augmented.push_str("\n## Retrieved Context\n\n");
+        write_context(&mut augmented, context, max_context_tokens);
+    }
+
+    // User query
+    augmented.push_str("\n## User Query\n\n");
+    augmented.push_str(prompt);
+
+    // Instructions
+    augmented.push_str("\n\n## Instructions\n\n");
+    write_instructions(&mut augmented, analysis);
+
+    Ok(augmented)
 }
 
-impl ContextAugmenter {
-    /// Create a new context augmenter.
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            max_context_tokens: 4096,
-        }
+/// Write system context header to buffer.
+fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery) {
+    buffer.push_str("# Tardis AI Assistant\n\n");
+    // Bolt: Optimized format string usage
+    let _ = writeln!(
+        buffer,
+        "Current time: {}",
+        Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    );
+
+    if let Some(ref temporal) = analysis.temporal_description {
+        let _ = writeln!(buffer, "Query temporal context: {temporal}");
     }
+}
 
-    /// Augment a prompt with retrieved context.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tardis_chronos::pipeline::{ContextAugmenter, ContextSource, ContextSourceType};
-    /// use tardis_chronos::pipeline::{QueryAnalyzer, AnalyzedQuery, QueryIntent};
-    /// use tardis_common::temporal::TemporalReference;
-    /// use chrono::Utc;
-    ///
-    /// // 1. Setup the input data
-    /// let augmenter = ContextAugmenter::new();
-    /// let prompt = "Who is the Doctor?";
-    ///
-    /// // Mock an analyzed query
-    /// let analysis = AnalyzedQuery {
-    ///     text: prompt.to_string(),
-    ///     intent: QueryIntent::Question,
-    ///     temporal_refs: vec![],
-    ///     temporal_description: None,
-    ///     entities: vec![],
-    /// };
-    ///
-    /// // Mock retrieved context
-    /// let context = vec![
-    ///     ContextSource {
-    ///         source_type: ContextSourceType::Knowledge,
-    ///         content: "The Doctor is a Time Lord from Gallifrey.".to_string(),
-    ///         relevance: 0.95,
-    ///         entity_id: None,
-    ///     }
-    /// ];
-    ///
-    /// // 2. Generate the augmented prompt
-    /// let result = augmenter.augment(prompt, &context, &analysis).unwrap();
-    ///
-    /// // 3. Verify the structure
-    /// assert!(result.contains("# Tardis AI Assistant"));
-    /// assert!(result.contains("## Retrieved Context"));
-    /// assert!(result.contains("The Doctor is a Time Lord"));
-    /// assert!(result.contains("## User Query"));
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if augmentation fails (e.g., formatting errors).
-    pub fn augment(
-        &self,
-        prompt: &str,
-        context: &[ContextSource],
-        analysis: &AnalyzedQuery,
-    ) -> ChronosResult<String> {
-        // Bolt: Pre-allocate buffer to avoid re-allocations.
-        // 4 chars per token + 1KB overhead for system prompts/instructions.
-        let capacity = self.max_context_tokens * 4 + 1024;
-        let mut augmented = String::with_capacity(capacity);
+/// Write retrieved context to buffer.
+fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usize) {
+    let mut token_estimate = 0;
 
-        // System context
-        self.write_system_context(&mut augmented, analysis);
+    for (i, source) in context.iter().enumerate() {
+        let source_type = match source.source_type {
+            ContextSourceType::Knowledge => "Knowledge",
+            ContextSourceType::Conversation => "Conversation",
+            ContextSourceType::SystemState => "System State",
+        };
 
-        // Retrieved context
-        if !context.is_empty() {
-            augmented.push_str("\n## Retrieved Context\n\n");
-            self.write_context(&mut augmented, context);
-        }
+        // Rough token estimate (4 chars per token)
+        // Ceiling division to ensure non-empty sources cost at least 1 token
+        let source_tokens = source.content.len().div_ceil(4);
 
-        // User query
-        augmented.push_str("\n## User Query\n\n");
-        augmented.push_str(prompt);
+        if token_estimate + source_tokens > max_tokens {
+            // Calculate remaining budget
+            let remaining_tokens = max_tokens.saturating_sub(token_estimate);
+            let chars_to_take = remaining_tokens * 4;
 
-        // Instructions
-        augmented.push_str("\n\n## Instructions\n\n");
-        self.write_instructions(&mut augmented, analysis);
+            // If we have space for at least some content, include it partially
+            if chars_to_take > 0 {
+                // Bolt optimization: slice string instead of allocating new one
+                let end_index = source
+                    .content
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .nth(chars_to_take)
+                    .unwrap_or(source.content.len());
 
-        Ok(augmented)
-    }
+                let truncated_content = &source.content[..end_index];
+                let _ = writeln!(
+                    buffer,
+                    "### {source_type} {} (relevance: {:.2})\n{}...\n",
+                    i + 1,
+                    source.relevance,
+                    truncated_content
+                );
+            }
 
-    /// Write system context header to buffer.
-    #[allow(clippy::unused_self)]
-    fn write_system_context(&self, buffer: &mut String, analysis: &AnalyzedQuery) {
-        buffer.push_str("# Tardis AI Assistant\n\n");
-        // Bolt: Optimized format string usage
-        let _ = writeln!(
-            buffer,
-            "Current time: {}",
-            Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        );
-
-        if let Some(ref temporal) = analysis.temporal_description {
-            let _ = writeln!(buffer, "Query temporal context: {temporal}");
-        }
-    }
-
-    /// Write retrieved context to buffer.
-    fn write_context(&self, buffer: &mut String, context: &[ContextSource]) {
-        let mut token_estimate = 0;
-
-        for (i, source) in context.iter().enumerate() {
-            let source_type = match source.source_type {
-                ContextSourceType::Knowledge => "Knowledge",
-                ContextSourceType::Conversation => "Conversation",
-                ContextSourceType::SystemState => "System State",
+            // Report how many sources were fully dropped
+            // If we took some content from the current source, we only count subsequent sources.
+            // If we took NO content from the current source, we count it as dropped too.
+            let sources_fully_dropped = if chars_to_take > 0 {
+                context.len() - (i + 1)
+            } else {
+                context.len() - i
             };
 
-            // Rough token estimate (4 chars per token)
-            // Ceiling division to ensure non-empty sources cost at least 1 token
-            let source_tokens = source.content.len().div_ceil(4);
-
-            if token_estimate + source_tokens > self.max_context_tokens {
-                // Calculate remaining budget
-                let remaining_tokens = self.max_context_tokens.saturating_sub(token_estimate);
-                let chars_to_take = remaining_tokens * 4;
-
-                // If we have space for at least some content, include it partially
-                if chars_to_take > 0 {
-                    // Bolt optimization: slice string instead of allocating new one
-                    let end_index = source
-                        .content
-                        .char_indices()
-                        .map(|(i, _)| i)
-                        .nth(chars_to_take)
-                        .unwrap_or(source.content.len());
-
-                    let truncated_content = &source.content[..end_index];
-                    let _ = writeln!(
-                        buffer,
-                        "### {source_type} {} (relevance: {:.2})\n{}...\n",
-                        i + 1,
-                        source.relevance,
-                        truncated_content
-                    );
-                }
-
-                // Report how many sources were fully dropped
-                // If we took some content from the current source, we only count subsequent sources.
-                // If we took NO content from the current source, we count it as dropped too.
-                let sources_fully_dropped = if chars_to_take > 0 {
-                    context.len() - (i + 1)
-                } else {
-                    context.len() - i
-                };
-
-                if sources_fully_dropped > 0 {
-                    let _ = writeln!(
-                        buffer,
-                        "\n... ({sources_fully_dropped} more sources truncated)"
-                    );
-                }
-                break;
+            if sources_fully_dropped > 0 {
+                let _ = writeln!(
+                    buffer,
+                    "\n... ({sources_fully_dropped} more sources truncated)"
+                );
             }
-
-            let _ = writeln!(
-                buffer,
-                "### {source_type} {} (relevance: {:.2})\n{}\n",
-                i + 1,
-                source.relevance,
-                source.content
-            );
-
-            token_estimate += source_tokens;
-        }
-    }
-
-    /// Write response instructions to buffer based on query analysis.
-    #[allow(clippy::unused_self)]
-    fn write_instructions(&self, buffer: &mut String, analysis: &AnalyzedQuery) {
-        buffer.push_str("Respond based on the context provided. ");
-
-        match analysis.intent {
-            super::analyzer::QueryIntent::Recall => {
-                buffer.push_str("Focus on accurately recalling the requested information. ");
-                buffer.push_str("Cite specific sources and times when available. ");
-            }
-            super::analyzer::QueryIntent::TemporalDiff => {
-                buffer.push_str("Compare the states across the referenced time periods. ");
-                buffer.push_str("Highlight what changed and when. ");
-            }
-            super::analyzer::QueryIntent::SystemQuery => {
-                buffer.push_str("Provide accurate system state information. ");
-                buffer.push_str("Include relevant timestamps and snapshots. ");
-            }
-            _ => {
-                buffer.push_str("Be helpful and concise. ");
-            }
+            break;
         }
 
-        buffer.push_str("If information comes from a specific time, mention when. ");
-        buffer.push_str("If you're uncertain about something, say so.");
+        let _ = writeln!(
+            buffer,
+            "### {source_type} {} (relevance: {:.2})\n{}\n",
+            i + 1,
+            source.relevance,
+            source.content
+        );
+
+        token_estimate += source_tokens;
     }
 }
 
-impl Default for ContextAugmenter {
-    fn default() -> Self {
-        Self::new()
+/// Write response instructions to buffer based on query analysis.
+fn write_instructions(buffer: &mut String, analysis: &AnalyzedQuery) {
+    buffer.push_str("Respond based on the context provided. ");
+
+    match analysis.intent {
+        super::analyzer::QueryIntent::Recall => {
+            buffer.push_str("Focus on accurately recalling the requested information. ");
+            buffer.push_str("Cite specific sources and times when available. ");
+        }
+        super::analyzer::QueryIntent::TemporalDiff => {
+            buffer.push_str("Compare the states across the referenced time periods. ");
+            buffer.push_str("Highlight what changed and when. ");
+        }
+        super::analyzer::QueryIntent::SystemQuery => {
+            buffer.push_str("Provide accurate system state information. ");
+            buffer.push_str("Include relevant timestamps and snapshots. ");
+        }
+        _ => {
+            buffer.push_str("Be helpful and concise. ");
+        }
     }
+
+    buffer.push_str("If information comes from a specific time, mention when. ");
+    buffer.push_str("If you're uncertain about something, say so.");
 }
 
 #[cfg(test)]
@@ -277,9 +252,10 @@ mod tests {
 
     #[test]
     fn test_augment_truncates_large_source() {
-        let augmenter = ContextAugmenter {
-            max_context_tokens: 10,
-        }; // 40 chars max
+        let config = RagConfig {
+            max_context_tokens: 10, // 40 chars max
+            ..RagConfig::default()
+        };
 
         // Create a source with 50 chars (should be truncated)
         // 1 token = 4 chars, so 10 tokens = 40 chars.
@@ -288,7 +264,7 @@ mod tests {
         let source = create_mock_source(&content);
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &[source], &analysis).unwrap();
+        let result = augment("query", &[source], &analysis, &config).unwrap();
 
         // Should contain the truncated content (40 chars)
         assert!(
@@ -311,9 +287,10 @@ mod tests {
 
     #[test]
     fn test_augment_multiple_sources_partial() {
-        let augmenter = ContextAugmenter {
-            max_context_tokens: 15,
-        }; // 60 chars max
+        let config = RagConfig {
+            max_context_tokens: 15, // 60 chars max
+            ..RagConfig::default()
+        };
 
         // Source 1: 20 chars (5 tokens)
         let s1 = create_mock_source(&"a".repeat(20));
@@ -324,7 +301,7 @@ mod tests {
 
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &[s1, s2], &analysis).unwrap();
+        let result = augment("query", &[s1, s2], &analysis, &config).unwrap();
 
         assert!(
             result.contains(&"a".repeat(20)),
@@ -342,9 +319,10 @@ mod tests {
 
     #[test]
     fn test_augment_multiple_sources_dropped() {
-        let augmenter = ContextAugmenter {
-            max_context_tokens: 10,
-        }; // 40 chars
+        let config = RagConfig {
+            max_context_tokens: 10, // 40 chars
+            ..RagConfig::default()
+        };
 
         // S1: 40 chars (10 tokens). Fits exactly.
         let s1 = create_mock_source(&"a".repeat(40));
@@ -353,7 +331,7 @@ mod tests {
 
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &[s1, s2], &analysis).unwrap();
+        let result = augment("query", &[s1, s2], &analysis, &config).unwrap();
 
         assert!(
             result.contains(&"a".repeat(40)),
@@ -371,12 +349,13 @@ mod tests {
 
     #[test]
     fn test_augment_empty_context() {
-        let augmenter = ContextAugmenter {
+        let config = RagConfig {
             max_context_tokens: 10,
+            ..RagConfig::default()
         };
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &[], &analysis).unwrap();
+        let result = augment("query", &[], &analysis, &config).unwrap();
 
         assert!(
             !result.contains("## Retrieved Context"),
@@ -387,16 +366,17 @@ mod tests {
 
     #[test]
     fn test_augment_exact_limit() {
-        let augmenter = ContextAugmenter {
-            max_context_tokens: 10,
-        }; // 40 chars
+        let config = RagConfig {
+            max_context_tokens: 10, // 40 chars
+            ..RagConfig::default()
+        };
 
         // 40 chars. Fits exactly.
         let content = "a".repeat(40);
         let source = create_mock_source(&content);
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &[source], &analysis).unwrap();
+        let result = augment("query", &[source], &analysis, &config).unwrap();
 
         assert!(result.contains(&content), "Should contain full content");
         assert!(
@@ -407,8 +387,9 @@ mod tests {
 
     #[test]
     fn test_augment_many_small_sources() {
-        let augmenter = ContextAugmenter {
+        let config = RagConfig {
             max_context_tokens: 5,
+            ..RagConfig::default()
         };
 
         // Create 20 sources of 3 chars each ("s00", "s01", etc.)
@@ -425,7 +406,7 @@ mod tests {
 
         let analysis = create_mock_analysis();
 
-        let result = augmenter.augment("query", &sources, &analysis).unwrap();
+        let result = augment("query", &sources, &analysis, &config).unwrap();
 
         // Check if truncation happened correctly
         // With limit=5, we expect 5 sources to be included (indices 0..5)
