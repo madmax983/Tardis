@@ -409,6 +409,31 @@ impl Vortex {
             *lock = Some(mock);
         }
     }
+
+    /// Register a mock model entry for testing.
+    ///
+    /// This bypasses the file loader and directly adds an entry to the registry.
+    /// Returns the handle of the registered model.
+    pub fn register_mock_model(&self, name: &str) -> VortexResult<ModelHandle> {
+        let path = std::path::PathBuf::from(name);
+        let info = crate::model::ModelInfo {
+            name: name.to_string(),
+            path: path.clone(),
+            architecture: crate::model::Architecture::Llama, // Dummy
+            parameters: 0,
+            context_length: 0,
+            quantization: crate::model::Quantization::F16,
+            loaded: true,
+            memory_bytes: Some(0),
+            num_layers: 0,
+            hidden_size: 0,
+            num_heads: 0,
+            vocab_size: 0,
+        };
+
+        self.registry.register(path.clone(), info)?;
+        self.registry.mark_loaded(&path, 0)
+    }
 }
 
 #[cfg(test)]

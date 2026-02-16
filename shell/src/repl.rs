@@ -17,6 +17,8 @@ use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
+use crate::experimental::journal::Journal;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
@@ -231,6 +233,10 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
+            "journal" | "log" => {
+                self.handle_journal(args).await;
+            }
+            #[cfg(feature = "nova")]
             "sonic" | "fix" => {
                 if args.is_empty() {
                     println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
@@ -327,6 +333,52 @@ impl Repl {
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_journal(&self, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: journal <entry> | journal read [limit] | journal reflect [limit]");
+            return;
+        }
+
+        let journal = Journal::new(Arc::clone(&self.gallifrey), self.chronos.vortex());
+
+        let command = &args[0];
+        match command.as_str() {
+            "read" | "list" => {
+                let limit = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(5);
+                match journal.read(limit) {
+                    Ok(entries) => {
+                        if entries.is_empty() {
+                            println!("No journal entries found.");
+                        } else {
+                            for entry in entries {
+                                println!("{entry}");
+                                println!("---");
+                            }
+                        }
+                    }
+                    Err(e) => println!("Failed to read journal: {e}"),
+                }
+            }
+            "reflect" => {
+                let limit = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10);
+                println!("Consulting the Vortex for reflection...");
+                match journal.reflect(limit).await {
+                    Ok(reflection) => println!("\n🔮 Reflection:\n{reflection}"),
+                    Err(e) => println!("Failed to reflect: {e}"),
+                }
+            }
+            _ => {
+                // Treat all args as content
+                let content = args.join(" ");
+                match journal.log(&content).await {
+                    Ok(id) => println!("Journal entry logged: {id}"),
+                    Err(e) => println!("Failed to log entry: {e}"),
+                }
+            }
         }
     }
 
