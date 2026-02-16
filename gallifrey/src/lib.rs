@@ -76,7 +76,6 @@ pub mod error;
 #[cfg(feature = "nova")]
 /// Experimental features (Nova).
 pub mod experimental;
-pub mod query;
 pub mod stores;
 pub mod temporal;
 
@@ -88,9 +87,6 @@ pub use temporal::{BiTemporalInterval, TimeRange};
 use crate::domain::{Change, Entity, Message, Snapshot};
 use std::sync::Arc;
 use tardis_common::id::{EntityId, SessionId};
-use tardis_common::temporal::TemporalQuery;
-
-use crate::query::QueryResult;
 
 /// The main Gallifrey database instance.
 ///
@@ -133,30 +129,6 @@ impl Gallifrey {
     }
 
     // --- Knowledge Graph ---
-
-    /// Execute a query with optional temporal parameters.
-    ///
-    /// # ⚠️ Experimental
-    ///
-    /// This method is currently a stub. It parses the query but returns an empty result set.
-    /// Full implementation is pending the `GallifreyDB` query engine integration.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the query parsing or execution fails.
-    #[allow(clippy::unused_async)]
-    pub async fn query(
-        &self,
-        _query: &str,
-        _temporal: TemporalQuery,
-    ) -> tardis_common::Result<QueryResult> {
-        // TODO: Implement actual query parsing and execution
-        Ok(QueryResult {
-            nodes: Vec::new(),
-            execution_time_ms: 0,
-            truncated: false,
-        })
-    }
 
     /// Insert a node into the knowledge graph.
     ///
@@ -206,29 +178,6 @@ impl Gallifrey {
         self.knowledge
             .get_entity_history(id)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
-    }
-
-    /// Travel to a point in time and get a snapshot.
-    ///
-    /// # ⚠️ Experimental
-    ///
-    /// This method is currently a stub.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if time travel fails.
-    #[doc(alias = "time-travel")]
-    #[allow(clippy::unused_async)]
-    pub async fn time_travel(
-        &self,
-        _timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> tardis_common::Result<QueryResult> {
-        // TODO: Implement time travel query
-        Ok(QueryResult {
-            nodes: Vec::new(),
-            execution_time_ms: 0,
-            truncated: false,
-        })
     }
 
     /// Semantic search for entities.
