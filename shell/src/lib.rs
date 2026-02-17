@@ -12,7 +12,7 @@
 //!
 //! 1.  **REPL Loop**: The [`Repl`](crate::repl::Repl) manages the user session, history, and terminal I/O using `rustyline`.
 //! 2.  **Intent Classification**: The [`Router`](crate::router::Router) analyzes input to determine if it is:
-//!     -   A **Built-in Command** (e.g., `help`, `history`) -> Handled by [`CommandHandler`](crate::commands::CommandHandler).
+//!     -   A **Built-in Command** (e.g., `help`, `history`) -> Handled by the [`commands`] module.
 //!     -   A **Chronos Query** (e.g., "What is the status?") -> Sent to the RAG engine.
 //!     -   A **Time Travel Request** (e.g., `@yesterday ...`) -> Modifies temporal context.
 //!     -   A **Direct LLM Query** (e.g., `?Write a poem`) -> Bypasses RAG.
