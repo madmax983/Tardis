@@ -13,17 +13,17 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
-use crate::experimental::chronograph::ChronoGraph;
-#[cfg(feature = "nova")]
 use crate::experimental::biographer::Biographer;
+#[cfg(feature = "nova")]
+use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
@@ -147,7 +147,6 @@ impl Repl {
     }
 
     /// Handle a built-in command.
-    #[allow(clippy::too_many_lines)]
     async fn handle_builtin(&mut self, command: &str, args: &[String]) {
         match command {
             "help" => commands::help(args),
@@ -155,222 +154,30 @@ impl Repl {
                 println!("Goodbye!");
                 self.running = false;
             }
-            "history" => commands::history(&self.gallifrey, self.session_id),
-            "remember" => {
-                let content = args.join(" ");
-                match self
-                    .chronos
-                    .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
-                    .await
-                {
-                    Ok(id) => println!("Remembered: {id}"),
-                    Err(e) => println!("Failed to remember: {e}"),
-                }
-            }
-            "recall" => {
-                let query = args.join(" ");
-                match self.chronos.recall(&query, 5).await {
-                    Ok(results) => {
-                        for result in results {
-                            println!("- {}", result.content);
-                        }
-                    }
-                    Err(e) => println!("Failed to recall: {e}"),
-                }
-            }
-            "models" => commands::list_models(),
-            "context" => commands::show_context(self.session_id),
+            "history" => self.handle_history(),
+            "remember" => self.handle_remember(args).await,
+            "recall" => self.handle_recall(args).await,
+            "models" => self.handle_models(),
+            "context" => self.handle_context(),
             "clear" => {
                 print!("\x1B[2J\x1B[1;1H");
             }
             #[cfg(feature = "nova")]
-            "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(
-                    std::sync::Arc::clone(&self.gallifrey),
-                    self.telemetry_store.clone(),
-                    self.prophet.clone(),
-                ) {
-                    Ok(mut dashboard) => {
-                        if let Err(e) = dashboard.run() {
-                            println!("Dashboard failed: {e}");
-                        }
-                    }
-                    Err(e) => println!("Failed to initialize dashboard: {e}"),
-                }
-            }
+            "dashboard" => self.handle_dashboard(),
             #[cfg(feature = "nova")]
-            "timeline" => {
-                if args.is_empty() {
-                    println!("Usage: timeline <entity_name>");
-                    return;
-                }
-                let entity_name = &args[0];
-
-                let graph = ChronoGraph::new(self.gallifrey.clone());
-                match graph.generate_timeline(entity_name) {
-                    Ok(timeline) => println!("{timeline}"),
-                    Err(e) => println!("Failed to generate timeline: {e}"),
-                }
-            }
+            "timeline" => self.handle_timeline(args),
             #[cfg(feature = "nova")]
-            "map" => {
-                if args.is_empty() {
-                    println!("Usage: map <entity_name> [depth]");
-                    return;
-                }
-                let entity_name = &args[0];
-                let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
-
-                let graph = ChronoGraph::new(self.gallifrey.clone());
-                match graph.generate_map(entity_name, depth, None) {
-                    Ok(map) => println!("{map}"),
-                    Err(e) => println!("Failed to generate map: {e}"),
-                }
-            }
+            "map" => self.handle_map(args),
             #[cfg(feature = "nova")]
-            "heatmap" => {
-                match heatmap_cmd::run(&self.gallifrey, args) {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Failed to generate heatmap: {e}"),
-                }
-            }
+            "heatmap" => self.handle_heatmap(args),
             #[cfg(feature = "nova")]
-            "biography" | "bio" => {
-                if args.is_empty() {
-                    println!("Usage: biography <entity_name>");
-                    return;
-                }
-                let entity_name = args.join(" ");
-
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                let model_handle = loaded_models.first().map(|(h, _)| *h);
-
-                let biographer = Biographer::new(
-                    std::sync::Arc::clone(&self.gallifrey),
-                    self.chronos.vortex(),
-                    model_handle,
-                );
-
-                match biographer.biography(&entity_name).await {
-                    Ok(bio) => println!("\n{bio}\n"),
-                    Err(e) => println!("Failed to generate biography: {e}"),
-                }
-            }
+            "biography" | "bio" => self.handle_biography(args).await,
             #[cfg(feature = "nova")]
-            "sonic" | "fix" => {
-                if args.is_empty() {
-                    println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
-                    return;
-                }
-
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                let model_handle = loaded_models.first().map(|(h, _)| *h);
-
-                let screwdriver = SonicScrewdriver::new(
-                    self.telemetry_store.clone(),
-                    Some(std::sync::Arc::clone(&self.gallifrey)),
-                    Some(self.chronos.vortex()),
-                    model_handle,
-                );
-
-                if args[0] == "diagnose" {
-                    println!("{}", screwdriver.buzz());
-                    match screwdriver.diagnose().await {
-                        Ok(report) => println!("{report}"),
-                        Err(e) => println!("Diagnosis failed: {e}"),
-                    }
-                    return;
-                }
-
-                let path = std::path::Path::new(&args[args.len() - 1]);
-
-                // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
-                // If command is "fix", we repair.
-                // If command is "sonic" and first arg is "repair" or "fix", we repair.
-                let repair = command == "fix"
-                    || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
-
-                let result = if repair {
-                    screwdriver.repair(path)
-                } else {
-                    screwdriver.inspect(path)
-                };
-
-                match result {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Sonic Screwdriver error: {e}"),
-                }
-            }
+            "sonic" | "fix" => self.handle_sonic(command, args).await,
             #[cfg(feature = "nova")]
-            "ask" | "curiosity" => {
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                if let Some((handle, _)) = loaded_models.first() {
-                    let curiosity = Curiosity::new(
-                        std::sync::Arc::clone(&self.gallifrey),
-                        self.chronos.vortex(),
-                        *handle,
-                    );
-
-                    println!("🤔 Curiosity is scanning...");
-                    match curiosity.ask().await {
-                        Ok(question) => println!("{question}"),
-                        Err(e) => println!("Curiosity failed: {e}"),
-                    }
-                } else {
-                    println!("Curiosity needs a loaded model. Use 'models load <path>'.");
-                }
-            }
+            "ask" | "curiosity" => self.handle_curiosity().await,
             #[cfg(feature = "nova")]
-            "capsule" => {
-                if args.len() < 2 {
-                    println!(
-                        "Usage: capsule capture <entity> <file> [depth] | capsule restore <file>"
-                    );
-                    return;
-                }
-
-                let subcommand = &args[0];
-                match subcommand.as_str() {
-                    "capture" => {
-                        if args.len() < 3 {
-                            println!("Usage: capsule capture <entity> <file> [depth]");
-                            return;
-                        }
-                        let entity_name = &args[1];
-                        let file_path = &args[2];
-                        let depth = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
-
-                        match TimeCapsule::capture(&self.gallifrey, entity_name, depth) {
-                            Ok(capsule) => match capsule.save_to_file(file_path) {
-                                Ok(()) => println!(
-                                    "Captured {} entities and {} relationships to {}",
-                                    capsule.entities.len(),
-                                    capsule.relationships.len(),
-                                    file_path
-                                ),
-                                Err(e) => println!("Failed to save capsule: {e}"),
-                            },
-                            Err(e) => println!("Failed to capture capsule: {e}"),
-                        }
-                    }
-                    "restore" => {
-                        let file_path = &args[1];
-                        match TimeCapsule::load_from_file(file_path) {
-                            Ok(capsule) => {
-                                let count = capsule.entities.len();
-                                match capsule.restore(&self.gallifrey).await {
-                                    Ok(()) => {
-                                        println!("Restored {count} entities from {file_path}");
-                                    }
-                                    Err(e) => println!("Failed to restore capsule: {e}"),
-                                }
-                            }
-                            Err(e) => println!("Failed to load capsule: {e}"),
-                        }
-                    }
-                    _ => println!("Unknown capsule command: {subcommand}"),
-                }
-            }
+            "capsule" => self.handle_capsule(args).await,
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
@@ -417,5 +224,232 @@ impl Repl {
     async fn handle_direct_query(&self, query: &str) {
         println!("[Direct query: {query}]");
         println!("Direct queries not yet implemented.");
+    }
+
+    fn handle_history(&self) {
+        commands::history(&self.gallifrey, self.session_id);
+    }
+
+    async fn handle_remember(&self, args: &[String]) {
+        let content = args.join(" ");
+        match self
+            .chronos
+            .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
+            .await
+        {
+            Ok(id) => println!("Remembered: {id}"),
+            Err(e) => println!("Failed to remember: {e}"),
+        }
+    }
+
+    async fn handle_recall(&self, args: &[String]) {
+        let query = args.join(" ");
+        match self.chronos.recall(&query, 5).await {
+            Ok(results) => {
+                for result in results {
+                    println!("- {}", result.content);
+                }
+            }
+            Err(e) => println!("Failed to recall: {e}"),
+        }
+    }
+
+    fn handle_models(&self) {
+        commands::list_models();
+    }
+
+    fn handle_context(&self) {
+        commands::show_context(self.session_id);
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_dashboard(&self) {
+        match crate::dashboard::tui::Dashboard::new(
+            std::sync::Arc::clone(&self.gallifrey),
+            self.telemetry_store.clone(),
+            self.prophet.clone(),
+        ) {
+            Ok(mut dashboard) => {
+                if let Err(e) = dashboard.run() {
+                    println!("Dashboard failed: {e}");
+                }
+            }
+            Err(e) => println!("Failed to initialize dashboard: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_timeline(&self, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: timeline <entity_name>");
+            return;
+        }
+        let entity_name = &args[0];
+
+        let graph = ChronoGraph::new(self.gallifrey.clone());
+        match graph.generate_timeline(entity_name) {
+            Ok(timeline) => println!("{timeline}"),
+            Err(e) => println!("Failed to generate timeline: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_map(&self, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: map <entity_name> [depth]");
+            return;
+        }
+        let entity_name = &args[0];
+        let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
+
+        let graph = ChronoGraph::new(self.gallifrey.clone());
+        match graph.generate_map(entity_name, depth, None) {
+            Ok(map) => println!("{map}"),
+            Err(e) => println!("Failed to generate map: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    fn handle_heatmap(&self, args: &[String]) {
+        match heatmap_cmd::run(&self.gallifrey, args) {
+            Ok(report) => println!("{report}"),
+            Err(e) => println!("Failed to generate heatmap: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_biography(&self, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: biography <entity_name>");
+            return;
+        }
+        let entity_name = args.join(" ");
+
+        let loaded_models = self.chronos.vortex().list_loaded_models();
+        let model_handle = loaded_models.first().map(|(h, _)| *h);
+
+        let biographer = Biographer::new(
+            std::sync::Arc::clone(&self.gallifrey),
+            self.chronos.vortex(),
+            model_handle,
+        );
+
+        match biographer.biography(&entity_name).await {
+            Ok(bio) => println!("\n{bio}\n"),
+            Err(e) => println!("Failed to generate biography: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_sonic(&self, command: &str, args: &[String]) {
+        if args.is_empty() {
+            println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
+            return;
+        }
+
+        let loaded_models = self.chronos.vortex().list_loaded_models();
+        let model_handle = loaded_models.first().map(|(h, _)| *h);
+
+        let screwdriver = SonicScrewdriver::new(
+            self.telemetry_store.clone(),
+            Some(std::sync::Arc::clone(&self.gallifrey)),
+            Some(self.chronos.vortex()),
+            model_handle,
+        );
+
+        if args[0] == "diagnose" {
+            println!("{}", screwdriver.buzz());
+            match screwdriver.diagnose().await {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Diagnosis failed: {e}"),
+            }
+            return;
+        }
+
+        let path = std::path::Path::new(&args[args.len() - 1]);
+
+        let repair =
+            command == "fix" || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
+
+        let result = if repair {
+            screwdriver.repair(path)
+        } else {
+            screwdriver.inspect(path)
+        };
+
+        match result {
+            Ok(report) => println!("{report}"),
+            Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_curiosity(&self) {
+        let loaded_models = self.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let curiosity = Curiosity::new(
+                std::sync::Arc::clone(&self.gallifrey),
+                self.chronos.vortex(),
+                *handle,
+            );
+
+            println!("🤔 Curiosity is scanning...");
+            match curiosity.ask().await {
+                Ok(question) => println!("{question}"),
+                Err(e) => println!("Curiosity failed: {e}"),
+            }
+        } else {
+            println!("Curiosity needs a loaded model. Use 'models load <path>'.");
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_capsule(&self, args: &[String]) {
+        if args.len() < 2 {
+            println!("Usage: capsule capture <entity> <file> [depth] | capsule restore <file>");
+            return;
+        }
+
+        let subcommand = &args[0];
+        match subcommand.as_str() {
+            "capture" => {
+                if args.len() < 3 {
+                    println!("Usage: capsule capture <entity> <file> [depth]");
+                    return;
+                }
+                let entity_name = &args[1];
+                let file_path = &args[2];
+                let depth = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+
+                match TimeCapsule::capture(&self.gallifrey, entity_name, depth) {
+                    Ok(capsule) => match capsule.save_to_file(file_path) {
+                        Ok(()) => println!(
+                            "Captured {} entities and {} relationships to {}",
+                            capsule.entities.len(),
+                            capsule.relationships.len(),
+                            file_path
+                        ),
+                        Err(e) => println!("Failed to save capsule: {e}"),
+                    },
+                    Err(e) => println!("Failed to capture capsule: {e}"),
+                }
+            }
+            "restore" => {
+                let file_path = &args[1];
+                match TimeCapsule::load_from_file(file_path) {
+                    Ok(capsule) => {
+                        let count = capsule.entities.len();
+                        match capsule.restore(&self.gallifrey).await {
+                            Ok(()) => {
+                                println!("Restored {count} entities from {file_path}");
+                            }
+                            Err(e) => println!("Failed to restore capsule: {e}"),
+                        }
+                    }
+                    Err(e) => println!("Failed to load capsule: {e}"),
+                }
+            }
+            _ => println!("Unknown capsule command: {subcommand}"),
+        }
     }
 }
