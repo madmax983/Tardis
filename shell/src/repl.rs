@@ -19,6 +19,8 @@ use crate::experimental::biographer::Biographer;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
+use crate::experimental::serendipity_cmd;
+#[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
@@ -318,6 +320,25 @@ impl Repl {
                     }
                 } else {
                     println!("Curiosity needs a loaded model. Use 'models load <path>'.");
+                }
+            }
+            #[cfg(feature = "nova")]
+            "serendipity" | "connect" => {
+                let loaded_models = self.chronos.vortex().list_loaded_models();
+                if let Some((handle, _)) = loaded_models.first() {
+                    match serendipity_cmd::run(
+                        std::sync::Arc::clone(&self.gallifrey),
+                        self.chronos.vortex(),
+                        *handle,
+                        args,
+                    )
+                    .await
+                    {
+                        Ok(output) => println!("{output}"),
+                        Err(e) => println!("Serendipity failed: {e}"),
+                    }
+                } else {
+                    println!("Serendipity needs a loaded model. Use 'models load <path>'.");
                 }
             }
             #[cfg(feature = "nova")]
