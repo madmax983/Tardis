@@ -49,7 +49,6 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
-pub mod memory;
 pub mod pipeline;
 
 // Re-export main types
