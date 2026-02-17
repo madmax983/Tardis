@@ -43,9 +43,9 @@ linked_list_allocator = "0.10"
 log = "0.4"
 
 # LLM (Vortex)
-candle-core = "=0.9.2"
-candle-nn = "=0.9.2"
-candle-transformers = "=0.9.2"
+candle-core = "0.9.1"
+candle-nn = "0.9.1"
+candle-transformers = "0.9.1"
 cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"
@@ -58,7 +58,7 @@ hf-hub = "0.4"
 # Common
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = "=1.0.128" # Pin to known safe version
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
@@ -171,3 +171,8 @@ panic = "abort"
 [workspace.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[patch.crates-io]
+candle-core = { git = "https://github.com/huggingface/candle.git", tag = "0.9.1" }
+candle-nn = { git = "https://github.com/huggingface/candle.git", tag = "0.9.1" }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", tag = "0.9.1" }

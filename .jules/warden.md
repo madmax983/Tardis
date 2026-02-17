@@ -29,3 +29,7 @@
 
 **Threat:** Unused `BumpAllocator` in `kernel/src/memory/heap.rs` contained Undefined Behavior (casting `&self` to `*mut Self` to mutate fields) and was dead code.
 **Defense:** Deleted `kernel/src/memory/heap.rs` and removed the module declaration, adhering to YAGNI and eliminating the safety risk.
+
+**2025-06-05 - Supply Chain Attack**
+**Threat:** `serde_json` v1.0.149 introduced a malicious dependency `zmij` v1.0.19. Additionally, `zip` v7.4.0 (a typosquatted/hijacked crate version) was pulled in by `candle-core` v0.9.2. These compromised versions posed a critical risk of arbitrary code execution.
+**Defense:** Pinned `serde_json` to known safe version `=1.0.128`. Downgraded `candle-core` to `0.9.1` and patched the dependency to use the official Git repository, forcing dependency resolution to safe versions (e.g., `zip` v1.1.4). Removed compromised crate versions from `Cargo.lock`.
