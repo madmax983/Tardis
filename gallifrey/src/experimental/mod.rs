@@ -12,7 +12,7 @@ pub mod heatmap;
 /// System entropy and stability metrics.
 pub mod entropy;
 
-/// Timeline simulation for "What-If" scenarios.
-pub mod timeline;
 /// Time Capsule for knowledge graph export/import.
 pub mod time_capsule;
+/// Timeline simulation for "What-If" scenarios.
+pub mod timeline;

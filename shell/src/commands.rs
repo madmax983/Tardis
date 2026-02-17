@@ -22,7 +22,7 @@ use tardis_gallifrey::Gallifrey;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// use tardis_shell::commands;
 ///
 /// commands::help(&[]); // General help
@@ -132,6 +132,22 @@ fn command_help(command: &str) {
 /// Show conversation history.
 ///
 /// Fetches and displays recent messages from the current session.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use std::sync::Arc;
+/// use tardis_shell::commands;
+/// use tardis_gallifrey::Gallifrey;
+/// use tardis_common::id::SessionId;
+///
+/// # async fn example() {
+/// let gallifrey = Arc::new(Gallifrey::new());
+/// let session_id = SessionId::new();
+///
+/// commands::history(&gallifrey, session_id);
+/// # }
+/// ```
 pub fn history(gallifrey: &Arc<Gallifrey>, session_id: SessionId) {
     match gallifrey.conversation().get_messages(session_id) {
         Ok(messages) => {

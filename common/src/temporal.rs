@@ -161,7 +161,8 @@ impl BiTemporalInterval {
     /// to avoid repeated calls to `Utc::now()`.
     #[must_use]
     pub fn is_current_relative_to(&self, now: DateTime<Utc>) -> bool {
-        self.valid_time.is_current_relative_to(now) && self.transaction_time.is_current_relative_to(now)
+        self.valid_time.is_current_relative_to(now)
+            && self.transaction_time.is_current_relative_to(now)
     }
 
     /// Close the transaction time (mark as superseded).

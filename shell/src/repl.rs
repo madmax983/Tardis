@@ -13,17 +13,17 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
-use crate::experimental::chronograph::ChronoGraph;
-#[cfg(feature = "nova")]
 use crate::experimental::biographer::Biographer;
+#[cfg(feature = "nova")]
+use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
@@ -228,12 +228,10 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
-            "heatmap" => {
-                match heatmap_cmd::run(&self.gallifrey, args) {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Failed to generate heatmap: {e}"),
-                }
-            }
+            "heatmap" => match heatmap_cmd::run(&self.gallifrey, args) {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Failed to generate heatmap: {e}"),
+            },
             #[cfg(feature = "nova")]
             "biography" | "bio" => {
                 if args.is_empty() {

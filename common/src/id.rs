@@ -8,6 +8,16 @@ use std::fmt;
 use uuid::Uuid;
 
 /// A handle to a loaded LLM model in Vortex.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::ModelHandle;
+///
+/// let handle = ModelHandle::new(42);
+/// assert_eq!(handle.raw(), 42);
+/// assert_eq!(handle.to_string(), "model:42");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ModelHandle(u64);
 
@@ -32,6 +42,26 @@ impl fmt::Display for ModelHandle {
 }
 
 /// Unique identifier for an entity in the knowledge graph.
+///
+/// # Examples
+///
+/// Creating a new random ID:
+/// ```
+/// use tardis_common::id::EntityId;
+///
+/// let id = EntityId::new();
+/// println!("New entity: {}", id); // "entity:..."
+/// ```
+///
+/// Creating from a known UUID:
+/// ```
+/// use tardis_common::id::EntityId;
+/// use uuid::Uuid;
+///
+/// let uuid = Uuid::nil();
+/// let id = EntityId::from_uuid(uuid);
+/// assert_eq!(id.as_uuid(), uuid);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId(Uuid);
 
@@ -68,6 +98,15 @@ impl fmt::Display for EntityId {
 }
 
 /// Unique identifier for a conversation session.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::SessionId;
+///
+/// let session_id = SessionId::new();
+/// println!("Current session: {}", session_id); // "session:..."
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(Uuid);
 
@@ -104,6 +143,17 @@ impl fmt::Display for SessionId {
 }
 
 /// Unique identifier for a system state snapshot.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::SnapshotId;
+///
+/// let snap_id = SnapshotId::new();
+/// let max_id = SnapshotId::max();
+///
+/// assert!(snap_id < max_id);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SnapshotId(Uuid);
 
@@ -148,6 +198,15 @@ impl fmt::Display for SnapshotId {
 }
 
 /// Unique identifier for a message in conversation history.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::MessageId;
+///
+/// let msg_id = MessageId::new();
+/// println!("Message ref: {}", msg_id); // "msg:..."
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MessageId(Uuid);
 

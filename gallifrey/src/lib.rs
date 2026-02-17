@@ -30,11 +30,11 @@
 //! ## Getting Started
 //!
 //! ```rust
-//! use tardis_gallifrey::Gallifrey;
+//! use tardis_gallifrey::{Gallifrey, BiTemporalInterval};
 //! use tardis_gallifrey::domain::Entity;
 //! use tardis_common::id::EntityId;
-//! use tardis_gallifrey::temporal::{BiTemporalInterval, TemporalQuery};
 //! use std::collections::HashMap;
+//! use serde_json::json;
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,7 +47,7 @@
 //!     entity_type: "Fact".to_string(),
 //!     name: "The Sky".to_string(),
 //!     properties: HashMap::from([
-//!         ("color".to_string(), serde_json::json!("blue"))
+//!         ("color".to_string(), json!("blue"))
 //!     ]),
 //!     embedding: None, // In real usage, this would be a vector
 //!     temporal: BiTemporalInterval::now(),
@@ -58,7 +58,7 @@
 //! let id = gallifrey.insert(entity).await?;
 //!
 //! // 4. Update it (creates a new version, preserving history)
-//! gallifrey.update(id, serde_json::json!({"color": "dark_blue"})).await?;
+//! gallifrey.update(id, json!({"color": "dark_blue"})).await?;
 //!
 //! // 5. Retrieve history to see both versions
 //! let history = gallifrey.get_history(id).await?;
