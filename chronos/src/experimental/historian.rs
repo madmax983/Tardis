@@ -198,7 +198,7 @@ mod tests {
                 },
                 transaction_time: TimeRange {
                     start: ten_mins_ago,
-                    end: None,
+                    end: Some(now),
                 },
             },
             source: None,
