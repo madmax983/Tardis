@@ -26,6 +26,8 @@ use tardis_chronos::experimental::prophecy::Prophet;
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::serendipity::SerendipityEngine;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -369,6 +371,26 @@ impl Repl {
                         }
                     }
                     _ => println!("Unknown capsule command: {subcommand}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "serendipity" | "connect" => {
+                let engine = SerendipityEngine::new(std::sync::Arc::clone(&self.gallifrey));
+                match engine.suggest() {
+                    Ok(suggestions) => {
+                        if suggestions.is_empty() {
+                            println!("No hidden connections found.");
+                        } else {
+                            println!("🔍 Found {} potential connections:\n", suggestions.len());
+                            for (i, s) in suggestions.iter().enumerate() {
+                                println!("{}. {} <--> {}", i + 1, s.source.name, s.target.name);
+                                println!("   Score: {:.2}", s.score);
+                                println!("   Reason: {}", s.reason);
+                                println!();
+                            }
+                        }
+                    }
+                    Err(e) => println!("Serendipity failed: {e}"),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
