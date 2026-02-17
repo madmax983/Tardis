@@ -25,6 +25,8 @@ use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::serendipity::SerendipityEngine;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
@@ -369,6 +371,35 @@ impl Repl {
                         }
                     }
                     _ => println!("Unknown capsule command: {subcommand}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "connect" | "serendipity" => {
+                let engine = SerendipityEngine::new(
+                    std::sync::Arc::clone(&self.gallifrey),
+                    self.chronos.vortex(),
+                );
+
+                println!("✨ Serendipity is scanning for hidden connections...");
+                match engine.find_connections(0.8).await {
+                    Ok(suggestions) => {
+                        if suggestions.is_empty() {
+                            println!("No hidden connections found at this time.");
+                        } else {
+                            println!("Found {} potential connections:", suggestions.len());
+                            for (i, s) in suggestions.iter().take(10).enumerate() {
+                                println!(
+                                    "{}. {} <--> {} (Score: {:.2})",
+                                    i + 1,
+                                    s.source.name,
+                                    s.target.name,
+                                    s.similarity
+                                );
+                                println!("   Reason: {}", s.reason);
+                            }
+                        }
+                    }
+                    Err(e) => println!("Serendipity failed: {e}"),
                 }
             }
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),

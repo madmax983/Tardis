@@ -38,3 +38,8 @@
 **Concept:** A copy-on-write overlay that allows "What-If" scenarios on the Knowledge Graph without corrupting the main timeline.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is great for history, but for hypothetical futures, we need a lightweight branching mechanism that doesn't persist until committed.
+
+## Serendipity
+**Concept:** A background process that scans for unconnected entities with high semantic similarity and suggests new relationships.
+**Fate:** Merged (Experimental)
+**Lesson:** Innovation is just connecting two existing modules that haven't met yet. The system can now "intuit" connections based on meaning rather than just explicit links.
