@@ -57,7 +57,7 @@ pub enum Intent {
 #[derive(Debug)]
 pub struct Router {
     /// Built-in command names.
-    builtins: Vec<&'static str>,
+    builtins: Vec<String>,
 }
 
 impl Router {
@@ -66,27 +66,36 @@ impl Router {
     /// Initializes the router with the standard list of built-in commands.
     #[must_use]
     pub fn new() -> Self {
+        Self::with_builtins(vec![
+            "help",
+            "exit",
+            "quit",
+            "history",
+            "remember",
+            "recall",
+            "models",
+            "context",
+            "clear",
+            "snapshot",
+            "restore",
+            "timeline",
+            "forget",
+            "export",
+            #[cfg(feature = "nova")]
+            "sonic",
+            #[cfg(feature = "nova")]
+            "fix",
+        ])
+    }
+
+    /// Create a new router with specific built-in commands.
+    pub fn with_builtins<I, S>(builtins: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: ToString,
+    {
         Self {
-            builtins: vec![
-                "help",
-                "exit",
-                "quit",
-                "history",
-                "remember",
-                "recall",
-                "models",
-                "context",
-                "clear",
-                "snapshot",
-                "restore",
-                "timeline",
-                "forget",
-                "export",
-                #[cfg(feature = "nova")]
-                "sonic",
-                #[cfg(feature = "nova")]
-                "fix",
-            ],
+            builtins: builtins.into_iter().map(|s| s.to_string()).collect(),
         }
     }
 
@@ -141,7 +150,7 @@ impl Router {
         let first_word = parts.first().map(|s| s.to_lowercase());
 
         if let Some(ref cmd) = first_word {
-            if self.builtins.contains(&cmd.as_str()) {
+            if self.builtins.contains(cmd) {
                 let args = if parts.len() > 1 {
                     parts[1].split_whitespace().map(String::from).collect()
                 } else {

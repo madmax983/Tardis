@@ -1,5 +1,6 @@
 //! REPL (Read-Eval-Print Loop) for the Tardis shell.
 
+use crate::command_pattern::{CommandRegistry, CommandResult, ShellContext};
 use crate::commands;
 use crate::router::{Intent, Router};
 use anyhow::Result;
@@ -13,19 +14,7 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
-use crate::experimental::chronograph::ChronoGraph;
-#[cfg(feature = "nova")]
-use crate::experimental::biographer::Biographer;
-#[cfg(feature = "nova")]
-use crate::experimental::heatmap_cmd;
-#[cfg(feature = "nova")]
-use crate::experimental::sonic::SonicScrewdriver;
-#[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::curiosity::Curiosity;
-#[cfg(feature = "nova")]
-use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -44,6 +33,8 @@ pub struct Repl {
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]
     prophet: Option<Arc<Prophet>>,
+    /// Command registry.
+    registry: CommandRegistry,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -68,14 +59,46 @@ impl Repl {
         let session_id = gallifrey.conversation().create_session()?;
         info!("Created session: {}", session_id);
 
+        let mut registry = CommandRegistry::new();
+
+        // Register built-ins
+        registry.register(Box::new(commands::help::HelpCommand));
+        registry.register(Box::new(commands::history::HistoryCommand));
+        registry.register(Box::new(commands::memory::RememberCommand));
+        registry.register(Box::new(commands::memory::RecallCommand));
+        registry.register(Box::new(commands::models::ModelsCommand));
+        registry.register(Box::new(commands::context::ContextCommand));
+        registry.register(Box::new(commands::system::ExitCommand));
+        registry.register(Box::new(commands::system::QuitCommand));
+        registry.register(Box::new(commands::system::ClearCommand));
+
+        // Register experimental
+        #[cfg(feature = "nova")]
+        {
+            use crate::experimental::commands::*;
+            registry.register(Box::new(dashboard::DashboardCommand));
+            registry.register(Box::new(timeline::TimelineCommand));
+            registry.register(Box::new(map::MapCommand));
+            registry.register(Box::new(heatmap::HeatmapCommand));
+            registry.register(Box::new(biography::BiographyCommand));
+            registry.register(Box::new(sonic::SonicCommand));
+            registry.register(Box::new(sonic::FixCommand));
+            registry.register(Box::new(ask::AskCommand));
+            registry.register(Box::new(capsule::CapsuleCommand));
+        }
+
+        // Initialize Router with registered commands
+        let router = Router::with_builtins(registry.names());
+
         Ok(Self {
             editor,
-            router: Router::new(),
+            router,
             chronos,
             gallifrey,
             telemetry_store,
             #[cfg(feature = "nova")]
             prophet,
+            registry,
             session_id,
             running: true,
         })
@@ -147,231 +170,34 @@ impl Repl {
     }
 
     /// Handle a built-in command.
-    #[allow(clippy::too_many_lines)]
-    async fn handle_builtin(&mut self, command: &str, args: &[String]) {
-        match command {
-            "help" => commands::help(args),
-            "exit" | "quit" => {
-                println!("Goodbye!");
-                self.running = false;
-            }
-            "history" => commands::history(&self.gallifrey, self.session_id),
-            "remember" => {
-                let content = args.join(" ");
-                match self
-                    .chronos
-                    .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
-                    .await
-                {
-                    Ok(id) => println!("Remembered: {id}"),
-                    Err(e) => println!("Failed to remember: {e}"),
-                }
-            }
-            "recall" => {
-                let query = args.join(" ");
-                match self.chronos.recall(&query, 5).await {
-                    Ok(results) => {
-                        for result in results {
-                            println!("- {}", result.content);
-                        }
+    async fn handle_builtin(&mut self, command_name: &str, args: &[String]) {
+        if let Some(command) = self.registry.get(command_name) {
+            let ctx = ShellContext {
+                gallifrey: Arc::clone(&self.gallifrey),
+                chronos: Arc::clone(&self.chronos),
+                telemetry_store: self.telemetry_store.clone(),
+                #[cfg(feature = "nova")]
+                prophet: self.prophet.clone(),
+                session_id: self.session_id,
+                registry: &self.registry,
+            };
+
+            match command.execute(&ctx, args).await {
+                Ok(result) => match result {
+                    CommandResult::Ok => {}
+                    CommandResult::Exit => {
+                        self.running = false;
                     }
-                    Err(e) => println!("Failed to recall: {e}"),
-                }
-            }
-            "models" => commands::list_models(),
-            "context" => commands::show_context(self.session_id),
-            "clear" => {
-                print!("\x1B[2J\x1B[1;1H");
-            }
-            #[cfg(feature = "nova")]
-            "dashboard" => {
-                match crate::dashboard::tui::Dashboard::new(
-                    std::sync::Arc::clone(&self.gallifrey),
-                    self.telemetry_store.clone(),
-                    self.prophet.clone(),
-                ) {
-                    Ok(mut dashboard) => {
-                        if let Err(e) = dashboard.run() {
-                            println!("Dashboard failed: {e}");
-                        }
+                    CommandResult::ClearScreen => {
+                        // ClearCommand prints escape codes itself.
                     }
-                    Err(e) => println!("Failed to initialize dashboard: {e}"),
+                },
+                Err(e) => {
+                    println!("Error executing command '{}': {}", command_name, e);
                 }
             }
-            #[cfg(feature = "nova")]
-            "timeline" => {
-                if args.is_empty() {
-                    println!("Usage: timeline <entity_name>");
-                    return;
-                }
-                let entity_name = &args[0];
-
-                let graph = ChronoGraph::new(self.gallifrey.clone());
-                match graph.generate_timeline(entity_name) {
-                    Ok(timeline) => println!("{timeline}"),
-                    Err(e) => println!("Failed to generate timeline: {e}"),
-                }
-            }
-            #[cfg(feature = "nova")]
-            "map" => {
-                if args.is_empty() {
-                    println!("Usage: map <entity_name> [depth]");
-                    return;
-                }
-                let entity_name = &args[0];
-                let depth = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2);
-
-                let graph = ChronoGraph::new(self.gallifrey.clone());
-                match graph.generate_map(entity_name, depth, None) {
-                    Ok(map) => println!("{map}"),
-                    Err(e) => println!("Failed to generate map: {e}"),
-                }
-            }
-            #[cfg(feature = "nova")]
-            "heatmap" => {
-                match heatmap_cmd::run(&self.gallifrey, args) {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Failed to generate heatmap: {e}"),
-                }
-            }
-            #[cfg(feature = "nova")]
-            "biography" | "bio" => {
-                if args.is_empty() {
-                    println!("Usage: biography <entity_name>");
-                    return;
-                }
-                let entity_name = args.join(" ");
-
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                let model_handle = loaded_models.first().map(|(h, _)| *h);
-
-                let biographer = Biographer::new(
-                    std::sync::Arc::clone(&self.gallifrey),
-                    self.chronos.vortex(),
-                    model_handle,
-                );
-
-                match biographer.biography(&entity_name).await {
-                    Ok(bio) => println!("\n{bio}\n"),
-                    Err(e) => println!("Failed to generate biography: {e}"),
-                }
-            }
-            #[cfg(feature = "nova")]
-            "sonic" | "fix" => {
-                if args.is_empty() {
-                    println!("Usage: sonic <file> | sonic repair <file> | sonic diagnose");
-                    return;
-                }
-
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                let model_handle = loaded_models.first().map(|(h, _)| *h);
-
-                let screwdriver = SonicScrewdriver::new(
-                    self.telemetry_store.clone(),
-                    Some(std::sync::Arc::clone(&self.gallifrey)),
-                    Some(self.chronos.vortex()),
-                    model_handle,
-                );
-
-                if args[0] == "diagnose" {
-                    println!("{}", screwdriver.buzz());
-                    match screwdriver.diagnose().await {
-                        Ok(report) => println!("{report}"),
-                        Err(e) => println!("Diagnosis failed: {e}"),
-                    }
-                    return;
-                }
-
-                let path = std::path::Path::new(&args[args.len() - 1]);
-
-                // Check if user wants repair (e.g. "sonic repair file.json" or "fix file.json")
-                // If command is "fix", we repair.
-                // If command is "sonic" and first arg is "repair" or "fix", we repair.
-                let repair = command == "fix"
-                    || (args.len() > 1 && (args[0] == "repair" || args[0] == "fix"));
-
-                let result = if repair {
-                    screwdriver.repair(path)
-                } else {
-                    screwdriver.inspect(path)
-                };
-
-                match result {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Sonic Screwdriver error: {e}"),
-                }
-            }
-            #[cfg(feature = "nova")]
-            "ask" | "curiosity" => {
-                let loaded_models = self.chronos.vortex().list_loaded_models();
-                if let Some((handle, _)) = loaded_models.first() {
-                    let curiosity = Curiosity::new(
-                        std::sync::Arc::clone(&self.gallifrey),
-                        self.chronos.vortex(),
-                        *handle,
-                    );
-
-                    println!("🤔 Curiosity is scanning...");
-                    match curiosity.ask().await {
-                        Ok(question) => println!("{question}"),
-                        Err(e) => println!("Curiosity failed: {e}"),
-                    }
-                } else {
-                    println!("Curiosity needs a loaded model. Use 'models load <path>'.");
-                }
-            }
-            #[cfg(feature = "nova")]
-            "capsule" => {
-                if args.len() < 2 {
-                    println!(
-                        "Usage: capsule capture <entity> <file> [depth] | capsule restore <file>"
-                    );
-                    return;
-                }
-
-                let subcommand = &args[0];
-                match subcommand.as_str() {
-                    "capture" => {
-                        if args.len() < 3 {
-                            println!("Usage: capsule capture <entity> <file> [depth]");
-                            return;
-                        }
-                        let entity_name = &args[1];
-                        let file_path = &args[2];
-                        let depth = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
-
-                        match TimeCapsule::capture(&self.gallifrey, entity_name, depth) {
-                            Ok(capsule) => match capsule.save_to_file(file_path) {
-                                Ok(()) => println!(
-                                    "Captured {} entities and {} relationships to {}",
-                                    capsule.entities.len(),
-                                    capsule.relationships.len(),
-                                    file_path
-                                ),
-                                Err(e) => println!("Failed to save capsule: {e}"),
-                            },
-                            Err(e) => println!("Failed to capture capsule: {e}"),
-                        }
-                    }
-                    "restore" => {
-                        let file_path = &args[1];
-                        match TimeCapsule::load_from_file(file_path) {
-                            Ok(capsule) => {
-                                let count = capsule.entities.len();
-                                match capsule.restore(&self.gallifrey).await {
-                                    Ok(()) => {
-                                        println!("Restored {count} entities from {file_path}");
-                                    }
-                                    Err(e) => println!("Failed to restore capsule: {e}"),
-                                }
-                            }
-                            Err(e) => println!("Failed to load capsule: {e}"),
-                        }
-                    }
-                    _ => println!("Unknown capsule command: {subcommand}"),
-                }
-            }
-            _ => println!("Unknown command: {command}. Type 'help' for available commands."),
+        } else {
+             println!("Unknown command: {command_name}. Type 'help' for available commands.");
         }
     }
 

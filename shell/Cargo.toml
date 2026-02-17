@@ -47,6 +47,9 @@ tracing-subscriber = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
+# Async traits
+async-trait = { workspace = true }
+
 # CLI
 rustyline = "17"
 

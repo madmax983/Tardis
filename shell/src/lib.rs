@@ -41,6 +41,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod command_pattern;
 pub mod commands;
 #[cfg(feature = "nova")]
 /// The TUI dashboard.
