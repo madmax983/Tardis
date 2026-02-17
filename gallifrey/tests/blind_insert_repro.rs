@@ -30,7 +30,9 @@ fn test_blind_insert_fails_if_exists() {
     };
 
     // 1. Insert first entity
-    store.insert_entity(e1).expect("First insert should succeed");
+    store
+        .insert_entity(e1)
+        .expect("First insert should succeed");
 
     // 2. Insert second entity - SHOULD FAIL with EntityAlreadyExists
     let result = store.insert_entity(e2);
@@ -38,10 +40,12 @@ fn test_blind_insert_fails_if_exists() {
     match result {
         Err(GallifreyError::EntityAlreadyExists(_)) => {
             // Success! The fix is working.
-        },
+        }
         Ok(_) => {
-            panic!("Blind insert succeeded! This creates data corruption (multiple current versions).");
-        },
+            panic!(
+                "Blind insert succeeded! This creates data corruption (multiple current versions)."
+            );
+        }
         Err(e) => {
             panic!("Unexpected error: {:?}", e);
         }
@@ -49,5 +53,9 @@ fn test_blind_insert_fails_if_exists() {
 
     // 3. Verify no corruption (still only 1 entity in history)
     let history = store.get_entity_history(id).unwrap();
-    assert_eq!(history.len(), 1, "Should only have 1 version if insert failed");
+    assert_eq!(
+        history.len(),
+        1,
+        "Should only have 1 version if insert failed"
+    );
 }

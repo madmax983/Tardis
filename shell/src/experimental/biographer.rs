@@ -6,7 +6,7 @@
 use std::fmt::Write;
 use std::sync::Arc;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{Vortex, ModelHandle, InferenceParams};
+use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
 
 /// The Biographer engine.
 #[derive(Debug)]
@@ -73,7 +73,11 @@ impl Biographer {
 
             // Format time range nicely
             let time_str = match valid_to {
-                Some(end) => format!("From {} to {}", valid_from.format("%Y-%m-%d %H:%M"), end.format("%Y-%m-%d %H:%M")),
+                Some(end) => format!(
+                    "From {} to {}",
+                    valid_from.format("%Y-%m-%d %H:%M"),
+                    end.format("%Y-%m-%d %H:%M")
+                ),
                 None => format!("From {} onwards", valid_from.format("%Y-%m-%d %H:%M")),
             };
 
@@ -108,10 +112,10 @@ impl Biographer {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use tardis_gallifrey::domain::Entity;
+    use std::collections::HashMap;
     use tardis_common::id::EntityId;
     use tardis_common::temporal::BiTemporalInterval;
-    use std::collections::HashMap;
+    use tardis_gallifrey::domain::Entity;
 
     #[tokio::test]
     async fn test_biography_generation() {
@@ -121,21 +125,24 @@ mod tests {
 
         // Mock inference
         vortex.set_mock_inference(Box::new(|_, prompt, _| {
-            Ok(format!("Mock biography based on prompt length: {}", prompt.len()))
+            Ok(format!(
+                "Mock biography based on prompt length: {}",
+                prompt.len()
+            ))
         }));
 
         // Mock load model to fail gracefully if we try (but we pass None for model handle)
         vortex.set_mock_load_model(Box::new(|_, _| {
-             Err(tardis_vortex::VortexError::ModelNotFound { path: "dummy".into() })
+            Err(tardis_vortex::VortexError::ModelNotFound {
+                path: "dummy".into(),
+            })
         }));
 
         let entity = Entity {
             id: EntityId::new(),
             entity_type: "Person".to_string(),
             name: "The Doctor".to_string(),
-            properties: HashMap::from([
-                ("status".to_string(), serde_json::json!("Exiled"))
-            ]),
+            properties: HashMap::from([("status".to_string(), serde_json::json!("Exiled"))]),
             embedding: None,
             temporal: BiTemporalInterval::now(),
             source: None,

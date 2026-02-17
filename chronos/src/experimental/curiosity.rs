@@ -24,11 +24,7 @@ pub struct Curiosity {
 impl Curiosity {
     /// Create a new Curiosity engine.
     #[must_use]
-    pub fn new(
-        gallifrey: Arc<Gallifrey>,
-        vortex: Arc<Vortex>,
-        model: ModelHandle,
-    ) -> Self {
+    pub fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
             vortex,
@@ -50,27 +46,35 @@ impl Curiosity {
         // Scan history to find a sparse entity
         // Heuristic: Has fewer than 3 properties and is not a "System" type
         // We stop at the first one we find for now (MVP).
-        self.gallifrey.knowledge().scan_history(|history| {
-            if target_entity.is_some() {
-                return;
-            }
-
-            // Look at the latest version of the entity
-            if let Some(latest) = history.last() {
-                if latest.properties.len() < 3
-                   && latest.entity_type != "System"
-                   && !latest.name.is_empty()
-                {
-                    target_entity = Some(latest.clone());
+        self.gallifrey
+            .knowledge()
+            .scan_history(|history| {
+                if target_entity.is_some() {
+                    return;
                 }
-            }
-        }).map_err(|e| crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+
+                // Look at the latest version of the entity
+                if let Some(latest) = history.last() {
+                    if latest.properties.len() < 3
+                        && latest.entity_type != "System"
+                        && !latest.name.is_empty()
+                    {
+                        target_entity = Some(latest.clone());
+                    }
+                }
+            })
+            .map_err(|e| {
+                crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string()))
+            })?;
 
         let Some(entity) = target_entity else {
             return Ok("I am content. My knowledge base feels complete... for now.".to_string());
         };
 
-        info!("Curiosity: Found gap in entity '{}' ({})", entity.name, entity.entity_type);
+        info!(
+            "Curiosity: Found gap in entity '{}' ({})",
+            entity.name, entity.entity_type
+        );
 
         // Construct prompt
         let prompt = format!(
@@ -88,7 +92,11 @@ impl Curiosity {
 
         let question = self.vortex.infer(self.model, &prompt, params).await?;
 
-        Ok(format!("🤔 Regarding '{}': {}", entity.name, question.trim()))
+        Ok(format!(
+            "🤔 Regarding '{}': {}",
+            entity.name,
+            question.trim()
+        ))
     }
 }
 
@@ -127,12 +135,15 @@ mod tests {
         let mock_handle = ModelHandle::new(1);
         vortex.set_mock_load_model(Box::new(move |_, _| Ok(mock_handle)));
 
-        vortex.set_mock_inference(Box::new(|_, _, _| {
-            Ok("What is inside the box?".to_string())
-        }));
+        vortex.set_mock_inference(Box::new(
+            |_, _, _| Ok("What is inside the box?".to_string()),
+        ));
 
         // Load dummy model to register handle
-        let handle = vortex.load_model("dummy", ModelLoadConfig::default()).await.unwrap();
+        let handle = vortex
+            .load_model("dummy", ModelLoadConfig::default())
+            .await
+            .unwrap();
 
         let curiosity = Curiosity::new(gallifrey, vortex, handle);
 
@@ -151,7 +162,10 @@ mod tests {
 
         // Register dummy model
         vortex.set_mock_load_model(Box::new(move |_, _| Ok(ModelHandle::new(1))));
-        let handle = vortex.load_model("dummy", ModelLoadConfig::default()).await.unwrap();
+        let handle = vortex
+            .load_model("dummy", ModelLoadConfig::default())
+            .await
+            .unwrap();
 
         let curiosity = Curiosity::new(gallifrey, vortex, handle);
 

@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use tardis_gallifrey::{KnowledgeStore, BiTemporalInterval, TimeRange};
-    use tardis_gallifrey::domain::Entity;
-    use tardis_common::id::EntityId;
-    use chrono::{Utc, Duration};
+    use chrono::{Duration, Utc};
     use std::collections::HashMap;
+    use tardis_common::id::EntityId;
+    use tardis_gallifrey::domain::Entity;
+    use tardis_gallifrey::{BiTemporalInterval, KnowledgeStore, TimeRange};
 
     #[test]
     fn get_entity_should_not_return_future_entity() {
@@ -51,6 +51,9 @@ mod tests {
         store.insert_entity(entity).expect("Insert failed");
 
         let results = store.find_by_type("FutureFact").expect("Find failed");
-        assert!(results.is_empty(), "find_by_type() returned a future entity!");
+        assert!(
+            results.is_empty(),
+            "find_by_type() returned a future entity!"
+        );
     }
 }
