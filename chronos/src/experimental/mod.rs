@@ -22,3 +22,7 @@ pub mod doctor;
 
 #[cfg(feature = "nova")]
 pub mod curiosity;
+
+#[cfg(feature = "nova")]
+/// The Universal Translator.
+pub mod translator;

@@ -13,17 +13,19 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
 #[cfg(feature = "nova")]
-use crate::experimental::chronograph::ChronoGraph;
-#[cfg(feature = "nova")]
 use crate::experimental::biographer::Biographer;
+#[cfg(feature = "nova")]
+use crate::experimental::chronograph::ChronoGraph;
 #[cfg(feature = "nova")]
 use crate::experimental::heatmap_cmd;
 #[cfg(feature = "nova")]
 use crate::experimental::sonic::SonicScrewdriver;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::curiosity::Curiosity;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::curiosity::Curiosity;
+use tardis_chronos::experimental::translator::UniversalTranslator;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
@@ -228,12 +230,10 @@ impl Repl {
                 }
             }
             #[cfg(feature = "nova")]
-            "heatmap" => {
-                match heatmap_cmd::run(&self.gallifrey, args) {
-                    Ok(report) => println!("{report}"),
-                    Err(e) => println!("Failed to generate heatmap: {e}"),
-                }
-            }
+            "heatmap" => match heatmap_cmd::run(&self.gallifrey, args) {
+                Ok(report) => println!("{report}"),
+                Err(e) => println!("Failed to generate heatmap: {e}"),
+            },
             #[cfg(feature = "nova")]
             "biography" | "bio" => {
                 if args.is_empty() {
@@ -299,6 +299,34 @@ impl Repl {
                 match result {
                     Ok(report) => println!("{report}"),
                     Err(e) => println!("Sonic Screwdriver error: {e}"),
+                }
+            }
+            #[cfg(feature = "nova")]
+            "translate" => {
+                if args.is_empty() {
+                    println!("Usage: translate <text> [to <target>]");
+                    return;
+                }
+
+                let loaded_models = self.chronos.vortex().list_loaded_models();
+                if let Some((handle, _)) = loaded_models.first() {
+                    let text_input = args.join(" ");
+                    let (text, target) = if let Some(idx) = text_input.to_lowercase().rfind(" to ")
+                    {
+                        let (content, lang) = text_input.split_at(idx);
+                        (content, lang[4..].trim())
+                    } else {
+                        (text_input.as_str(), "Standard English")
+                    };
+
+                    let translator = UniversalTranslator::new(self.chronos.vortex(), *handle);
+
+                    match translator.translate(text, target).await {
+                        Ok(translation) => println!("\n{translation}\n"),
+                        Err(e) => println!("Translation failed: {e}"),
+                    }
+                } else {
+                    println!("Translation needs a loaded model. Use 'models load <path>'.");
                 }
             }
             #[cfg(feature = "nova")]

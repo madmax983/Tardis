@@ -290,10 +290,7 @@ mod tests {
 
         // Load a "dummy" model to get a valid handle in registry
         let handle = vortex
-            .load_model(
-                "/dummy/model",
-                tardis_vortex::ModelLoadConfig::default(),
-            )
+            .load_model("/dummy/model", tardis_vortex::ModelLoadConfig::default())
             .await
             .unwrap();
 
@@ -316,12 +313,8 @@ mod tests {
         telemetry.record_event(error_event).await.unwrap();
 
         // Run Sonic Screwdriver
-        let sonic = SonicScrewdriver::new(
-            Some(telemetry),
-            Some(gallifrey),
-            Some(vortex),
-            Some(handle),
-        );
+        let sonic =
+            SonicScrewdriver::new(Some(telemetry), Some(gallifrey), Some(vortex), Some(handle));
 
         let report = sonic.diagnose().await.unwrap();
 
