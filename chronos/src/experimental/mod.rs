@@ -22,3 +22,6 @@ pub mod doctor;
 
 #[cfg(feature = "nova")]
 pub mod curiosity;
+
+#[cfg(feature = "nova")]
+pub mod fugue;
