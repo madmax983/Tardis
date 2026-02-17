@@ -87,9 +87,12 @@ struct IntentRule {
 }
 
 impl IntentRule {
-    fn matches(&self, query_lower: &str) -> bool {
-        let has_required = self.required.iter().all(|k| query_lower.contains(k));
-        let has_any = self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k));
+    fn matches<F>(&self, check_contains: F) -> bool
+    where
+        F: Fn(&str) -> bool,
+    {
+        let has_required = self.required.iter().all(|k| check_contains(k));
+        let has_any = self.any.is_empty() || self.any.iter().any(|k| check_contains(k));
         has_required && has_any
     }
 }
@@ -171,10 +174,24 @@ pub fn analyze(query: &str) -> ChronosResult<AnalyzedQuery> {
 ///
 /// Returns an error if analysis fails.
 pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuery> {
-    // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
-    let query_lower = query.to_lowercase();
-    let intent = classify_intent(&query_lower);
-    let temporal_refs = extract_temporal_refs(&query_lower, now);
+    let (intent, temporal_refs) = if query.len() < 30 {
+        // Optimization: For short queries, avoid allocating a new String.
+        // Use a case-insensitive scan instead.
+        let check_contains = |k: &str| contains_ignore_ascii_case(query, k);
+        (
+            classify_intent(&check_contains, query.ends_with('?')),
+            extract_temporal_refs(&check_contains, now),
+        )
+    } else {
+        // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
+        let query_lower = query.to_lowercase();
+        let check_contains = |k: &str| query_lower.contains(k);
+        (
+            classify_intent(&check_contains, query_lower.ends_with('?')),
+            extract_temporal_refs(&check_contains, now),
+        )
+    };
+
     let entities = extract_entities(query);
 
     let temporal_description = if temporal_refs.is_empty() {
@@ -193,14 +210,17 @@ pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuer
 }
 
 /// Classify the intent of a query.
-fn classify_intent(query_lower: &str) -> QueryIntent {
+fn classify_intent<F>(check_contains: F, has_question_mark: bool) -> QueryIntent
+where
+    F: Fn(&str) -> bool,
+{
     for rule in INTENT_RULES {
-        if rule.matches(query_lower) {
+        if rule.matches(&check_contains) {
             return rule.intent.clone();
         }
     }
 
-    if query_lower.ends_with('?') {
+    if has_question_mark {
         return QueryIntent::Question;
     }
 
@@ -208,11 +228,14 @@ fn classify_intent(query_lower: &str) -> QueryIntent {
 }
 
 /// Extract temporal references from a query.
-fn extract_temporal_refs(query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalReference> {
+fn extract_temporal_refs<F>(check_contains: F, now: DateTime<Utc>) -> Vec<TemporalReference>
+where
+    F: Fn(&str) -> bool,
+{
     let mut refs = Vec::new();
 
     for rule in TEMPORAL_RULES {
-        if query_lower.contains(rule.keyword) {
+        if check_contains(rule.keyword) {
             let resolved = rule.resolve(now);
 
             refs.push(TemporalReference::Relative {
@@ -228,6 +251,38 @@ fn extract_temporal_refs(query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalR
     // - Event-based references
 
     refs
+}
+
+/// Check if haystack contains needle (case-insensitive ASCII).
+fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    let needle_len = needle.len();
+    let haystack_len = haystack.len();
+
+    if needle_len > haystack_len {
+        return false;
+    }
+
+    let needle_bytes = needle.as_bytes();
+    let haystack_bytes = haystack.as_bytes();
+
+    // Naive O(N*M) search.
+    // For short strings (<30 chars) and short keywords (<15 chars),
+    // this is faster than allocating a new lowercased string.
+    for i in 0..=(haystack_len - needle_len) {
+        let window = &haystack_bytes[i..i + needle_len];
+        // We assume needle is already lowercase (as it comes from rules)
+        if window
+            .iter()
+            .zip(needle_bytes)
+            .all(|(h, n)| h.to_ascii_lowercase() == *n)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Extract entity mentions from a query.
@@ -278,44 +333,50 @@ mod tests {
 
     #[test]
     fn test_classify_intent() {
+        // Need to simulate helper behavior for testing
+        let classify = |q: &str| {
+            let q_lower = q.to_lowercase();
+            classify_intent(|k| q_lower.contains(k), q_lower.ends_with('?'))
+        };
+
         assert_eq!(
-            classify_intent(&"Remember that I like pizza".to_lowercase()),
+            classify("Remember that I like pizza"),
             QueryIntent::Remember
         );
         assert_eq!(
-            classify_intent(&"Please remember this conversation".to_lowercase()),
+            classify("Please remember this conversation"),
             QueryIntent::Remember
         );
         assert_eq!(
-            classify_intent(&"What did we discuss yesterday?".to_lowercase()),
+            classify("What did we discuss yesterday?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            classify_intent(&"Recall the meeting notes".to_lowercase()),
+            classify("Recall the meeting notes"),
             QueryIntent::Recall
         );
         assert_eq!(
-            classify_intent(&"What was the result?".to_lowercase()),
+            classify("What was the result?"),
             QueryIntent::Recall
         );
         assert_eq!(
-            classify_intent(&"How has the project changed?".to_lowercase()),
+            classify("How has the project changed?"),
             QueryIntent::TemporalDiff
         );
         assert_eq!(
-            classify_intent(&"Show me the system state".to_lowercase()),
+            classify("Show me the system state"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            classify_intent(&"Take a snapshot".to_lowercase()),
+            classify("Take a snapshot"),
             QueryIntent::SystemQuery
         );
         assert_eq!(
-            classify_intent(&"Is this a question?".to_lowercase()),
+            classify("Is this a question?"),
             QueryIntent::Question
         );
         assert_eq!(
-            classify_intent(&"Just chatting".to_lowercase()),
+            classify("Just chatting"),
             QueryIntent::Chat
         );
     }
@@ -323,8 +384,13 @@ mod tests {
     #[test]
     fn test_extract_temporal_refs() {
         let now = Utc::now();
+        // Helper
+        let extract = |q: &str| {
+            let q_lower = q.to_lowercase();
+            extract_temporal_refs(|k| q_lower.contains(k), now)
+        };
 
-        let refs = extract_temporal_refs(&"What happened yesterday?".to_lowercase(), now);
+        let refs = extract("What happened yesterday?");
         assert_eq!(refs.len(), 1);
 
         match &refs[0] {
@@ -332,21 +398,21 @@ mod tests {
             _ => panic!("Expected relative"),
         }
 
-        let refs = extract_temporal_refs(&"Check last week logs".to_lowercase(), now);
+        let refs = extract("Check last week logs");
         assert_eq!(refs.len(), 1);
         match &refs[0] {
             TemporalReference::Relative { text, .. } => assert_eq!(text, "last week"),
             _ => panic!("Expected relative"),
         }
 
-        let refs = extract_temporal_refs(&"Do it today".to_lowercase(), now);
+        let refs = extract("Do it today");
         assert_eq!(refs.len(), 1);
         match &refs[0] {
             TemporalReference::Relative { text, .. } => assert_eq!(text, "today"),
             _ => panic!("Expected relative"),
         }
 
-        let refs = extract_temporal_refs(&"Yesterday and today".to_lowercase(), now);
+        let refs = extract("Yesterday and today");
         assert_eq!(refs.len(), 2);
     }
 
@@ -358,8 +424,13 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
 
+        let extract = |q: &str| {
+             let q_lower = q.to_lowercase();
+             extract_temporal_refs(|k| q_lower.contains(k), now)
+        };
+
         // "yesterday" should be 2024-03-14 12:00:00 UTC
-        let refs = extract_temporal_refs("yesterday", now);
+        let refs = extract("yesterday");
         assert_eq!(refs.len(), 1);
         assert_eq!(
             refs[0].resolved().unwrap().to_rfc3339(),
@@ -367,7 +438,7 @@ mod tests {
         );
 
         // "last week" should be 2024-03-08 12:00:00 UTC
-        let refs = extract_temporal_refs("last week", now);
+        let refs = extract("last week");
         assert_eq!(refs.len(), 1);
         assert_eq!(
             refs[0].resolved().unwrap().to_rfc3339(),
@@ -378,7 +449,7 @@ mod tests {
     #[test]
     fn test_describe_temporal_context() {
         let now = Utc::now();
-        let refs = extract_temporal_refs("yesterday", now);
+        let refs = extract_temporal_refs(|k| "yesterday".contains(k), now);
         let desc = describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
     }
@@ -504,5 +575,16 @@ mod deterministic_tests {
         // Should pick Remember because it's first in INTENT_RULES.
         let res = analyze_at("Remember this: recall is important", now).unwrap();
         assert_eq!(res.intent, QueryIntent::Remember);
+    }
+
+    #[test]
+    fn test_contains_ignore_ascii_case() {
+        assert!(contains_ignore_ascii_case("Hello World", "world"));
+        assert!(contains_ignore_ascii_case("Hello World", "hello"));
+        assert!(contains_ignore_ascii_case("Hello", "hello"));
+        assert!(!contains_ignore_ascii_case("Hello", "world"));
+        assert!(contains_ignore_ascii_case("MixedCASE", "mixedcase"));
+        assert!(contains_ignore_ascii_case("EndsWith", "with"));
+        assert!(contains_ignore_ascii_case("StartsWith", "starts"));
     }
 }
