@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
@@ -16,6 +17,8 @@ use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::{ModelHandle, Vortex};
+
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
@@ -117,14 +120,32 @@ impl SonicScrewdriver {
         "🔊 *Whirrrrrr-buzz-click-whirrrrrr*".to_string()
     }
 
+    fn read_file_capped(path: &Path) -> Result<String> {
+        let file = fs::File::open(path)
+            .with_context(|| format!("Failed to open file: {}", path.display()))?;
+
+        let mut content = String::new();
+        // Read limit + 1 to detect truncation
+        let limit = MAX_FILE_SIZE;
+        let mut handle = file.take(limit + 1);
+        handle
+            .read_to_string(&mut content)
+            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+
+        if content.len() as u64 > limit {
+            anyhow::bail!("File too large (limit: {limit} bytes)");
+        }
+
+        Ok(content)
+    }
+
     /// Inspect a file and return a diagnosis.
     ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be read.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content = Self::read_file_capped(path)?;
 
         let size = content.len();
         let lines = content.lines().count();
@@ -176,8 +197,7 @@ impl SonicScrewdriver {
     ///
     /// Returns an error if the file cannot be read or written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content = Self::read_file_capped(path)?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
@@ -328,5 +348,37 @@ mod tests {
         // Verify report contains AI diagnosis
         assert!(report.contains("AI Diagnosis: Capacitor fluxing"));
         assert!(report.contains("Status: DEGRADED"));
+    }
+
+    #[test]
+    fn test_file_too_large() {
+        // Create a file slightly larger than 10MB
+        let limit = 10 * 1024 * 1024;
+        let size = limit + 10;
+
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("sonic_large_{}.tmp", nanos));
+
+        // Create sparse file
+        {
+            let file = File::create(&path).unwrap();
+            file.set_len(size as u64).unwrap();
+        }
+
+        let sonic = SonicScrewdriver::new(None, None, None, None);
+
+        // Attempt to inspect
+        let result = sonic.inspect(&path);
+
+        // Clean up
+        let _ = fs::remove_file(&path);
+
+        // Should fail due to size limit
+        assert!(result.is_err(), "Should return error for large file");
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("File too large"), "Error should mention file size. Got: {}", err);
     }
 }
