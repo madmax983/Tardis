@@ -17,6 +17,10 @@ pub enum GallifreyError {
     #[error("entity not found: {0}")]
     EntityNotFound(String),
 
+    /// Entity already exists (current version).
+    #[error("entity already exists: {0}")]
+    EntityAlreadyExists(String),
+
     /// Relationship not found.
     #[error("relationship not found: {0}")]
     RelationshipNotFound(String),
@@ -59,6 +63,7 @@ impl From<GallifreyError> for tardis_common::Error {
             GallifreyError::QueryParseError(msg) => Self::QueryParseError(msg),
             GallifreyError::QueryExecutionFailed(msg) => Self::QueryExecutionFailed(msg),
             GallifreyError::EntityNotFound(msg) => Self::EntityNotFound(msg),
+            GallifreyError::EntityAlreadyExists(msg) => Self::Internal(format!("Entity already exists: {}", msg)),
             GallifreyError::InvalidTemporalReference(msg) => Self::InvalidTemporalReference(msg),
             GallifreyError::TimeTravelFailed(msg) => Self::TimeTravelFailed { reason: msg },
             GallifreyError::Serialization(e) => Self::Serialization(e),

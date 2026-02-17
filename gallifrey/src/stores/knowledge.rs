@@ -75,6 +75,16 @@ impl KnowledgeStore {
             .write()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
+        if let Some(versions) = entities.get(&id) {
+            let now = Utc::now();
+            if versions
+                .iter()
+                .any(|e| e.temporal.transaction_time.is_current_relative_to(now))
+            {
+                return Err(GallifreyError::EntityAlreadyExists(id.to_string()));
+            }
+        }
+
         entities.entry(id).or_default().push(entity);
 
         Ok(id)
