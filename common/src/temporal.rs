@@ -342,6 +342,27 @@ impl TemporalReference {
     }
 }
 
+impl std::fmt::Display for TemporalReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Relative { text, resolved } => {
+                write!(f, "{} ({})", text, resolved.format("%Y-%m-%d"))
+            }
+            Self::Absolute(resolved) => {
+                write!(f, "{}", resolved.format("%Y-%m-%d"))
+            }
+            Self::EventBased { event, resolved } => {
+                if let Some(res) = resolved {
+                    write!(f, "{} ({})", event, res.format("%Y-%m-%d"))
+                } else {
+                    write!(f, "{event}")
+                }
+            }
+            Self::Implicit => write!(f, "implicit"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,6 +487,37 @@ mod tests {
 
         // Implicit returns current time, so we just check it returns Some
         assert!(TemporalReference::Implicit.resolved().is_some());
+    }
+
+    #[test]
+    fn temporal_reference_display() {
+        let now = DateTime::parse_from_rfc3339("2024-03-15T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let rel = TemporalReference::Relative {
+            text: "yesterday".into(),
+            resolved: now,
+        };
+        assert_eq!(rel.to_string(), "yesterday (2024-03-15)");
+
+        let abs = TemporalReference::Absolute(now);
+        assert_eq!(abs.to_string(), "2024-03-15");
+
+        let event = TemporalReference::EventBased {
+            event: "launch".into(),
+            resolved: Some(now),
+        };
+        assert_eq!(event.to_string(), "launch (2024-03-15)");
+
+        let event_unresolved = TemporalReference::EventBased {
+            event: "launch".into(),
+            resolved: None,
+        };
+        assert_eq!(event_unresolved.to_string(), "launch");
+
+        let implicit = TemporalReference::Implicit;
+        assert_eq!(implicit.to_string(), "implicit");
     }
 
     #[test]
