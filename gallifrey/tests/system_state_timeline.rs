@@ -1,4 +1,6 @@
 #![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
+
 use chrono::Duration;
 use std::collections::HashMap;
 use tardis_gallifrey::domain::{SnapshotTrigger, SystemState};

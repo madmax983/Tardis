@@ -296,16 +296,25 @@ impl TemporalQuery {
 /// use chrono::Utc;
 ///
 /// // "yesterday"
+/// // Note: The `resolved` field stores the calculated timestamp.
 /// let rel = TemporalReference::Relative {
 ///     text: "yesterday".to_string(),
-///     resolved: Utc::now(), // In practice, this would be calculated
+///     resolved: Utc::now(),
 /// };
 ///
 /// // "2024-01-01"
 /// let abs = TemporalReference::Absolute(Utc::now());
 ///
-/// // No explicit time mentioned (defaults to NOW)
+/// // No explicit time mentioned (defaults to NOW when resolved)
 /// let implicit = TemporalReference::Implicit;
+/// assert!(implicit.resolved().is_some());
+///
+/// // "before the launch"
+/// // If the event cannot be resolved to a timestamp, `resolved` is None.
+/// let event = TemporalReference::EventBased {
+///     event: "the launch".to_string(),
+///     resolved: None,
+/// };
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemporalReference {

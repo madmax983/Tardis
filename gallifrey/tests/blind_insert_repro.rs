@@ -1,3 +1,8 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
 use std::collections::HashMap;
 use tardis_common::id::EntityId;
 use tardis_common::temporal::BiTemporalInterval;
@@ -47,7 +52,7 @@ fn test_blind_insert_fails_if_exists() {
             );
         }
         Err(e) => {
-            panic!("Unexpected error: {:?}", e);
+            panic!("Unexpected error: {e:?}");
         }
     }
 

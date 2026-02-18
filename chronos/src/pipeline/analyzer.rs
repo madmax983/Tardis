@@ -179,16 +179,16 @@ pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuer
         // Use a case-insensitive scan instead.
         let check_contains = |k: &str| contains_ignore_ascii_case(query, k);
         (
-            classify_intent(&check_contains, query.ends_with('?')),
-            extract_temporal_refs(&check_contains, now),
+            classify_intent(check_contains, query.ends_with('?')),
+            extract_temporal_refs(check_contains, now),
         )
     } else {
         // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
         let query_lower = query.to_lowercase();
         let check_contains = |k: &str| query_lower.contains(k);
         (
-            classify_intent(&check_contains, query_lower.ends_with('?')),
-            extract_temporal_refs(&check_contains, now),
+            classify_intent(check_contains, query_lower.ends_with('?')),
+            extract_temporal_refs(check_contains, now),
         )
     };
 
@@ -328,6 +328,7 @@ fn describe_temporal_context(refs: &[TemporalReference]) -> String {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
+#[allow(clippy::panic)]
 mod tests {
     use super::*;
 
@@ -351,14 +352,8 @@ mod tests {
             classify("What did we discuss yesterday?"),
             QueryIntent::Recall
         );
-        assert_eq!(
-            classify("Recall the meeting notes"),
-            QueryIntent::Recall
-        );
-        assert_eq!(
-            classify("What was the result?"),
-            QueryIntent::Recall
-        );
+        assert_eq!(classify("Recall the meeting notes"), QueryIntent::Recall);
+        assert_eq!(classify("What was the result?"), QueryIntent::Recall);
         assert_eq!(
             classify("How has the project changed?"),
             QueryIntent::TemporalDiff
@@ -367,18 +362,9 @@ mod tests {
             classify("Show me the system state"),
             QueryIntent::SystemQuery
         );
-        assert_eq!(
-            classify("Take a snapshot"),
-            QueryIntent::SystemQuery
-        );
-        assert_eq!(
-            classify("Is this a question?"),
-            QueryIntent::Question
-        );
-        assert_eq!(
-            classify("Just chatting"),
-            QueryIntent::Chat
-        );
+        assert_eq!(classify("Take a snapshot"), QueryIntent::SystemQuery);
+        assert_eq!(classify("Is this a question?"), QueryIntent::Question);
+        assert_eq!(classify("Just chatting"), QueryIntent::Chat);
     }
 
     #[test]
@@ -425,8 +411,8 @@ mod tests {
             .with_timezone(&Utc);
 
         let extract = |q: &str| {
-             let q_lower = q.to_lowercase();
-             extract_temporal_refs(|k| q_lower.contains(k), now)
+            let q_lower = q.to_lowercase();
+            extract_temporal_refs(|k| q_lower.contains(k), now)
         };
 
         // "yesterday" should be 2024-03-14 12:00:00 UTC
@@ -457,6 +443,7 @@ mod tests {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
+#[allow(clippy::panic)]
 mod deterministic_tests {
     use super::*;
 
@@ -513,7 +500,7 @@ mod deterministic_tests {
 
         for (query, expected) in cases {
             let res = analyze_at(query, now).unwrap();
-            assert_eq!(res.intent, expected, "Failed for query: {}", query);
+            assert_eq!(res.intent, expected, "Failed for query: {query}");
         }
     }
 
@@ -591,6 +578,7 @@ mod deterministic_tests {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
+#[allow(clippy::panic)]
 mod sentry_tests {
     use super::*;
 
@@ -622,7 +610,10 @@ mod sentry_tests {
         // Expected format: "yesterday (2024-01-01), 2024-01-01, Big Bang (2024-01-01), Heat Death, implicit"
         assert!(desc.contains("yesterday (2024-01-01)"), "Missing relative");
         assert!(desc.contains("2024-01-01"), "Missing absolute");
-        assert!(desc.contains("Big Bang (2024-01-01)"), "Missing resolved event");
+        assert!(
+            desc.contains("Big Bang (2024-01-01)"),
+            "Missing resolved event"
+        );
         assert!(desc.contains("Heat Death"), "Missing unresolved event");
         assert!(desc.contains("implicit"), "Missing implicit");
     }
@@ -630,7 +621,10 @@ mod sentry_tests {
     #[test]
     fn test_extract_entities_stub() {
         let entities = extract_entities("The Doctor went to Gallifrey");
-        assert!(entities.is_empty(), "extract_entities should be a stub returning empty vector");
+        assert!(
+            entities.is_empty(),
+            "extract_entities should be a stub returning empty vector"
+        );
     }
 
     #[test]
@@ -650,10 +644,11 @@ mod sentry_tests {
         ];
 
         for (input, expected) in cases {
+            let input_lower = input.to_lowercase();
             assert_eq!(
-                classify_intent(&input.to_lowercase()),
+                classify_intent(|k| input_lower.contains(k), input.ends_with('?')),
                 expected,
-                "Failed for input: '{}'", input
+                "Failed for input: '{input}'"
             );
         }
     }
@@ -667,7 +662,8 @@ mod sentry_tests {
         // "yesterday" matches first (rule order).
         // "today" matches next.
         // Result order: yesterday, today.
-        let refs = extract_temporal_refs("today yesterday", now);
+        let input = "today yesterday";
+        let refs = extract_temporal_refs(|k| input.contains(k), now);
         assert_eq!(refs.len(), 2);
         match &refs[0] {
             TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),

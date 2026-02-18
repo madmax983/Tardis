@@ -226,6 +226,7 @@ fn write_instructions(buffer: &mut String, analysis: &AnalyzedQuery) {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
@@ -398,7 +399,7 @@ mod tests {
         let sources: Vec<ContextSource> = (0..20)
             .map(|i| ContextSource {
                 source_type: ContextSourceType::Knowledge,
-                content: format!("s{:02}", i),
+                content: format!("s{i:02}"),
                 relevance: 1.0,
                 entity_id: None,
             })
@@ -412,9 +413,8 @@ mod tests {
         // With limit=5, we expect 5 sources to be included (indices 0..5)
         for i in 0..5 {
             assert!(
-                result.contains(&format!("s{:02}", i)),
-                "Should contain source {}",
-                i
+                result.contains(&format!("s{i:02}")),
+                "Should contain source {i}"
             );
         }
 
