@@ -588,3 +588,94 @@ mod deterministic_tests {
         assert!(contains_ignore_ascii_case("StartsWith", "starts"));
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod sentry_tests {
+    use super::*;
+
+    #[test]
+    fn test_describe_temporal_context_variants() {
+        let now = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let refs = vec![
+            TemporalReference::Relative {
+                text: "yesterday".to_string(),
+                resolved: now,
+            },
+            TemporalReference::Absolute(now),
+            TemporalReference::EventBased {
+                event: "Big Bang".to_string(),
+                resolved: Some(now),
+            },
+            TemporalReference::EventBased {
+                event: "Heat Death".to_string(),
+                resolved: None,
+            },
+            TemporalReference::Implicit,
+        ];
+
+        let desc = describe_temporal_context(&refs);
+
+        // Expected format: "yesterday (2024-01-01), 2024-01-01, Big Bang (2024-01-01), Heat Death, implicit"
+        assert!(desc.contains("yesterday (2024-01-01)"), "Missing relative");
+        assert!(desc.contains("2024-01-01"), "Missing absolute");
+        assert!(desc.contains("Big Bang (2024-01-01)"), "Missing resolved event");
+        assert!(desc.contains("Heat Death"), "Missing unresolved event");
+        assert!(desc.contains("implicit"), "Missing implicit");
+    }
+
+    #[test]
+    fn test_extract_entities_stub() {
+        let entities = extract_entities("The Doctor went to Gallifrey");
+        assert!(entities.is_empty(), "extract_entities should be a stub returning empty vector");
+    }
+
+    #[test]
+    fn test_classify_intent_edge_cases() {
+        let cases = vec![
+            ("", QueryIntent::Chat),
+            ("   ", QueryIntent::Chat),
+            ("?", QueryIntent::Question),
+            ("!?", QueryIntent::Question),
+            ("Remember", QueryIntent::Chat), // "Remember" alone is not enough based on rules
+            ("Remember to buy milk", QueryIntent::Chat), // "remember that" is required
+            ("Please remember that", QueryIntent::Remember),
+            ("recall", QueryIntent::Recall), // "recall" IS in `any` list
+            ("snapshot", QueryIntent::SystemQuery), // "snapshot" IS in `any` list
+            ("CHANGE", QueryIntent::Chat), // "change" is NOT in rules. Required: "how has" + "changed"
+            ("how has it changed", QueryIntent::TemporalDiff),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                classify_intent(&input.to_lowercase()),
+                expected,
+                "Failed for input: '{}'", input
+            );
+        }
+    }
+
+    #[test]
+    fn test_extract_temporal_refs_ordering() {
+        let now = Utc::now();
+        // Rules order: yesterday, last week, today.
+
+        // Input: "today yesterday"
+        // "yesterday" matches first (rule order).
+        // "today" matches next.
+        // Result order: yesterday, today.
+        let refs = extract_temporal_refs("today yesterday", now);
+        assert_eq!(refs.len(), 2);
+        match &refs[0] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
+            _ => panic!("Expected yesterday first"),
+        }
+        match &refs[1] {
+            TemporalReference::Relative { text, .. } => assert_eq!(text, "today"),
+            _ => panic!("Expected today second"),
+        }
+    }
+}
