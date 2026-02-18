@@ -18,6 +18,7 @@ path = "src/main.rs"
 nova = ["dep:ratatui", "dep:crossterm", "tardis-gallifrey/nova", "tardis-chronos/nova"]
 
 [dependencies]
+async-trait = { workspace = true }
 # Internal
 tardis-common = { path = "../common" }
 tardis-vortex = { path = "../vortex" }
