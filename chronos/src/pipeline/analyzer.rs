@@ -44,42 +44,6 @@ pub enum QueryIntent {
     Chat,
 }
 
-enum TimeOffset {
-    Days(i64),
-    Weeks(i64),
-    None,
-}
-
-struct TemporalRule {
-    keyword: &'static str,
-    offset: TimeOffset,
-}
-
-impl TemporalRule {
-    fn resolve(&self, now: DateTime<Utc>) -> DateTime<Utc> {
-        match self.offset {
-            TimeOffset::Days(d) => now - Duration::days(d),
-            TimeOffset::Weeks(w) => now - Duration::weeks(w),
-            TimeOffset::None => now,
-        }
-    }
-}
-
-const TEMPORAL_RULES: &[TemporalRule] = &[
-    TemporalRule {
-        keyword: "yesterday",
-        offset: TimeOffset::Days(1),
-    },
-    TemporalRule {
-        keyword: "last week",
-        offset: TimeOffset::Weeks(1),
-    },
-    TemporalRule {
-        keyword: "today",
-        offset: TimeOffset::None,
-    },
-];
-
 struct IntentRule {
     required: &'static [&'static str],
     any: &'static [&'static str],
@@ -87,12 +51,9 @@ struct IntentRule {
 }
 
 impl IntentRule {
-    fn matches<F>(&self, check_contains: F) -> bool
-    where
-        F: Fn(&str) -> bool,
-    {
-        let has_required = self.required.iter().all(|k| check_contains(k));
-        let has_any = self.any.is_empty() || self.any.iter().any(|k| check_contains(k));
+    fn matches(&self, query_lower: &str) -> bool {
+        let has_required = self.required.iter().all(|k| query_lower.contains(k));
+        let has_any = self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k));
         has_required && has_any
     }
 }
@@ -174,23 +135,10 @@ pub fn analyze(query: &str) -> ChronosResult<AnalyzedQuery> {
 ///
 /// Returns an error if analysis fails.
 pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuery> {
-    let (intent, temporal_refs) = if query.len() < 30 {
-        // Optimization: For short queries, avoid allocating a new String.
-        // Use a case-insensitive scan instead.
-        let check_contains = |k: &str| contains_ignore_ascii_case(query, k);
-        (
-            classify_intent(check_contains, query.ends_with('?')),
-            extract_temporal_refs(check_contains, now),
-        )
-    } else {
-        // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
-        let query_lower = query.to_lowercase();
-        let check_contains = |k: &str| query_lower.contains(k);
-        (
-            classify_intent(check_contains, query_lower.ends_with('?')),
-            extract_temporal_refs(check_contains, now),
-        )
-    };
+    let query_lower = query.to_lowercase();
+
+    let intent = classify_intent(&query_lower, query_lower.ends_with('?'));
+    let temporal_refs = extract_temporal_refs(&query_lower, now);
 
     let entities = extract_entities(query);
 
@@ -210,12 +158,9 @@ pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuer
 }
 
 /// Classify the intent of a query.
-fn classify_intent<F>(check_contains: F, has_question_mark: bool) -> QueryIntent
-where
-    F: Fn(&str) -> bool,
-{
+fn classify_intent(query_lower: &str, has_question_mark: bool) -> QueryIntent {
     for rule in INTENT_RULES {
-        if rule.matches(&check_contains) {
+        if rule.matches(query_lower) {
             return rule.intent.clone();
         }
     }
@@ -228,21 +173,28 @@ where
 }
 
 /// Extract temporal references from a query.
-fn extract_temporal_refs<F>(check_contains: F, now: DateTime<Utc>) -> Vec<TemporalReference>
-where
-    F: Fn(&str) -> bool,
-{
+fn extract_temporal_refs(query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalReference> {
     let mut refs = Vec::new();
 
-    for rule in TEMPORAL_RULES {
-        if check_contains(rule.keyword) {
-            let resolved = rule.resolve(now);
+    if query_lower.contains("yesterday") {
+        refs.push(TemporalReference::Relative {
+            text: "yesterday".to_string(),
+            resolved: now - Duration::days(1),
+        });
+    }
 
-            refs.push(TemporalReference::Relative {
-                text: rule.keyword.to_string(),
-                resolved,
-            });
-        }
+    if query_lower.contains("last week") {
+        refs.push(TemporalReference::Relative {
+            text: "last week".to_string(),
+            resolved: now - Duration::weeks(1),
+        });
+    }
+
+    if query_lower.contains("today") {
+        refs.push(TemporalReference::Relative {
+            text: "today".to_string(),
+            resolved: now,
+        });
     }
 
     // TODO: Add more sophisticated temporal extraction
@@ -251,38 +203,6 @@ where
     // - Event-based references
 
     refs
-}
-
-/// Check if haystack contains needle (case-insensitive ASCII).
-fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    let needle_len = needle.len();
-    let haystack_len = haystack.len();
-
-    if needle_len > haystack_len {
-        return false;
-    }
-
-    let needle_bytes = needle.as_bytes();
-    let haystack_bytes = haystack.as_bytes();
-
-    // Naive O(N*M) search.
-    // For short strings (<30 chars) and short keywords (<15 chars),
-    // this is faster than allocating a new lowercased string.
-    for i in 0..=(haystack_len - needle_len) {
-        let window = &haystack_bytes[i..i + needle_len];
-        // We assume needle is already lowercase (as it comes from rules)
-        if window
-            .iter()
-            .zip(needle_bytes)
-            .all(|(h, n)| h.to_ascii_lowercase() == *n)
-        {
-            return true;
-        }
-    }
-    false
 }
 
 /// Extract entity mentions from a query.
@@ -334,10 +254,9 @@ mod tests {
 
     #[test]
     fn test_classify_intent() {
-        // Need to simulate helper behavior for testing
         let classify = |q: &str| {
             let q_lower = q.to_lowercase();
-            classify_intent(|k| q_lower.contains(k), q_lower.ends_with('?'))
+            classify_intent(&q_lower, q_lower.ends_with('?'))
         };
 
         assert_eq!(
@@ -373,7 +292,7 @@ mod tests {
         // Helper
         let extract = |q: &str| {
             let q_lower = q.to_lowercase();
-            extract_temporal_refs(|k| q_lower.contains(k), now)
+            extract_temporal_refs(&q_lower, now)
         };
 
         let refs = extract("What happened yesterday?");
@@ -412,7 +331,7 @@ mod tests {
 
         let extract = |q: &str| {
             let q_lower = q.to_lowercase();
-            extract_temporal_refs(|k| q_lower.contains(k), now)
+            extract_temporal_refs(&q_lower, now)
         };
 
         // "yesterday" should be 2024-03-14 12:00:00 UTC
@@ -435,7 +354,7 @@ mod tests {
     #[test]
     fn test_describe_temporal_context() {
         let now = Utc::now();
-        let refs = extract_temporal_refs(|k| "yesterday".contains(k), now);
+        let refs = extract_temporal_refs("yesterday", now);
         let desc = describe_temporal_context(&refs);
         assert!(desc.contains("yesterday"));
     }
@@ -563,17 +482,6 @@ mod deterministic_tests {
         let res = analyze_at("Remember this: recall is important", now).unwrap();
         assert_eq!(res.intent, QueryIntent::Remember);
     }
-
-    #[test]
-    fn test_contains_ignore_ascii_case() {
-        assert!(contains_ignore_ascii_case("Hello World", "world"));
-        assert!(contains_ignore_ascii_case("Hello World", "hello"));
-        assert!(contains_ignore_ascii_case("Hello", "hello"));
-        assert!(!contains_ignore_ascii_case("Hello", "world"));
-        assert!(contains_ignore_ascii_case("MixedCASE", "mixedcase"));
-        assert!(contains_ignore_ascii_case("EndsWith", "with"));
-        assert!(contains_ignore_ascii_case("StartsWith", "starts"));
-    }
 }
 
 #[cfg(test)]
@@ -646,7 +554,7 @@ mod sentry_tests {
         for (input, expected) in cases {
             let input_lower = input.to_lowercase();
             assert_eq!(
-                classify_intent(|k| input_lower.contains(k), input.ends_with('?')),
+                classify_intent(&input_lower, input.ends_with('?')),
                 expected,
                 "Failed for input: '{input}'"
             );
@@ -663,7 +571,13 @@ mod sentry_tests {
         // "today" matches next.
         // Result order: yesterday, today.
         let input = "today yesterday";
-        let refs = extract_temporal_refs(|k| input.contains(k), now);
+        let refs = extract_temporal_refs(&input.to_lowercase(), now);
+        // Note: The new implementation checks `contains` for specific keywords sequentially.
+        // 1. yesterday
+        // 2. last week
+        // 3. today
+        // So "yesterday" will be added first, then "today".
+
         assert_eq!(refs.len(), 2);
         match &refs[0] {
             TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
