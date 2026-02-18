@@ -80,21 +80,25 @@ impl Fugue {
         // 2. Scan history for relevant entities active at the divergence time
         let candidates_cell = std::sync::Mutex::new(Vec::new());
 
-        self.gallifrey.knowledge().scan_history(|history| {
-            if let Some(entity) = history
-                .iter()
-                .find(|e| e.temporal.active_at(divergence_time, divergence_time))
-            {
-                if let Some(emb) = &entity.embedding {
-                    let score = cosine_similarity(&embedding, emb);
-                    if score > 0.4 { // Lower threshold for prototype
-                        if let Ok(mut c) = candidates_cell.lock() {
-                            c.push((entity.clone(), score));
+        self.gallifrey
+            .knowledge()
+            .scan_history(|history| {
+                if let Some(entity) = history
+                    .iter()
+                    .find(|e| e.temporal.active_at(divergence_time, divergence_time))
+                {
+                    if let Some(emb) = &entity.embedding {
+                        let score = cosine_similarity(&embedding, emb);
+                        if score > 0.4 {
+                            // Lower threshold for prototype
+                            if let Ok(mut c) = candidates_cell.lock() {
+                                c.push((entity.clone(), score));
+                            }
                         }
                     }
                 }
-            }
-        }).map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            })
+            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         let mut candidates = candidates_cell.into_inner().unwrap_or_default();
 
@@ -102,15 +106,20 @@ impl Fugue {
         candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
 
         // Take top 5
-        let context_entities: Vec<Entity> = candidates.into_iter().take(5).map(|(e, _)| e).collect();
+        let context_entities: Vec<Entity> =
+            candidates.into_iter().take(5).map(|(e, _)| e).collect();
 
         // 3. Construct Prompt
         let horizon_desc = format!("{} hours", horizon.num_seconds() / 3600);
 
         let mut context_str = String::new();
         for entity in &context_entities {
-            context_str.push_str(&format!("- {} ({}): {}\n", entity.name, entity.entity_type,
-                serde_json::to_string(&entity.properties).unwrap_or_default()));
+            context_str.push_str(&format!(
+                "- {} ({}): {}\n",
+                entity.name,
+                entity.entity_type,
+                serde_json::to_string(&entity.properties).unwrap_or_default()
+            ));
         }
 
         if context_str.is_empty() {
@@ -156,9 +165,20 @@ impl Fugue {
         let mut events = Vec::new();
         if let Some(arr) = parsed.get("events").and_then(Value::as_array) {
             for item in arr {
-                let time_offset = item.get("time_offset").and_then(Value::as_str).unwrap_or("?").to_string();
-                let description = item.get("description").and_then(Value::as_str).unwrap_or("Unknown").to_string();
-                events.push(FugueEvent { time_offset, description });
+                let time_offset = item
+                    .get("time_offset")
+                    .and_then(Value::as_str)
+                    .unwrap_or("?")
+                    .to_string();
+                let description = item
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Unknown")
+                    .to_string();
+                events.push(FugueEvent {
+                    time_offset,
+                    description,
+                });
             }
         }
 
@@ -230,16 +250,14 @@ mod tests {
         let divergence_time = Utc::now();
 
         let result = fugue
-            .simulate(
-                divergence_time,
-                "Database crash",
-                Duration::hours(1),
-                model,
-            )
+            .simulate(divergence_time, "Database crash", Duration::hours(1), model)
             .await
             .unwrap();
 
-        assert_eq!(result.narrative, "The system crashed but recovered automatically.");
+        assert_eq!(
+            result.narrative,
+            "The system crashed but recovered automatically."
+        );
         assert_eq!(result.events.len(), 2);
         assert_eq!(result.events[0].description, "Watchdog detected failure.");
     }

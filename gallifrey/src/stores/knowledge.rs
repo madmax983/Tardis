@@ -558,10 +558,7 @@ mod tests {
 
         let result = store.update_entity(id, updates);
         assert!(result.is_err());
-        match result {
-            Err(GallifreyError::EntityNotFound(_)) => {}
-            _ => panic!("Expected EntityNotFound error"),
-        }
+        assert!(matches!(result, Err(GallifreyError::EntityNotFound(_))));
     }
 
     #[test]

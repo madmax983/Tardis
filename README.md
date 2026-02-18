@@ -23,6 +23,21 @@ Tardis is built as a Rust workspace containing several specialized crates:
 | **`telemetry`**| 📡 Observability | Full-stack tracing from Kernel to User space. |
 | **`common`** | 🔧 Utils | Shared types and error handling. |
 
+### ✨ Features
+
+Tardis uses feature flags to enable experimental capabilities:
+
+- **`nova`**: Enables experimental modules ("Nova" features) such as:
+  - **Biographer**: Narrative generation from history.
+  - **Sonic Screwdriver**: System diagnosis and repair tools.
+  - **Curiosity**: Active learning engine.
+  - **TUI Dashboard**: Rich terminal interface.
+
+Enable it by running:
+```bash
+cargo run --features nova --bin tardis
+```
+
 ## 🛠️ Getting Started
 
 ### Prerequisites
@@ -54,7 +69,9 @@ Tardis is built as a Rust workspace containing several specialized crates:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CLAUDE.md](./CLAUDE.md) for coding standards and [docs/](./docs/) for architectural decisions.
+We welcome contributions!
+
+> **For Developers & AI Agents:** Please read [**CLAUDE.md**](./CLAUDE.md) first. It contains critical information about the workspace structure, coding standards, and the "worktree workflow" we use.
 
 1. Fork the repo.
 2. Create your feature branch (`git checkout -b feature/amazing-feature`).

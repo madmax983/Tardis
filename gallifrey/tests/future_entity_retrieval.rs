@@ -1,5 +1,10 @@
+#![allow(missing_docs)]
+
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use chrono::{Duration, Utc};
     use std::collections::HashMap;
     use tardis_common::id::EntityId;

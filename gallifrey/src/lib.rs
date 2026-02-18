@@ -148,6 +148,9 @@ impl Gallifrey {
     ///
     /// This delegates to [`KnowledgeStore::update_entity`], performing a bi-temporal update.
     ///
+    /// **Note:** This performs a **merge** of the provided properties with the existing ones.
+    /// Existing properties not included in the `properties` argument are preserved.
+    ///
     /// # Errors
     ///
     /// Returns an error if the node cannot be updated or properties are invalid.

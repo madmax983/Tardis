@@ -67,7 +67,7 @@ fn bench_knowledge_store_populated(c: &mut Criterion) {
         let entity = Entity {
             id: EntityId::new(),
             entity_type: (if i % 2 == 0 { "Concept" } else { "Other" }).to_string(),
-            name: format!("Entity {}", i),
+            name: format!("Entity {i}"),
             properties: HashMap::new(),
             embedding: None,
             temporal: BiTemporalInterval::now(),
@@ -78,10 +78,10 @@ fn bench_knowledge_store_populated(c: &mut Criterion) {
     }
 
     // Update 500 entities to create history
-    for i in 0..500 {
+    for id in ids.iter().take(500) {
         let mut updates = HashMap::new();
         updates.insert("updated".to_string(), serde_json::json!(true));
-        store.update_entity(ids[i], updates).unwrap();
+        store.update_entity(*id, updates).unwrap();
     }
 
     group.bench_function("KnowledgeStore::find_by_type_1000_history", |b| {

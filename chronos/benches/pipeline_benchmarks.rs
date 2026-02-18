@@ -3,28 +3,22 @@
 #![allow(clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
-use tardis_chronos::pipeline::{ContextAugmenter, QueryAnalyzer};
+use tardis_chronos::pipeline::{analyze, augment, RagConfig};
 
 fn bench_query_analyzer(c: &mut Criterion) {
     let mut group = c.benchmark_group("query_analyzer");
 
-    group.bench_function("QueryAnalyzer::new", |b| {
-        b.iter(|| black_box(QueryAnalyzer::new()));
+    group.bench_function("analyze_simple", |b| {
+        b.iter(|| black_box(analyze("What is Rust?")));
     });
 
-    let analyzer = QueryAnalyzer::new();
-
-    group.bench_function("QueryAnalyzer::analyze_simple", |b| {
-        b.iter(|| black_box(analyzer.analyze("What is Rust?")));
+    group.bench_function("analyze_temporal", |b| {
+        b.iter(|| black_box(analyze("What did we discuss yesterday about async?")));
     });
 
-    group.bench_function("QueryAnalyzer::analyze_temporal", |b| {
-        b.iter(|| black_box(analyzer.analyze("What did we discuss yesterday about async?")));
-    });
-
-    group.bench_function("QueryAnalyzer::analyze_complex", |b| {
+    group.bench_function("analyze_complex", |b| {
         b.iter(|| {
-            black_box(analyzer.analyze(
+            black_box(analyze(
             "Last week before the meeting, what changes were made to the authentication system?"
         ))
         });
@@ -36,16 +30,11 @@ fn bench_query_analyzer(c: &mut Criterion) {
 fn bench_context_augmenter(c: &mut Criterion) {
     let mut group = c.benchmark_group("context_augmenter");
 
-    group.bench_function("ContextAugmenter::new", |b| {
-        b.iter(|| black_box(ContextAugmenter::new()));
-    });
+    let analysis = analyze("What is Rust?").unwrap();
+    let config = RagConfig::default();
 
-    let augmenter = ContextAugmenter::new();
-    let analyzer = QueryAnalyzer::new();
-    let analysis = analyzer.analyze("What is Rust?").unwrap();
-
-    group.bench_function("ContextAugmenter::augment_empty", |b| {
-        b.iter(|| black_box(augmenter.augment("What is Rust?", &[], &analysis)));
+    group.bench_function("augment_empty", |b| {
+        b.iter(|| black_box(augment("What is Rust?", &[], &analysis, &config)));
     });
 
     group.finish();

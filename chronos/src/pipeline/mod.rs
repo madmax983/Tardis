@@ -236,6 +236,11 @@ impl Chronos {
     /// This is a convenience wrapper around `Gallifrey::insert`. It creates an `Entity`
     /// representing the memory and stores it in the Knowledge Graph.
     ///
+    /// # Limitations
+    ///
+    /// Currently, this method **does not generate embeddings** for the stored memory.
+    /// Semantic search will not find these memories until embeddings are implemented.
+    ///
     /// # Errors
     ///
     /// Returns an error if storage fails.
@@ -275,6 +280,11 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Limitations
+    ///
+    /// Currently, this method **ignores the query text** and returns the most recent
+    /// memories from the knowledge graph (via an empty embedding search).
     ///
     /// # Errors
     ///
