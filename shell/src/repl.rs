@@ -25,6 +25,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::weaver::Weaver;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
@@ -178,6 +180,8 @@ impl Repl {
             "ask" | "curiosity" => self.handle_curiosity().await,
             #[cfg(feature = "nova")]
             "capsule" => self.handle_capsule(args).await,
+            #[cfg(feature = "nova")]
+            "weave" => self.handle_weave(args).await,
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
@@ -254,6 +258,7 @@ impl Repl {
         }
     }
 
+    #[allow(clippy::unused_self)]
     fn handle_models(&self) {
         commands::list_models();
     }
@@ -450,6 +455,37 @@ impl Repl {
                 }
             }
             _ => println!("Unknown capsule command: {subcommand}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_weave(&self, args: &[String]) {
+        if args.len() < 2 {
+            println!("Usage: weave <entity_a> <entity_b>");
+            return;
+        }
+
+        let entity_a = &args[0];
+        let entity_b = &args[1];
+
+        let loaded_models = self.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let weaver = Weaver::new(
+                std::sync::Arc::clone(&self.gallifrey),
+                self.chronos.vortex(),
+                *handle,
+            );
+
+            println!("🧶 Weaving narrative between '{entity_a}' and '{entity_b}'...");
+            match weaver.weave(entity_a, entity_b).await {
+                Ok(story) => {
+                    println!("\n{story}\n");
+                    println!("(A new connection has been added to the Knowledge Graph)");
+                }
+                Err(e) => println!("Weaving failed: {e}"),
+            }
+        } else {
+            println!("Weaver needs a loaded model. Use 'models load <path>'.");
         }
     }
 }

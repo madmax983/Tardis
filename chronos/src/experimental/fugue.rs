@@ -8,6 +8,7 @@
 use crate::error::{ChronosError, ChronosResult};
 use crate::experimental::psychic_paper::{Intent, PsychicPaper};
 use chrono::{DateTime, Duration, Utc};
+use std::fmt::Write;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cmp::Ordering;
@@ -109,8 +110,13 @@ impl Fugue {
 
         let mut context_str = String::new();
         for entity in &context_entities {
-            context_str.push_str(&format!("- {} ({}): {}\n", entity.name, entity.entity_type,
-                serde_json::to_string(&entity.properties).unwrap_or_default()));
+            let _ = writeln!(
+                &mut context_str,
+                "- {} ({}): {}",
+                entity.name,
+                entity.entity_type,
+                serde_json::to_string(&entity.properties).unwrap_or_default()
+            );
         }
 
         if context_str.is_empty() {
@@ -118,12 +124,11 @@ impl Fugue {
         }
 
         let prompt = format!(
-            "SYSTEM STATE at {}:\n{}\n\nHYPOTHETICAL SCENARIO: {}\n\nTASK: Simulate the consequences of this scenario over the next {}. \
+            "SYSTEM STATE at {divergence_time}:\n{context_str}\n\nHYPOTHETICAL SCENARIO: {counterfactual}\n\nTASK: Simulate the consequences of this scenario over the next {horizon_desc}. \
             Return a JSON object with two fields:\n\
             1. 'narrative': A short paragraph summarizing the timeline.\n\
             2. 'events': A list of objects, each having 'time_offset' (string) and 'description' (string).\n\
-            Output ONLY JSON.",
-            divergence_time, context_str, counterfactual, horizon_desc
+            Output ONLY JSON."
         );
 
         // 4. Inference
