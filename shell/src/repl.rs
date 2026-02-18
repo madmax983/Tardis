@@ -25,6 +25,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::weaver::Weaver;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// The main REPL for Tardis shell.
@@ -178,6 +180,8 @@ impl Repl {
             "ask" | "curiosity" => self.handle_curiosity().await,
             #[cfg(feature = "nova")]
             "capsule" => self.handle_capsule(args).await,
+            #[cfg(feature = "nova")]
+            "weave" => self.handle_weave(args).await,
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
@@ -450,6 +454,32 @@ impl Repl {
                 }
             }
             _ => println!("Unknown capsule command: {subcommand}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_weave(&self, args: &[String]) {
+        if args.len() < 2 {
+            println!("Usage: weave <entity1> <entity2>");
+            return;
+        }
+        let entity1 = &args[0];
+        let entity2 = &args[1];
+
+        let loaded_models = self.chronos.vortex().list_loaded_models();
+        let model_handle = loaded_models.first().map(|(h, _)| *h);
+
+        let weaver = Weaver::new(
+            std::sync::Arc::clone(&self.gallifrey),
+            self.chronos.vortex(),
+            model_handle,
+        );
+
+        println!("🕸️  Weaving thread between '{entity1}' and '{entity2}'...");
+
+        match weaver.weave(entity1, entity2).await {
+            Ok(narrative) => println!("\n{narrative}\n"),
+            Err(e) => println!("Weaving failed: {e}"),
         }
     }
 }
