@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
@@ -16,6 +17,9 @@ use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::{ModelHandle, Vortex};
+
+/// Maximum file size for inspection/repair (10 MB).
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
@@ -121,10 +125,9 @@ impl SonicScrewdriver {
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be read.
+    /// Returns an error if the file cannot be read or is too large.
     pub fn inspect(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content = read_file_with_limit(path, MAX_FILE_SIZE)?;
 
         let size = content.len();
         let lines = content.lines().count();
@@ -174,10 +177,9 @@ impl SonicScrewdriver {
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be read or written.
+    /// Returns an error if the file cannot be read, is too large, or cannot be written.
     pub fn repair(&self, path: &Path) -> Result<String> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read file: {}", path.display()))?;
+        let content = read_file_with_limit(path, MAX_FILE_SIZE)?;
 
         // Create backup
         let backup_path = path.with_extension("bak");
@@ -210,6 +212,27 @@ impl SonicScrewdriver {
             backup_path.display()
         ))
     }
+}
+
+/// Reads a file with a size limit to prevent DoS.
+fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
+    let file = fs::File::open(path)
+        .with_context(|| format!("Failed to open file: {}", path.display()))?;
+    let mut content = String::new();
+    // Read limit + 1 bytes to detect if file exceeds limit
+    let mut handle = file.take(limit + 1);
+    handle
+        .read_to_string(&mut content)
+        .with_context(|| format!("Failed to read file: {}", path.display()))?;
+
+    if content.len() as u64 > limit {
+        anyhow::bail!(
+            "File too large (exceeds {} bytes). Sonic Screwdriver safety overload!",
+            limit
+        );
+    }
+
+    Ok(content)
 }
 
 #[cfg(test)]
@@ -268,6 +291,29 @@ mod tests {
         // Check backup
         let backup_path = path.with_extension("bak");
         assert!(backup_path.exists());
+
+        cleanup();
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_file_limit() -> Result<()> {
+        let (path, cleanup) = create_temp_file("1234567890");
+
+        // Limit = 5. File = 10. Should fail.
+        let result = read_file_with_limit(&path, 5);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("exceeds 5 bytes"));
+
+        // Limit = 10. File = 10. Should pass.
+        let result = read_file_with_limit(&path, 10);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1234567890");
+
+        // Limit = 15. File = 10. Should pass.
+        let result = read_file_with_limit(&path, 15);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1234567890");
 
         cleanup();
         Ok(())
