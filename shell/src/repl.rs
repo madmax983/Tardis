@@ -26,6 +26,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 use tardis_chronos::experimental::prophecy::Prophet;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
+#[cfg(feature = "nova")]
+use crate::experimental::weaver_cmd;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -178,6 +180,8 @@ impl Repl {
             "ask" | "curiosity" => self.handle_curiosity().await,
             #[cfg(feature = "nova")]
             "capsule" => self.handle_capsule(args).await,
+            #[cfg(feature = "nova")]
+            "weave" => self.handle_weave(args).await,
             _ => println!("Unknown command: {command}. Type 'help' for available commands."),
         }
     }
@@ -254,6 +258,7 @@ impl Repl {
         }
     }
 
+    #[allow(clippy::unused_self)]
     fn handle_models(&self) {
         commands::list_models();
     }
@@ -450,6 +455,20 @@ impl Repl {
                 }
             }
             _ => println!("Unknown capsule command: {subcommand}"),
+        }
+    }
+
+    #[cfg(feature = "nova")]
+    async fn handle_weave(&self, args: &[String]) {
+        match weaver_cmd::run(
+            std::sync::Arc::clone(&self.gallifrey),
+            std::sync::Arc::clone(&self.chronos),
+            args,
+        )
+        .await
+        {
+            Ok(output) => println!("{output}"),
+            Err(e) => println!("Weave failed: {e}"),
         }
     }
 }

@@ -179,16 +179,16 @@ pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuer
         // Use a case-insensitive scan instead.
         let check_contains = |k: &str| contains_ignore_ascii_case(query, k);
         (
-            classify_intent(&check_contains, query.ends_with('?')),
-            extract_temporal_refs(&check_contains, now),
+            classify_intent(check_contains, query.ends_with('?')),
+            extract_temporal_refs(check_contains, now),
         )
     } else {
         // Optimization: Hoist to_lowercase() to avoid repeating it in helper methods
         let query_lower = query.to_lowercase();
         let check_contains = |k: &str| query_lower.contains(k);
         (
-            classify_intent(&check_contains, query_lower.ends_with('?')),
-            extract_temporal_refs(&check_contains, now),
+            classify_intent(check_contains, query_lower.ends_with('?')),
+            extract_temporal_refs(check_contains, now),
         )
     };
 
@@ -650,10 +650,12 @@ mod sentry_tests {
         ];
 
         for (input, expected) in cases {
+            let input_lower = input.to_lowercase();
             assert_eq!(
-                classify_intent(&input.to_lowercase()),
+                classify_intent(|k| input_lower.contains(k), input.ends_with('?')),
                 expected,
-                "Failed for input: '{}'", input
+                "Failed for input: '{}'",
+                input
             );
         }
     }
@@ -667,7 +669,7 @@ mod sentry_tests {
         // "yesterday" matches first (rule order).
         // "today" matches next.
         // Result order: yesterday, today.
-        let refs = extract_temporal_refs("today yesterday", now);
+        let refs = extract_temporal_refs(|k| "today yesterday".contains(k), now);
         assert_eq!(refs.len(), 2);
         match &refs[0] {
             TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),

@@ -38,3 +38,8 @@
 **Concept:** A copy-on-write overlay that allows "What-If" scenarios on the Knowledge Graph without corrupting the main timeline.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is great for history, but for hypothetical futures, we need a lightweight branching mechanism that doesn't persist until committed.
+
+## The Weaver
+**Concept:** A generative module that finds and fabricates narrative connections between two disconnected entities using LLM hallucination.
+**Fate:** In Progress (Experimental)
+**Lesson:** Sometimes the most valuable insights come from forcing connections where none exist. It mimics "lateral thinking."

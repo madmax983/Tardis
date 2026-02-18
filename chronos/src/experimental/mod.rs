@@ -16,3 +16,6 @@ pub mod curiosity;
 
 #[cfg(feature = "nova")]
 pub mod fugue;
+
+#[cfg(feature = "nova")]
+pub mod weaver;

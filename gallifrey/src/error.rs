@@ -64,7 +64,7 @@ impl From<GallifreyError> for tardis_common::Error {
             GallifreyError::QueryExecutionFailed(msg) => Self::QueryExecutionFailed(msg),
             GallifreyError::EntityNotFound(msg) => Self::EntityNotFound(msg),
             GallifreyError::EntityAlreadyExists(msg) => {
-                Self::Internal(format!("Entity already exists: {}", msg))
+                Self::Internal(format!("Entity already exists: {msg}"))
             }
             GallifreyError::InvalidTemporalReference(msg) => Self::InvalidTemporalReference(msg),
             GallifreyError::TimeTravelFailed(msg) => Self::TimeTravelFailed { reason: msg },
