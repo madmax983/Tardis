@@ -86,6 +86,8 @@ impl Router {
                 "sonic",
                 #[cfg(feature = "nova")]
                 "fix",
+                #[cfg(feature = "nova")]
+                "paradox",
             ],
         }
     }

@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// A handle to a loaded LLM model in Vortex.
@@ -52,6 +53,14 @@ impl EntityId {
     #[must_use]
     pub const fn as_uuid(&self) -> Uuid {
         self.0
+    }
+}
+
+impl FromStr for EntityId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Uuid::from_str(s)?))
     }
 }
 
@@ -202,5 +211,19 @@ mod tests {
         let json = serde_json::to_string(&id).unwrap();
         let parsed: SessionId = serde_json::from_str(&json).unwrap();
         assert_eq!(id, parsed);
+    }
+
+    #[test]
+    fn entity_id_from_str() {
+        let id = EntityId::new();
+        // EntityId::to_string outputs "entity:<uuid>"
+        // But Uuid::from_str expects "<uuid>"
+
+        let uuid_str = id.as_uuid().to_string();
+        let parsed = EntityId::from_str(&uuid_str).unwrap();
+        assert_eq!(id, parsed);
+
+        // Test failure
+        assert!(EntityId::from_str("invalid").is_err());
     }
 }

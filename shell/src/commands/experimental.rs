@@ -15,6 +15,10 @@ use crate::experimental::{
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::paradox::ParadoxEngine;
+#[cfg(feature = "nova")]
+use tardis_common::id::EntityId;
 
 /// Sonic Screwdriver tool command.
 #[cfg(feature = "nova")]
@@ -377,6 +381,84 @@ impl ShellCommand for CapsuleCommand {
                 }
             }
             _ => println!("Unknown capsule command: {subcommand}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Paradox command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct ParadoxCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for ParadoxCommand {
+    fn name(&self) -> &str {
+        "paradox"
+    }
+
+    fn description(&self) -> &str {
+        "Analyze entity for temporal paradoxes"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.is_empty() {
+            println!("Usage: paradox <entity_id> | paradox <entity_name>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let input = &args[0];
+        let entity_id = if let Ok(id) = input.parse::<EntityId>() {
+            id
+        } else {
+            let mut found_id = None;
+            let target_name = input.clone();
+
+            context.gallifrey.knowledge().scan_history(|history| {
+                if found_id.is_some() { return; }
+                if let Some(first) = history.first() {
+                    if first.name.eq_ignore_ascii_case(&target_name) {
+                        found_id = Some(first.id);
+                    }
+                }
+            })?;
+
+            if let Some(id) = found_id {
+                id
+            } else {
+                println!("Entity not found: {}", input);
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let model_handle = loaded_models.first().map(|(h, _)| *h);
+
+        let engine = ParadoxEngine::new(
+            Arc::clone(&context.gallifrey),
+            Some(context.chronos.vortex()),
+            model_handle,
+        );
+
+        match engine.analyze(entity_id).await {
+            Ok(reports) => {
+                if reports.is_empty() {
+                    println!("No paradoxes detected for entity {}.", entity_id);
+                } else {
+                    println!("\n⚠️  PARADOX DETECTED ⚠️\n");
+                    for report in reports {
+                        println!("Type: {:?}", report.paradox_type);
+                        println!("Severity: {:.2}", report.severity);
+                        println!("Description: {}", report.description);
+                        if let Some(narrative) = &report.narrative {
+                            println!("Analysis: {}", narrative);
+                        }
+                        println!("--------------------------------------------------");
+                    }
+                }
+            }
+            Err(e) => println!("Paradox analysis failed: {e}"),
         }
         Ok(CommandResult::Continue)
     }
