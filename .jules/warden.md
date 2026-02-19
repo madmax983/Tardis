@@ -33,3 +33,7 @@
 **2025-06-05 - Supply Chain Attack**
 **Threat:** `serde_json` v1.0.149 introduced a malicious dependency `zmij` v1.0.19. Additionally, `zip` v7.4.0 (a typosquatted/hijacked crate version) was pulled in by `candle-core` v0.9.2. These compromised versions posed a critical risk of arbitrary code execution.
 **Defense:** Pinned `serde_json` to known safe version `=1.0.128`. Downgraded `candle-core` to `0.9.1` and patched the dependency to use the official Git repository, forcing dependency resolution to safe versions (e.g., `zip` v1.1.4). Removed compromised crate versions from `Cargo.lock`.
+
+**2025-06-06 - Path Traversal & DoS in Experimental Tools**
+**Threat:** `TimeCapsule` and `SonicScrewdriver` (CLI tools) allowed arbitrary file paths, including those with `..` components. This created a Path Traversal vulnerability, potentially allowing attackers to read sensitive files or overwrite system files via the `repair` or `capture` commands. Additionally, `TimeCapsule::load_from_file` read files without a size limit, creating a Denial of Service (DoS) vector via memory exhaustion.
+**Defense:** Implemented `validate_path` to strictly reject paths containing `ParentDir` (`..`) components. Enforced `MAX_CAPSULE_SIZE` (50MB) using `take()` on file readers. Updated `TimeCapsule::save_to_file` to use `OpenOptions::create_new(true)` to prevent accidental or malicious overwriting of existing files.

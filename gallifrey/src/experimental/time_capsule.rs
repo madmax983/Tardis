@@ -11,8 +11,26 @@ use crate::Gallifrey;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Read};
 use std::path::Path;
+
+/// Maximum size of a time capsule file (50 MB).
+const MAX_CAPSULE_SIZE: u64 = 50 * 1024 * 1024;
+
+/// Validates that a path is safe for file operations.
+///
+/// Rejects paths containing parent directory components ("..").
+fn validate_path(path: &Path) -> GallifreyResult<()> {
+    if path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(crate::error::GallifreyError::StorageError(
+            "Path traversal detected: path contains '..' components".to_string(),
+        ));
+    }
+    Ok(())
+}
 
 /// A portable container for a knowledge subgraph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,9 +172,16 @@ impl TimeCapsule {
     ///
     /// Returns an error if file creation or serialization fails.
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> GallifreyResult<()> {
-        let file = File::create(path).map_err(|e| {
-            crate::error::GallifreyError::StorageError(format!("Failed to create file: {e}"))
-        })?;
+        let path = path.as_ref();
+        validate_path(path)?;
+
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .map_err(|e| {
+                crate::error::GallifreyError::StorageError(format!("Failed to create file: {e}"))
+            })?;
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, self).map_err(|e| {
             crate::error::GallifreyError::StorageError(format!("Failed to serialize capsule: {e}"))
@@ -170,10 +195,16 @@ impl TimeCapsule {
     ///
     /// Returns an error if file reading or deserialization fails.
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> GallifreyResult<Self> {
+        let path = path.as_ref();
+        validate_path(path)?;
+
         let file = File::open(path).map_err(|e| {
             crate::error::GallifreyError::StorageError(format!("Failed to open file: {e}"))
         })?;
         let reader = BufReader::new(file);
+        // Limit reader to prevent DoS
+        let reader = reader.take(MAX_CAPSULE_SIZE);
+
         let capsule = serde_json::from_reader(reader).map_err(|e| {
             crate::error::GallifreyError::StorageError(format!(
                 "Failed to deserialize capsule: {e}"

@@ -214,8 +214,20 @@ impl SonicScrewdriver {
     }
 }
 
+/// Validates that a path is safe.
+fn validate_path(path: &Path) -> Result<()> {
+    if path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        anyhow::bail!("Path traversal detected: path contains '..' components");
+    }
+    Ok(())
+}
+
 /// Reads a file with a size limit to prevent DoS.
 fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
+    validate_path(path)?;
     let file =
         fs::File::open(path).with_context(|| format!("Failed to open file: {}", path.display()))?;
     let mut content = String::new();
@@ -272,6 +284,15 @@ mod tests {
 
         cleanup();
         Ok(())
+    }
+
+    #[test]
+    fn test_inspect_traversal() {
+        let sonic = SonicScrewdriver::new(None, None, None, None);
+        let path = std::path::Path::new("../passwd");
+        let result = sonic.inspect(path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Path traversal"));
     }
 
     #[test]
