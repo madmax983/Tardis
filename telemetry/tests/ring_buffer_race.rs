@@ -1,4 +1,4 @@
-//! Reproduction test for RingBuffer race condition.
+//! Reproduction test for `RingBuffer` race condition.
 //!
 //! Spawns multiple threads to write to the `RingBuffer` concurrently
 //! and verifies data integrity.

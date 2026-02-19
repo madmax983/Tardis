@@ -216,16 +216,37 @@ impl TokenizerService {
     ///
     /// Returns an error if encoding fails.
     pub fn encode_with_bos(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<u32>> {
-        let mut tokens = self.encode(handle, text)?;
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            })?;
 
-        if let Some(bos) = self.get_special_tokens(handle).and_then(|s| s.bos_token_id) {
+        let loaded = tokenizers.get(&handle).ok_or_else(|| {
+            VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
+        })?;
+
+        let encoding = loaded
+            .tokenizer
+            .encode(text, true)
+            .map_err(|e| VortexError::TokenizationError(format!("encoding failed: {e}")))?;
+
+        let ids = encoding.get_ids();
+
+        if let Some(bos) = loaded.special_tokens.bos_token_id {
             // Only prepend if not already present (tokenizer may have added it)
-            if tokens.first() != Some(&bos) {
-                tokens.insert(0, bos);
+            if ids.first() != Some(&bos) {
+                // Bolt: Pre-allocate vector with exact size to avoid reallocation and memmove.
+                // Previous implementation used `insert(0)` which is O(N) and potentially reallocated.
+                let mut tokens = Vec::with_capacity(ids.len() + 1);
+                tokens.push(bos);
+                tokens.extend_from_slice(ids);
+                return Ok(tokens);
             }
         }
 
-        Ok(tokens)
+        Ok(ids.to_vec())
     }
 
     /// Decode tokens to text.
@@ -443,5 +464,55 @@ mod tests {
         let service = TokenizerService::new();
         let result = service.decode_with_special_tokens(ModelHandle::new(999), &[1, 2, 3]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn test_encode_with_bos_optimization() {
+        // Create a minimal tokenizer.json
+        let tokenizer_json = r#"{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Whitespace"
+  },
+  "post_processor": null,
+  "decoder": null,
+  "model": {
+    "type": "WordLevel",
+    "vocab": {
+      "<s>": 0,
+      "</s>": 1,
+      "hello": 2,
+      "world": 3
+    },
+    "unk_token": "<unk>"
+  }
+}"#;
+
+        let dir = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos();
+        let path = dir.join(format!("tokenizer_{}_{}.json", std::process::id(), nanos));
+        std::fs::write(&path, tokenizer_json).unwrap();
+
+        let service = TokenizerService::new();
+        let handle = ModelHandle::new(123);
+
+        service.load(handle, &path).unwrap();
+
+        // Case 1: BOS not added by tokenizer (WordLevel default), should be added by encode_with_bos
+        // "hello world" -> [2, 3]
+        // encode_with_bos -> [0, 2, 3]
+        let tokens = service.encode_with_bos(handle, "hello world").unwrap();
+        assert_eq!(tokens, vec![0, 2, 3]); // BOS, hello, world
+
+        // Clean up
+        let _ = std::fs::remove_file(path);
     }
 }
