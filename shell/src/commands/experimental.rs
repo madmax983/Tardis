@@ -14,6 +14,8 @@ use crate::experimental::{
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::dreamer::Dreamer;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Sonic Screwdriver tool command.
@@ -69,6 +71,49 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Dreamer command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct DreamCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for DreamCommand {
+    fn name(&self) -> &str {
+        "dream"
+    }
+
+    fn description(&self) -> &str {
+        "Consolidate memories from conversation"
+    }
+
+    async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let dreamer = Dreamer::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.vortex(),
+                *handle,
+            );
+
+            println!("💤 Entering REM sleep...");
+            match dreamer.dream(context.session_id).await {
+                Ok(ids) => {
+                    if ids.is_empty() {
+                        println!("No new memories formed.");
+                    } else {
+                        println!("✨ Consolidated {} new memories into long-term storage.", ids.len());
+                    }
+                }
+                Err(e) => println!("Nightmare encountered: {e}"),
+            }
+        } else {
+            println!("Dreaming requires a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }
