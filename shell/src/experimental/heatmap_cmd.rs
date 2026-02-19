@@ -4,38 +4,48 @@
 
 use anyhow::{anyhow, Result};
 use std::fmt::Write;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::experimental::entropy::EntropyGauge;
 use tardis_gallifrey::experimental::heatmap::TemporalHeatmap;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 
 /// Run the heatmap command.
 ///
 /// # Errors
 ///
 /// Returns an error if the entity is not found or arguments are invalid.
-pub fn run(gallifrey: &Arc<Gallifrey>, args: &[String]) -> Result<String> {
+pub fn run(gallifrey: &Arc<dyn GallifreyService>, args: &[String]) -> Result<String> {
     if args.is_empty() {
         return Ok("Usage: heatmap <entity_name>".to_string());
     }
     let name = &args[0];
-    let knowledge = gallifrey.knowledge();
 
-    let mut found_history: Option<Vec<Entity>> = None;
+    let found_history = Arc::new(Mutex::new(None));
+    let found_history_clone = found_history.clone();
+    let name_owned = name.to_string();
 
     // Scan to find the entity history by name
-    knowledge.scan_history(|history| {
-        if found_history.is_some() {
-            return;
+    gallifrey.scan_history(Box::new(move |history| {
+        if let Ok(mut guard) = found_history_clone.lock() {
+            if guard.is_some() {
+                return;
+            }
+            // Check if any version of this entity matches the name
+            if history.iter().any(|e| e.name == name_owned) {
+                *guard = Some(history.to_vec());
+            }
         }
-        // Check if any version of this entity matches the name
-        if history.iter().any(|e| e.name == *name) {
-            found_history = Some(history.to_vec());
-        }
-    })?;
+    }))?;
 
-    if let Some(history) = found_history {
+    let history_opt = {
+        let mut guard = found_history
+            .lock()
+            .map_err(|e| anyhow!("Mutex error: {e}"))?;
+        guard.take()
+    };
+
+    if let Some(history) = history_opt {
         // Create heatmap (20 bins X, 10 bins Y)
         let heatmap = TemporalHeatmap::new(&history, 40, 15);
         let entropy = EntropyGauge::measure(&history);
@@ -83,7 +93,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_heatmap_run() {
-        let gallifrey = Arc::new(Gallifrey::new());
+        use tardis_gallifrey::Gallifrey;
+        let gallifrey: Arc<dyn GallifreyService> = Arc::new(Gallifrey::new());
         let entity = create_test_entity("TestEntity");
         gallifrey.insert(entity).await.unwrap();
 
@@ -99,7 +110,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_heatmap_not_found() {
-        let gallifrey = Arc::new(Gallifrey::new());
+        use tardis_gallifrey::Gallifrey;
+        let gallifrey: Arc<dyn GallifreyService> = Arc::new(Gallifrey::new());
         let args = vec!["NonExistent".to_string()];
         let result = run(&gallifrey, &args);
 

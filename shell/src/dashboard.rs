@@ -25,7 +25,8 @@ pub mod tui {
     #[cfg(feature = "nova")]
     use tardis_chronos::experimental::prophecy::Prophet;
     use tardis_gallifrey::domain::Entity;
-    use tardis_gallifrey::{experimental::heatmap::TemporalHeatmap, Gallifrey};
+    use tardis_gallifrey::experimental::heatmap::TemporalHeatmap;
+    use tardis_gallifrey::GallifreyService;
     use tardis_telemetry::{gallifrey::TelemetryStore, types::MetricValue};
 
     /// Shared data for the dashboard.
@@ -38,7 +39,7 @@ pub mod tui {
     /// The interactive dashboard.
     #[derive(Debug)]
     pub struct Dashboard {
-        _gallifrey: Arc<Gallifrey>,
+        _gallifrey: Arc<dyn GallifreyService>,
         heatmap: TemporalHeatmap,
         telemetry: Option<Arc<TelemetryStore>>,
         data: Arc<Mutex<DashboardData>>,
@@ -60,17 +61,26 @@ pub mod tui {
         ///
         /// Returns an error if history cannot be scanned.
         pub fn new(
-            gallifrey: Arc<Gallifrey>,
+            gallifrey: Arc<dyn GallifreyService>,
             telemetry: Option<Arc<TelemetryStore>>,
             #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
         ) -> Result<Self> {
             // Fetch history for heatmap
-            let mut all_history = Vec::new();
-            gallifrey.knowledge().scan_history(|history| {
-                all_history.extend_from_slice(history);
-            })?;
+            let all_history = Arc::new(Mutex::new(Vec::new()));
+            let all_history_clone = all_history.clone();
 
-            let heatmap = TemporalHeatmap::new(&all_history, 50, 20);
+            gallifrey.scan_history(Box::new(move |history| {
+                if let Ok(mut guard) = all_history_clone.lock() {
+                    guard.extend_from_slice(history);
+                }
+            }))?;
+
+            let history_vec = {
+                let guard = all_history.lock().map_err(|e| anyhow::anyhow!("Mutex error: {e}"))?;
+                guard.clone()
+            };
+
+            let heatmap = TemporalHeatmap::new(&history_vec, 50, 20);
             let data = Arc::new(Mutex::new(DashboardData::default()));
 
             // Spawn background task for prophecies

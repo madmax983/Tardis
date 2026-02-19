@@ -14,9 +14,9 @@ use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_telemetry::gallifrey::TelemetryStore;
-use tardis_vortex::{ModelHandle, Vortex};
+use tardis_vortex::{ModelHandle, VortexService};
 
 /// Maximum file size for inspection/repair (10 MB).
 const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
@@ -26,18 +26,18 @@ const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
-    gallifrey: Option<Arc<Gallifrey>>,
-    vortex: Option<Arc<Vortex>>,
+    gallifrey: Option<Arc<dyn GallifreyService>>,
+    vortex: Option<Arc<dyn VortexService>>,
     model_handle: Option<ModelHandle>,
 }
 
 impl SonicScrewdriver {
     /// Create a new Sonic Screwdriver.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         telemetry: Option<Arc<TelemetryStore>>,
-        gallifrey: Option<Arc<Gallifrey>>,
-        vortex: Option<Arc<Vortex>>,
+        gallifrey: Option<Arc<dyn GallifreyService>>,
+        vortex: Option<Arc<dyn VortexService>>,
         model_handle: Option<ModelHandle>,
     ) -> Self {
         Self {
@@ -322,8 +322,10 @@ mod tests {
     #[tokio::test]
     async fn test_doctor_integration() {
         use std::collections::HashMap;
+        use tardis_gallifrey::Gallifrey;
         use tardis_telemetry::types::{Level, Subsystem, TraceId};
         use tardis_telemetry::userspace::layer::EventData;
+        use tardis_vortex::Vortex;
 
         // Setup dependencies
         let telemetry = Arc::new(TelemetryStore::new());

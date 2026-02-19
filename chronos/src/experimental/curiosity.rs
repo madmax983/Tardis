@@ -8,23 +8,27 @@
 use crate::error::ChronosResult;
 use std::sync::Arc;
 use tardis_gallifrey::domain::Entity;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_vortex::config::InferenceParams;
-use tardis_vortex::{ModelHandle, Vortex};
+use tardis_vortex::{ModelHandle, VortexService};
 use tracing::{info, instrument};
 
 /// The Curiosity engine.
 #[derive(Debug)]
 pub struct Curiosity {
-    gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
+    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Arc<dyn VortexService>,
     model: ModelHandle,
 }
 
 impl Curiosity {
     /// Create a new Curiosity engine.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(
+        gallifrey: Arc<dyn GallifreyService>,
+        vortex: Arc<dyn VortexService>,
+        model: ModelHandle,
+    ) -> Self {
         Self {
             gallifrey,
             vortex,
@@ -41,33 +45,41 @@ impl Curiosity {
     pub async fn ask(&self) -> ChronosResult<String> {
         info!("Curiosity: Scanning for knowledge gaps...");
 
-        let mut target_entity: Option<Entity> = None;
+        // We use Arc<Mutex> because the trait object requires 'static lifetime for the closure
+        let target_entity = Arc::new(std::sync::Mutex::new(None));
+        let target_clone = target_entity.clone();
 
         // Scan history to find a sparse entity
         // Heuristic: Has fewer than 3 properties and is not a "System" type
         // We stop at the first one we find for now (MVP).
         self.gallifrey
-            .knowledge()
-            .scan_history(|history| {
-                if target_entity.is_some() {
-                    return;
-                }
+            .scan_history(Box::new(move |history| {
+                if let Ok(mut guard) = target_clone.lock() {
+                    if guard.is_some() {
+                        return;
+                    }
 
-                // Look at the latest version of the entity
-                if let Some(latest) = history.last() {
-                    if latest.properties.len() < 3
-                        && latest.entity_type != "System"
-                        && !latest.name.is_empty()
-                    {
-                        target_entity = Some(latest.clone());
+                    // Look at the latest version of the entity
+                    if let Some(latest) = history.last() {
+                        if latest.properties.len() < 3
+                            && latest.entity_type != "System"
+                            && !latest.name.is_empty()
+                        {
+                            *guard = Some(latest.clone());
+                        }
                     }
                 }
-            })
-            .map_err(|e| {
-                crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string()))
-            })?;
+            }))
+            .map_err(|e| crate::error::ChronosError::Common(e))?;
 
-        let Some(entity) = target_entity else {
+        let entity = {
+            let mut guard = target_entity
+                .lock()
+                .map_err(|e| crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            guard.take()
+        };
+
+        let Some(entity) = entity else {
             return Ok("I am content. My knowledge base feels complete... for now.".to_string());
         };
 

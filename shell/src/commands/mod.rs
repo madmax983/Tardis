@@ -23,9 +23,8 @@ pub mod experimental;
 /// Knowledge management commands.
 pub mod knowledge;
 
-use std::sync::Arc;
 use tardis_common::SessionId;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 
 /// Display help information.
 ///
@@ -144,8 +143,9 @@ fn command_help(command: &str) {
 /// Show conversation history.
 ///
 /// Fetches and displays recent messages from the current session.
-pub fn history(gallifrey: &Arc<Gallifrey>, session_id: SessionId) {
-    match gallifrey.conversation().get_messages(session_id) {
+pub async fn history(gallifrey: &dyn GallifreyService, session_id: SessionId) {
+    // Fetch a large number to show counts
+    match gallifrey.get_recent_messages(session_id, 1000).await {
         Ok(messages) => {
             if messages.is_empty() {
                 println!("No messages in current session.");

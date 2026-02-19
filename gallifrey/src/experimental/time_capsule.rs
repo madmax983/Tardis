@@ -7,12 +7,13 @@
 
 use crate::domain::{Entity, Relationship};
 use crate::error::GallifreyResult;
-use crate::Gallifrey;
+use crate::traits::GallifreyService;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 /// A portable container for a knowledge subgraph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,27 +42,43 @@ impl TimeCapsule {
     /// # Errors
     ///
     /// Returns an error if the root entity is not found or if graph traversal fails.
-    pub fn capture(gallifrey: &Gallifrey, root_name: &str, depth: usize) -> GallifreyResult<Self> {
-        let knowledge = gallifrey.knowledge();
+    pub async fn capture(
+        gallifrey: &dyn GallifreyService,
+        root_name: &str,
+        depth: usize,
+    ) -> GallifreyResult<Self> {
         let mut capsule = Self::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
 
-        // 1. Find the root entity
-        let mut root_id = None;
-        knowledge.scan_history(|history| {
-            // Find the most current version of the entity with the matching name
-            if let Some(entity) = history
-                .iter()
-                .find(|e| e.name == root_name && e.temporal.is_current())
-            {
-                root_id = Some(entity.id);
-            }
-        })?;
+        let root_name_owned = root_name.to_string();
+        let root_id_found = Arc::new(Mutex::new(None));
+        let root_id_clone = root_id_found.clone();
 
-        let root_id = root_id.ok_or_else(|| {
-            crate::error::GallifreyError::EntityNotFound(format!("Name: {root_name}"))
-        })?;
+        // 1. Find the root entity
+        gallifrey.scan_history(Box::new(move |history| {
+            if let Ok(mut guard) = root_id_clone.lock() {
+                if guard.is_some() {
+                    return;
+                }
+                // Find the most current version of the entity with the matching name
+                if let Some(entity) = history
+                    .iter()
+                    .find(|e| e.name == root_name_owned && e.temporal.is_current())
+                {
+                    *guard = Some(entity.id);
+                }
+            }
+        }))?;
+
+        let root_id = {
+            let guard = root_id_found.lock().map_err(|e| {
+                crate::error::GallifreyError::Internal(format!("Mutex error: {e}"))
+            })?;
+            guard.ok_or_else(|| {
+                crate::error::GallifreyError::EntityNotFound(format!("Name: {root_name}"))
+            })?
+        };
 
         queue.push_back((root_id, 0));
         visited.insert(root_id);
@@ -71,7 +88,7 @@ impl TimeCapsule {
         // 2. BFS Traversal
         while let Some((current_id, current_depth)) = queue.pop_front() {
             // Add entity history to capsule
-            if let Ok(history) = knowledge.get_entity_history(current_id) {
+            if let Ok(history) = gallifrey.get_history(current_id).await {
                 capsule.entities.extend(history);
             }
 
@@ -80,33 +97,52 @@ impl TimeCapsule {
             }
 
             // Find relationships
-            let mut next_ids = Vec::new();
-            knowledge.scan_relationships(|rels| {
-                for rel in rels {
-                    // Outgoing edges
-                    if rel.source == current_id {
-                        if visited_rels.insert(rel.id) {
-                            capsule.relationships.push(rel.clone());
-                        }
-                        if !visited.contains(&rel.target) {
-                            next_ids.push(rel.target);
-                        }
-                    }
-                    // Incoming edges (optional, but good for context)
-                    if rel.target == current_id {
-                        if visited_rels.insert(rel.id) {
-                            capsule.relationships.push(rel.clone());
-                        }
-                        if !visited.contains(&rel.source) {
-                            next_ids.push(rel.source);
+            // We need to collect next_ids and relationships in a thread-safe way for the closure
+            let captured_rels = Arc::new(Mutex::new(Vec::new()));
+            let next_ids_found = Arc::new(Mutex::new(Vec::new()));
+            let captured_rels_clone = captured_rels.clone();
+            let next_ids_clone = next_ids_found.clone();
+            // We need to pass the current set of visited nodes to avoid re-visiting?
+            // No, the closure is just scanning. We process the results after.
+            // But we need to know `visited_rels` to avoid duplicates.
+            // But `visited_rels` is local. We can't access it in the closure easily if we want to mutate it.
+            // Easier: collect all relevant rels, then filter in the main loop.
+
+            gallifrey.scan_relationships(Box::new(move |rels| {
+                if let Ok(mut rels_guard) = captured_rels_clone.lock() {
+                    if let Ok(mut next_ids_guard) = next_ids_clone.lock() {
+                        for rel in rels {
+                            // Outgoing edges
+                            if rel.source == current_id {
+                                rels_guard.push(rel.clone());
+                                next_ids_guard.push(rel.target);
+                            }
+                            // Incoming edges (optional, but good for context)
+                            if rel.target == current_id {
+                                rels_guard.push(rel.clone());
+                                next_ids_guard.push(rel.source);
+                            }
                         }
                     }
                 }
+            }))?;
+
+            let rels_to_process = captured_rels.lock().map_err(|e| {
+                crate::error::GallifreyError::Internal(format!("Mutex error: {e}"))
+            })?;
+            let ids_to_process = next_ids_found.lock().map_err(|e| {
+                crate::error::GallifreyError::Internal(format!("Mutex error: {e}"))
             })?;
 
-            for id in next_ids {
-                if visited.insert(id) {
-                    queue.push_back((id, current_depth + 1));
+            for rel in rels_to_process.iter() {
+                if visited_rels.insert(rel.id) {
+                    capsule.relationships.push(rel.clone());
+                }
+            }
+
+            for id in ids_to_process.iter() {
+                if !visited.contains(id) && visited.insert(*id) {
+                    queue.push_back((*id, current_depth + 1));
                 }
             }
         }
@@ -123,26 +159,18 @@ impl TimeCapsule {
     /// # Errors
     ///
     /// Returns an error if insertion fails.
-    pub async fn restore(&self, gallifrey: &Gallifrey) -> GallifreyResult<()> {
+    pub async fn restore(&self, gallifrey: &dyn GallifreyService) -> GallifreyResult<()> {
         // Insert entities
         for entity in &self.entities {
             // We use the public insert method which handles locking
-            // Note: In a real system, we might want to check for conflicts or merge strategies.
-            // Here, we trust Gallifrey's append-only nature.
-            // However, inserting an entity with an existing ID will create a new version.
-            // If the entity is historical (not current), we might need special handling if we want to preserve exact history.
-            // But Gallifrey::insert creates a new version with *current* transaction time.
-            // This means restored history becomes "new knowledge about the past".
-            // This is actually correct for a bitemporal system receiving data!
             let _ = gallifrey.insert(entity.clone()).await.map_err(|e| {
                 crate::error::GallifreyError::StorageError(format!("Failed to insert entity: {e}"))
             })?;
         }
 
         // Insert relationships
-        let knowledge = gallifrey.knowledge();
         for rel in &self.relationships {
-            knowledge.insert_relationship(rel.clone())?;
+            gallifrey.insert_relationship(rel.clone())?;
         }
 
         Ok(())
@@ -211,6 +239,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_capture_restore() {
+        use crate::Gallifrey;
         let source_gallifrey = Gallifrey::new();
         let target_gallifrey = Gallifrey::new();
 
@@ -232,12 +261,11 @@ mod tests {
             temporal: BiTemporalInterval::now(),
         };
         source_gallifrey
-            .knowledge()
             .insert_relationship(rel)
             .unwrap();
 
         // Capture with depth 2 to ensure deduplication works (B will be processed)
-        let capsule = TimeCapsule::capture(&source_gallifrey, "A", 2).unwrap();
+        let capsule = TimeCapsule::capture(&source_gallifrey, "A", 2).await.unwrap();
         assert_eq!(capsule.entities.len(), 2); // A and B
         assert_eq!(capsule.relationships.len(), 1); // Should be 1 (deduplicated)
 

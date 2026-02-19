@@ -64,3 +64,12 @@
 2. Moved `common::llm` to `vortex::config` (the Inference Engine).
 3. Updated `common` to only contain shared primitives (`id`, `error`, `temporal`).
 **Stability:** Enforced strict domain boundaries. `common` is now truly common.
+
+**[Architect] Service Trait Abstraction**
+**Tangle:** `Chronos` and `Shell` depended on concrete `Gallifrey` and `Vortex` structs, making testing difficult and violating Dependency Inversion Principle. `Gallifrey` leaked internal store implementations (`.knowledge()`, `.conversation()`).
+**Blueprint:**
+1. Defined `VortexService` trait in `vortex` and `GallifreyService` trait in `gallifrey`.
+2. Updated `Gallifrey` to be a true Facade, exposing all necessary methods (including `scan_history`, `create_session`) directly.
+3. Refactored `Chronos` to depend on `Arc<dyn VortexService>` and `Arc<dyn GallifreyService>`.
+4. Updated `Shell` and experimental tools to use the traits, handling object-safety for closures via `Box<dyn FnMut + Send>` and `Arc<Mutex>`.
+**Stability:** Decoupled core logic from implementations. Enabled easier mocking and substitution.

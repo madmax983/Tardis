@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::Arc;
 use tardis_chronos::Chronos;
 use tardis_common::SessionId;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_telemetry::gallifrey::TelemetryStore;
 
 #[cfg(feature = "nova")]
@@ -13,7 +13,7 @@ use tardis_chronos::experimental::prophecy::Prophet;
 /// Context provided to every shell command.
 pub struct CommandContext {
     /// Access to the Knowledge Graph.
-    pub gallifrey: Arc<Gallifrey>,
+    pub gallifrey: Arc<dyn GallifreyService>,
     /// Access to the RAG Engine.
     pub chronos: Arc<Chronos>,
     /// Access to Telemetry (optional).
@@ -28,7 +28,7 @@ pub struct CommandContext {
 impl fmt::Debug for CommandContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CommandContext")
-            .field("gallifrey", &"Arc<Gallifrey>")
+            .field("gallifrey", &"Arc<dyn GallifreyService>")
             .field("chronos", &"Arc<Chronos>")
             .field("telemetry", &self.telemetry.is_some())
             .field("session_id", &self.session_id)

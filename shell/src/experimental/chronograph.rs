@@ -12,18 +12,18 @@ use std::fmt::Write;
 use std::sync::Arc;
 use tardis_common::id::EntityId;
 use tardis_gallifrey::domain::Entity;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 
 /// The `ChronoGraph` visualizer.
 #[derive(Debug)]
 pub struct ChronoGraph {
-    gallifrey: Arc<Gallifrey>,
+    gallifrey: Arc<dyn GallifreyService>,
 }
 
 impl ChronoGraph {
     /// Create a new `ChronoGraph`.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(gallifrey: Arc<dyn GallifreyService>) -> Self {
         Self { gallifrey }
     }
 
@@ -69,8 +69,8 @@ impl ChronoGraph {
 
         let mut history = self
             .gallifrey
-            .knowledge()
-            .get_entity_history(root.id)
+            .get_history(root.id)
+            .await
             .map_err(|e| anyhow!(e.to_string()))?;
 
         // Sort by valid time start (primary) and transaction time start (secondary)
@@ -137,31 +137,40 @@ impl ChronoGraph {
     }
 
     fn find_entity_by_name(&self, name: &str, time: Option<DateTime<Utc>>) -> Result<Entity> {
-        let knowledge = self.gallifrey.knowledge();
-        let mut found = None;
+        let found = Arc::new(std::sync::Mutex::new(None));
+        let found_clone = found.clone();
+        let name_owned = name.to_string();
 
         // Scan all entities to find the one with the matching name
-        knowledge.scan_history(|history| {
-            if found.is_some() {
-                return;
-            }
+        self.gallifrey
+            .scan_history(Box::new(move |history| {
+                if let Ok(mut guard) = found_clone.lock() {
+                    if guard.is_some() {
+                        return;
+                    }
 
-            let entity = if let Some(t) = time {
-                history
-                    .iter()
-                    .find(|e| e.name == name && e.temporal.valid_time.contains(t))
-            } else {
-                history
-                    .iter()
-                    .find(|e| e.name == name && e.temporal.is_current())
-            };
+                    let entity = if let Some(t) = time {
+                        history.iter().find(|e| {
+                            e.name == name_owned && e.temporal.valid_time.contains(t)
+                        })
+                    } else {
+                        history
+                            .iter()
+                            .find(|e| e.name == name_owned && e.temporal.is_current())
+                    };
 
-            if let Some(e) = entity {
-                found = Some(e.clone());
-            }
-        })?;
+                    if let Some(e) = entity {
+                        *guard = Some(e.clone());
+                    }
+                }
+            }))
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-        found.ok_or_else(|| anyhow!("Entity '{name}' not found"))
+        let res = {
+            let mut guard = found.lock().map_err(|e| anyhow!("Mutex error: {e}"))?;
+            guard.take()
+        };
+        res.ok_or_else(|| anyhow!("Entity '{name}' not found"))
     }
 
     fn traverse(
@@ -222,38 +231,50 @@ impl ChronoGraph {
         entity_id: EntityId,
         time: Option<DateTime<Utc>>,
     ) -> Result<Vec<tardis_gallifrey::domain::Relationship>> {
-        let knowledge = self.gallifrey.knowledge();
-        let mut relevant = Vec::new();
+        let relevant = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let relevant_clone = relevant.clone();
 
-        knowledge.scan_relationships(|rels| {
-            for rel in rels {
-                if rel.source != entity_id {
-                    continue;
+        self.gallifrey
+            .scan_relationships(Box::new(move |rels| {
+                if let Ok(mut guard) = relevant_clone.lock() {
+                    for rel in rels {
+                        if rel.source != entity_id {
+                            continue;
+                        }
+
+                        let is_valid = if let Some(t) = time {
+                            rel.temporal.valid_time.contains(t)
+                        } else {
+                            rel.temporal.is_current()
+                        };
+
+                        if is_valid {
+                            guard.push(rel.clone());
+                        }
+                    }
                 }
+            }))
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-                let is_valid = if let Some(t) = time {
-                    rel.temporal.valid_time.contains(t)
-                } else {
-                    rel.temporal.is_current()
-                };
-
-                if is_valid {
-                    relevant.push(rel.clone());
-                }
-            }
-        })?;
-
-        Ok(relevant)
+        let res = relevant
+            .lock()
+            .map_err(|e| anyhow!("Mutex error: {e}"))?;
+        Ok(res.clone())
     }
 
     fn resolve_entity(&self, id: EntityId, time: Option<DateTime<Utc>>) -> Result<Option<Entity>> {
-        let knowledge = self.gallifrey.knowledge();
         if let Some(t) = time {
-            knowledge
+            self.gallifrey
                 .get_entity_at(id, t, Utc::now())
                 .map_err(|e| anyhow!(e.to_string()))
         } else {
-            knowledge.get_entity(id).map_err(|e| anyhow!(e.to_string()))
+            // If no time specified, get current. But Gallifrey facade doesn't expose get_entity(id) directly
+            // except via get_history (then pick last) or get_entity_at(now).
+            // `get_history` is overkill.
+            // But wait, `get_entity_at` with `now` is correct for current view.
+            self.gallifrey
+                .get_entity_at(id, Utc::now(), Utc::now())
+                .map_err(|e| anyhow!(e.to_string()))
         }
     }
 }
@@ -282,6 +303,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronograph_basic() {
+        use tardis_gallifrey::Gallifrey;
         let gallifrey = Arc::new(Gallifrey::new());
         let graph = ChronoGraph::new(gallifrey.clone());
 
@@ -316,6 +338,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronograph_cycle() {
+        use tardis_gallifrey::Gallifrey;
         let gallifrey = Arc::new(Gallifrey::new());
         let graph = ChronoGraph::new(gallifrey.clone());
 
@@ -347,8 +370,8 @@ mod tests {
             temporal: BiTemporalInterval::now(),
         };
 
-        gallifrey.knowledge().insert_relationship(rel1).unwrap();
-        gallifrey.knowledge().insert_relationship(rel2).unwrap();
+        gallifrey.insert_relationship(rel1).unwrap();
+        gallifrey.insert_relationship(rel2).unwrap();
 
         let map = graph.generate_map("A", 3, None).unwrap();
         println!("{}", map);
@@ -361,6 +384,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronograph_timeline() {
+        use tardis_gallifrey::Gallifrey;
         let gallifrey = Arc::new(Gallifrey::new());
         let graph = ChronoGraph::new(gallifrey.clone());
 

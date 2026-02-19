@@ -10,7 +10,7 @@ use rustyline::{DefaultEditor, Result as RlResult};
 use std::sync::Arc;
 use tardis_chronos::{Chronos, RagConfig};
 use tardis_common::SessionId;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
@@ -29,7 +29,7 @@ pub struct Repl {
     /// Chronos RAG engine.
     chronos: Arc<Chronos>,
     /// Gallifrey database.
-    gallifrey: Arc<Gallifrey>,
+    gallifrey: Arc<dyn GallifreyService>,
     /// Telemetry store (optional).
     #[allow(dead_code)]
     telemetry_store: Option<Arc<TelemetryStore>>,
@@ -50,14 +50,14 @@ impl Repl {
     /// Returns an error if initialization fails.
     pub fn new(
         chronos: Arc<Chronos>,
-        gallifrey: Arc<Gallifrey>,
+        gallifrey: Arc<dyn GallifreyService>,
         telemetry_store: Option<Arc<TelemetryStore>>,
         #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
         // Create a new session
-        let session_id = gallifrey.conversation().create_session()?;
+        let session_id = gallifrey.create_session()?;
         info!("Created session: {}", session_id);
 
         let mut registry = CommandRegistry::new();
@@ -135,7 +135,7 @@ impl Repl {
         }
 
         // End session
-        self.gallifrey.conversation().end_session(self.session_id)?;
+        self.gallifrey.end_session(self.session_id)?;
 
         Ok(())
     }

@@ -17,7 +17,7 @@ impl ShellCommand for HistoryCommand {
     }
 
     async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        crate::commands::history(&context.gallifrey, context.session_id);
+        crate::commands::history(context.gallifrey.as_ref(), context.session_id).await;
         Ok(CommandResult::Continue)
     }
 }

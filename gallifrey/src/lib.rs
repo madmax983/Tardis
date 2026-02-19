@@ -78,13 +78,15 @@ pub mod error;
 pub mod experimental;
 pub mod stores;
 pub mod temporal;
+pub mod traits;
 
 // Re-export main types
 pub use error::{GallifreyError, GallifreyResult};
 pub use stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 pub use temporal::{BiTemporalInterval, TimeRange};
+pub use traits::GallifreyService;
 
-use crate::domain::{Change, Entity, Message, Snapshot};
+use crate::domain::{Change, Entity, Message, Relationship, Snapshot};
 use std::sync::Arc;
 use tardis_common::id::{EntityId, SessionId};
 
@@ -199,6 +201,28 @@ impl Gallifrey {
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 
+    /// Create a new conversation session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if session creation fails.
+    pub fn create_session(&self) -> tardis_common::Result<SessionId> {
+        self.conversation
+            .create_session()
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// End a conversation session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if session ending fails.
+    pub fn end_session(&self, session_id: SessionId) -> tardis_common::Result<()> {
+        self.conversation
+            .end_session(session_id)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
     // --- Conversation ---
 
     /// Get recent messages from a session.
@@ -259,6 +283,80 @@ impl Gallifrey {
     pub async fn record_change(&self, change: Change) -> tardis_common::Result<()> {
         self.system_state
             .record_change(change)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// Get system changes in a time range.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if retrieval fails.
+    #[allow(clippy::unused_async)]
+    pub fn get_system_changes(
+        &self,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Vec<Change>> {
+        self.system_state
+            .get_changes(from, to)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// Scan entity history.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if scanning fails.
+    #[cfg(feature = "nova")]
+    pub fn scan_history<F>(&self, f: F) -> tardis_common::Result<()>
+    where
+        F: FnMut(&[Entity]),
+    {
+        self.knowledge
+            .scan_history(f)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// Scan relationships.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if scanning fails.
+    #[cfg(feature = "nova")]
+    pub fn scan_relationships<F>(&self, f: F) -> tardis_common::Result<()>
+    where
+        F: FnMut(&[Relationship]),
+    {
+        self.knowledge
+            .scan_relationships(f)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    /// Insert a relationship.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if insertion fails.
+    pub fn insert_relationship(&self, rel: Relationship) -> tardis_common::Result<()> {
+        self.knowledge
+            .insert_relationship(rel)
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+            .map(|_| ())
+    }
+
+    /// Get an entity at a specific point in bi-temporal time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if retrieval fails.
+    pub fn get_entity_at(
+        &self,
+        id: EntityId,
+        valid_time: chrono::DateTime<chrono::Utc>,
+        transaction_time: chrono::DateTime<chrono::Utc>,
+    ) -> tardis_common::Result<Option<Entity>> {
+        self.knowledge
+            .get_entity_at(id, valid_time, transaction_time)
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }
 }

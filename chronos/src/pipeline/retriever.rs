@@ -3,7 +3,7 @@
 use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::GallifreyService;
 use tracing::info;
 
 /// Retrieve context from all configured sources.
@@ -12,7 +12,7 @@ use tracing::info;
 ///
 /// Returns an error if retrieval fails.
 pub async fn retrieve(
-    gallifrey: &Gallifrey,
+    gallifrey: &dyn GallifreyService,
     query: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<Vec<ContextSource>> {
@@ -49,7 +49,7 @@ pub async fn retrieve(
 /// Retrieve from knowledge graph.
 #[allow(clippy::unused_async)]
 async fn retrieve_knowledge(
-    gallifrey: &Gallifrey,
+    gallifrey: &dyn GallifreyService,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -79,7 +79,7 @@ async fn retrieve_knowledge(
 /// Retrieve from conversation history.
 #[allow(clippy::unused_async)]
 async fn retrieve_conversation(
-    gallifrey: &Gallifrey,
+    gallifrey: &dyn GallifreyService,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -125,7 +125,7 @@ async fn retrieve_conversation(
 /// Retrieve from system state.
 #[allow(clippy::unused_async)]
 async fn retrieve_system_state(
-    gallifrey: &Gallifrey,
+    gallifrey: &dyn GallifreyService,
     query: &AnalyzedQuery,
     _config: &RagConfig,
     sources: &mut Vec<ContextSource>,

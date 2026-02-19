@@ -48,6 +48,7 @@ pub mod inference;
 pub mod loader;
 pub mod model;
 pub mod tokenizer;
+pub mod traits;
 
 // Re-export main types
 pub use config::{InferenceParams, ModelLoadConfig};
@@ -56,3 +57,4 @@ pub use inference::Vortex;
 pub use loader::ModelPreset;
 pub use model::{ModelHandle, ModelInfo, ModelRegistry};
 pub use tokenizer::TokenizerService;
+pub use traits::VortexService;

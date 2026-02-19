@@ -5,22 +5,22 @@
 
 use std::fmt::Write;
 use std::sync::Arc;
-use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
+use tardis_gallifrey::GallifreyService;
+use tardis_vortex::{InferenceParams, ModelHandle, VortexService};
 
 /// The Biographer engine.
 #[derive(Debug)]
 pub struct Biographer {
-    gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
+    gallifrey: Arc<dyn GallifreyService>,
+    vortex: Arc<dyn VortexService>,
     model: Option<ModelHandle>,
 }
 
 impl Biographer {
     /// Create a new Biographer.
-    pub const fn new(
-        gallifrey: Arc<Gallifrey>,
-        vortex: Arc<Vortex>,
+    pub fn new(
+        gallifrey: Arc<dyn GallifreyService>,
+        vortex: Arc<dyn VortexService>,
         model: Option<ModelHandle>,
     ) -> Self {
         Self {
@@ -38,23 +38,37 @@ impl Biographer {
     pub async fn biography(&self, name: &str) -> anyhow::Result<String> {
         // 1. Find the entity ID by name
         // We scan history because we want *any* version of the entity that had this name.
-        let mut target_id = None;
+        let target_id = Arc::new(std::sync::Mutex::new(None));
+        let target_clone = target_id.clone();
+        let name_lower = name.to_lowercase();
 
         // Use scan_history (gated by nova in gallifrey)
         #[cfg(feature = "nova")]
-        self.gallifrey.knowledge().scan_history(|history| {
-            if target_id.is_some() {
-                return;
-            }
-            // Check if any version has the name
-            if history.iter().any(|e| e.name.eq_ignore_ascii_case(name)) {
-                if let Some(first) = history.first() {
-                    target_id = Some(first.id);
+        self.gallifrey
+            .scan_history(Box::new(move |history| {
+                if let Ok(mut guard) = target_clone.lock() {
+                    if guard.is_some() {
+                        return;
+                    }
+                    // Check if any version has the name
+                    if history
+                        .iter()
+                        .any(|e| e.name.eq_ignore_ascii_case(&name_lower))
+                    {
+                        if let Some(first) = history.first() {
+                            *guard = Some(first.id);
+                        }
+                    }
                 }
-            }
-        })?;
+            }))
+            .map_err(|e| anyhow::anyhow!("Failed to scan history: {e}"))?;
 
-        let id = target_id.ok_or_else(|| anyhow::anyhow!("Entity '{name}' not found"))?;
+        let id = {
+            let guard = target_id
+                .lock()
+                .map_err(|e| anyhow::anyhow!("Mutex error: {e}"))?;
+            guard.ok_or_else(|| anyhow::anyhow!("Entity '{name}' not found"))?
+        };
 
         // 2. Get full history
         let history = self.gallifrey.get_history(id).await?;
@@ -119,6 +133,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_biography_generation() {
+        use tardis_gallifrey::Gallifrey;
+        use tardis_vortex::Vortex;
+
         // Setup
         let gallifrey = Arc::new(Gallifrey::new());
         let vortex = Arc::new(Vortex::new().unwrap());
