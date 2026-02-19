@@ -11,17 +11,17 @@
 //! - `models`: List available LLMs.
 //! - `context`: Inspect session state.
 
-/// Command traits and context.
-pub mod traits;
-/// Command registry.
-pub mod registry;
-/// System maintenance commands.
-pub mod system;
 #[cfg(feature = "nova")]
 /// Experimental commands (Nova feature).
 pub mod experimental;
 /// Knowledge management commands.
 pub mod knowledge;
+/// Command registry.
+pub mod registry;
+/// System maintenance commands.
+pub mod system;
+/// Command traits and context.
+pub mod traits;
 
 use std::sync::Arc;
 use tardis_common::SessionId;

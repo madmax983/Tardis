@@ -255,3 +255,70 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod sentry_tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_jinja_template_dispatch() {
+        let messages = vec![ChatMessage::user("Hi")];
+
+        // ChatML pattern
+        let res_chatml = apply_jinja_template("... <|im_start|> ...", &messages, true);
+        assert!(
+            res_chatml.contains("<|im_start|>user"),
+            "Should dispatch to ChatML"
+        );
+
+        // Llama 2 pattern
+        let res_llama2 = apply_jinja_template("... [INST] ...", &messages, true);
+        assert!(res_llama2.contains("[INST]"), "Should dispatch to Llama 2");
+
+        // Llama 3 pattern
+        let res_llama3 = apply_jinja_template("... <|start_header_id|> ...", &messages, true);
+        assert!(
+            res_llama3.contains("<|start_header_id|>"),
+            "Should dispatch to Llama 3"
+        );
+
+        // Fallback
+        let res_simple = apply_jinja_template("unknown template", &messages, true);
+        assert!(res_simple.contains("user: Hi"), "Should fallback to simple");
+    }
+
+    #[test]
+    fn test_apply_llama2_template_multiple_systems() {
+        let messages = vec![
+            ChatMessage::system("Sys1"),
+            ChatMessage::user("Hi"),
+            ChatMessage::system("Sys2"), // Should be ignored
+            ChatMessage::user("Bye"),
+        ];
+
+        let result = apply_llama2_template(&messages, true);
+
+        assert!(
+            result.contains("Sys1"),
+            "Should contain first system message"
+        );
+        assert!(
+            !result.contains("Sys2"),
+            "Should ignore subsequent system messages"
+        );
+    }
+
+    #[test]
+    fn test_apply_llama2_template_system_only_no_user() {
+        // This is similar to existing test_apply_llama2_template_system_only but verifies logic explicitly
+        let messages = vec![ChatMessage::system("Sys1")];
+        let result = apply_llama2_template(&messages, true);
+
+        assert!(result.contains("Sys1"));
+        assert!(result.contains("<<SYS>>"));
+        assert!(
+            result.ends_with(" [/INST] "),
+            "Should end ready for assistant generation"
+        );
+    }
+}
