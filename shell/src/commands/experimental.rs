@@ -16,6 +16,38 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
+/// Chameleon command (System Persona).
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct ChameleonCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for ChameleonCommand {
+    fn name(&self) -> &str {
+        "chameleon"
+    }
+
+    fn description(&self) -> &str {
+        "Set the system persona"
+    }
+
+    async fn execute(&self, args: &[String], _context: &CommandContext) -> Result<CommandResult> {
+        if args.is_empty() {
+            println!("Usage: chameleon <persona> | chameleon off | chameleon reset");
+            return Ok(CommandResult::Continue);
+        }
+
+        let input = args.join(" ");
+        let persona = match input.to_lowercase().as_str() {
+            "off" | "reset" | "default" | "none" => None,
+            _ => Some(input),
+        };
+
+        Ok(CommandResult::SetPersona(persona))
+    }
+}
+
 /// Sonic Screwdriver tool command.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
