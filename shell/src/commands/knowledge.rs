@@ -8,11 +8,11 @@ pub struct HistoryCommand;
 
 #[async_trait]
 impl ShellCommand for HistoryCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "history"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show conversation history"
     }
 
@@ -28,19 +28,19 @@ pub struct RememberCommand;
 
 #[async_trait]
 impl ShellCommand for RememberCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "remember"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Store information for later recall"
     }
 
     async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        let content = args.join(" ");
+        let input_string = args.join(" ");
         match context
             .chronos
-            .remember(&content, tardis_chronos::MemoryCategory::Knowledge)
+            .remember(&input_string, tardis_chronos::MemoryCategory::Knowledge)
             .await
         {
             Ok(id) => println!("Remembered: {id}"),
@@ -56,11 +56,11 @@ pub struct RecallCommand;
 
 #[async_trait]
 impl ShellCommand for RecallCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "recall"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Retrieve stored memories"
     }
 
@@ -83,10 +83,10 @@ impl ShellCommand for RecallCommand {
 pub struct SnapshotCommand;
 #[async_trait]
 impl ShellCommand for SnapshotCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "snapshot"
     }
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Save system state snapshot (Not implemented)"
     }
     async fn execute(&self, _args: &[String], _context: &CommandContext) -> Result<CommandResult> {
@@ -100,10 +100,10 @@ impl ShellCommand for SnapshotCommand {
 pub struct RestoreCommand;
 #[async_trait]
 impl ShellCommand for RestoreCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "restore"
     }
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Restore a saved snapshot (Not implemented)"
     }
     async fn execute(&self, _args: &[String], _context: &CommandContext) -> Result<CommandResult> {

@@ -214,7 +214,7 @@ impl SonicScrewdriver {
     }
 }
 
-/// Reads a file with a size limit to prevent DoS.
+/// Reads a file with a size limit to prevent `DoS`.
 fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
     let file =
         fs::File::open(path).with_context(|| format!("Failed to open file: {}", path.display()))?;
@@ -227,8 +227,7 @@ fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
 
     if content.len() as u64 > limit {
         anyhow::bail!(
-            "File too large (exceeds {} bytes). Sonic Screwdriver safety overload!",
-            limit
+            "File too large (exceeds {limit} bytes). Sonic Screwdriver safety overload!",
         );
     }
 

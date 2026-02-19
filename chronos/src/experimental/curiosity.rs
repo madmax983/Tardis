@@ -24,7 +24,7 @@ pub struct Curiosity {
 impl Curiosity {
     /// Create a new Curiosity engine.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
             vortex,

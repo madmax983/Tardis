@@ -27,12 +27,15 @@ pub struct CommandContext {
 
 impl fmt::Debug for CommandContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CommandContext")
-            .field("gallifrey", &"Arc<Gallifrey>")
+        let mut d = f.debug_struct("CommandContext");
+        d.field("gallifrey", &"Arc<Gallifrey>")
             .field("chronos", &"Arc<Chronos>")
-            .field("telemetry", &self.telemetry.is_some())
-            .field("session_id", &self.session_id)
-            .finish()
+            .field("telemetry", &self.telemetry.is_some());
+
+        #[cfg(feature = "nova")]
+        d.field("prophet", &self.prophet.is_some());
+
+        d.field("session_id", &self.session_id).finish()
     }
 }
 
