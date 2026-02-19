@@ -9,7 +9,6 @@
 
 use crate::error::ChronosResult;
 use chrono::{DateTime, Duration, Utc};
-use std::fmt::Write;
 use tardis_common::temporal::TemporalReference;
 
 /// Analyzed query with extracted metadata.
@@ -172,30 +171,53 @@ fn classify_intent(query_lower: &str, has_question_mark: bool) -> QueryIntent {
     QueryIntent::Chat
 }
 
+#[derive(Debug, Clone, Copy)]
+enum TemporalOffset {
+    Days(i64),
+    Weeks(i64),
+    None,
+}
+
+impl TemporalOffset {
+    fn apply(&self, now: DateTime<Utc>) -> DateTime<Utc> {
+        match self {
+            TemporalOffset::Days(days) => now + Duration::days(*days),
+            TemporalOffset::Weeks(weeks) => now + Duration::weeks(*weeks),
+            TemporalOffset::None => now,
+        }
+    }
+}
+
+struct TemporalRule {
+    keyword: &'static str,
+    offset: TemporalOffset,
+}
+
+const TEMPORAL_RULES: &[TemporalRule] = &[
+    TemporalRule {
+        keyword: "yesterday",
+        offset: TemporalOffset::Days(-1),
+    },
+    TemporalRule {
+        keyword: "last week",
+        offset: TemporalOffset::Weeks(-1),
+    },
+    TemporalRule {
+        keyword: "today",
+        offset: TemporalOffset::None,
+    },
+];
+
 /// Extract temporal references from a query.
 fn extract_temporal_refs(query_lower: &str, now: DateTime<Utc>) -> Vec<TemporalReference> {
-    let mut refs = Vec::new();
-
-    if query_lower.contains("yesterday") {
-        refs.push(TemporalReference::Relative {
-            text: "yesterday".to_string(),
-            resolved: now - Duration::days(1),
-        });
-    }
-
-    if query_lower.contains("last week") {
-        refs.push(TemporalReference::Relative {
-            text: "last week".to_string(),
-            resolved: now - Duration::weeks(1),
-        });
-    }
-
-    if query_lower.contains("today") {
-        refs.push(TemporalReference::Relative {
-            text: "today".to_string(),
-            resolved: now,
-        });
-    }
+    let refs: Vec<TemporalReference> = TEMPORAL_RULES
+        .iter()
+        .filter(|rule| query_lower.contains(rule.keyword))
+        .map(|rule| TemporalReference::Relative {
+            text: rule.keyword.to_string(),
+            resolved: rule.offset.apply(now),
+        })
+        .collect();
 
     // TODO: Add more sophisticated temporal extraction
     // - NLP-based extraction
@@ -219,31 +241,23 @@ fn describe_temporal_context(refs: &[TemporalReference]) -> String {
         return "current time".to_string();
     }
 
-    let mut result = String::new();
-    for (i, r) in refs.iter().enumerate() {
-        if i > 0 {
-            result.push_str(", ");
-        }
-        match r {
+    refs.iter()
+        .map(|r| match r {
             TemporalReference::Relative { text, resolved } => {
-                let _ = write!(result, "{} ({})", text, resolved.format("%Y-%m-%d"));
+                format!("{} ({})", text, resolved.format("%Y-%m-%d"))
             }
-            TemporalReference::Absolute(resolved) => {
-                let _ = write!(result, "{}", resolved.format("%Y-%m-%d"));
-            }
+            TemporalReference::Absolute(resolved) => format!("{}", resolved.format("%Y-%m-%d")),
             TemporalReference::EventBased { event, resolved } => {
                 if let Some(res) = resolved {
-                    let _ = write!(result, "{} ({})", event, res.format("%Y-%m-%d"));
+                    format!("{} ({})", event, res.format("%Y-%m-%d"))
                 } else {
-                    result.push_str(event);
+                    event.clone()
                 }
             }
-            TemporalReference::Implicit => {
-                result.push_str("implicit");
-            }
-        }
-    }
-    result
+            TemporalReference::Implicit => "implicit".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[cfg(test)]
