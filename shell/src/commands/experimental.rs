@@ -1,6 +1,15 @@
 //! Experimental commands for the Tardis shell.
 //!
 //! These commands are only available when the `nova` feature is enabled.
+//!
+//! # Features
+//!
+//! - **Sonic Screwdriver**: System diagnosis and repair.
+//! - **Biographer**: Narrative generation.
+//! - **Chronograph**: Timeline visualization.
+//! - **Heatmap**: Temporal activity analysis.
+//! - **Curiosity**: Active learning.
+//! - **Time Capsule**: Backup and restore entity subgraphs.
 
 use crate::commands::traits::{CommandContext, CommandResult, ShellCommand};
 use anyhow::Result;
@@ -17,6 +26,16 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Sonic Screwdriver tool command.
+///
+/// Provides system diagnostics and automated repair capabilities.
+///
+/// # Usage
+///
+/// ```text
+/// sonic diagnose          # Run system diagnostics
+/// sonic <file>            # Inspect a file for issues
+/// sonic repair <file>     # Attempt to repair a file
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct SonicCommand;
@@ -75,6 +94,14 @@ impl ShellCommand for SonicCommand {
 }
 
 /// Repair command (alias for sonic repair).
+///
+/// A shortcut for `sonic repair`.
+///
+/// # Usage
+///
+/// ```text
+/// fix <file>
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct FixCommand;
@@ -116,6 +143,14 @@ impl ShellCommand for FixCommand {
 }
 
 /// Dashboard command.
+///
+/// Launches a TUI (Text User Interface) dashboard to monitor system status.
+///
+/// # Usage
+///
+/// ```text
+/// dashboard
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct DashboardCommand;
@@ -149,6 +184,14 @@ impl ShellCommand for DashboardCommand {
 }
 
 /// Timeline command.
+///
+/// Visualizes the history of changes to a specific entity.
+///
+/// # Usage
+///
+/// ```text
+/// timeline <entity_name>
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct TimelineCommand;
@@ -181,6 +224,16 @@ impl ShellCommand for TimelineCommand {
 }
 
 /// Entity map command.
+///
+/// Generates a text-based map of an entity's relationships.
+///
+/// # Usage
+///
+/// ```text
+/// map <entity_name> [depth]
+/// ```
+///
+/// - `depth`: How many levels of relationships to traverse (default: 2).
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct MapCommand;
@@ -214,6 +267,14 @@ impl ShellCommand for MapCommand {
 }
 
 /// Heatmap command.
+///
+/// Generates a temporal heatmap showing activity density for an entity.
+///
+/// # Usage
+///
+/// ```text
+/// heatmap <entity_name>
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct HeatmapCommand;
@@ -239,6 +300,18 @@ impl ShellCommand for HeatmapCommand {
 }
 
 /// Biography command.
+///
+/// Generates a narrative biography for an entity using the LLM.
+///
+/// # Usage
+///
+/// ```text
+/// biography <entity_name>
+/// ```
+///
+/// # Prerequisites
+///
+/// - Requires a loaded LLM model.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct BiographerCommand;
@@ -279,6 +352,18 @@ impl ShellCommand for BiographerCommand {
 }
 
 /// Curiosity command.
+///
+/// Triggers the Curiosity Engine to actively scan for knowledge gaps and ask questions.
+///
+/// # Usage
+///
+/// ```text
+/// curiosity
+/// ```
+///
+/// # Prerequisites
+///
+/// - Requires a loaded LLM model.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct CuriosityCommand;
@@ -316,6 +401,15 @@ impl ShellCommand for CuriosityCommand {
 }
 
 /// Time Capsule command.
+///
+/// Manages "Time Capsules" - portable snapshots of entity subgraphs.
+///
+/// # Usage
+///
+/// ```text
+/// capsule capture <entity> <file> [depth]   # Save entity subgraph to file
+/// capsule restore <file>                    # Restore subgraph from file
+/// ```
 #[cfg(feature = "nova")]
 #[derive(Debug)]
 pub struct CapsuleCommand;

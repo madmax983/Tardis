@@ -105,7 +105,7 @@ impl Default for RagConfig {
 ///
 /// Represents a piece of information retrieved to answer a query.
 ///
-/// **Note:** The `content` of a source may be truncated by the [`ContextAugmenter`]
+/// **Note:** The `content` of a source may be truncated by the [`augment`] function
 /// if it exceeds the remaining token budget.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSource {
