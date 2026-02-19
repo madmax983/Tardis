@@ -6,10 +6,11 @@ use crate::loader::{
     download_preset, find_model_file, load_model_weights, parse_model_config, DeviceSpec,
     LoadedModel, ModelConfig, ModelPreset,
 };
-use crate::model::{ModelHandle, ModelInfo, ModelRegistry};
+use crate::model::{ModelHandle, ModelInfo};
 use crate::tokenizer::TokenizerService;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio::task;
 use tracing::{info, instrument};
@@ -27,8 +28,12 @@ pub type MockLoadModel =
 
 /// The main Vortex inference engine.
 pub struct Vortex {
-    /// Model registry.
-    registry: Arc<ModelRegistry>,
+    /// Next handle to assign.
+    next_handle: AtomicU64,
+    /// Registered models by path.
+    registered_models: RwLock<HashMap<PathBuf, ModelInfo>>,
+    /// Mapping from handle to path for loaded models.
+    loaded_handles: RwLock<HashMap<ModelHandle, PathBuf>>,
     /// Tokenizer service.
     tokenizers: Arc<TokenizerService>,
     /// Loaded models by handle.
@@ -46,7 +51,10 @@ pub struct Vortex {
 impl std::fmt::Debug for Vortex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Vortex")
-            .field("registry", &self.registry)
+            .field(
+                "registered_models_count",
+                &self.registered_models.read().map(|m| m.len()).unwrap_or(0),
+            )
             .field("tokenizers", &self.tokenizers)
             .field(
                 "loaded_models_count",
@@ -70,7 +78,9 @@ impl Vortex {
         info!("Initializing Vortex inference engine");
 
         Ok(Self {
-            registry: Arc::new(ModelRegistry::new()),
+            next_handle: AtomicU64::new(1),
+            registered_models: RwLock::new(HashMap::new()),
+            loaded_handles: RwLock::new(HashMap::new()),
             tokenizers: Arc::new(TokenizerService::new()),
             loaded_models: RwLock::new(HashMap::new()),
             model_configs: RwLock::new(HashMap::new()),
@@ -129,10 +139,36 @@ impl Vortex {
 
         // Create model info for registry
         let info = Self::create_model_info(&path_buf, &model_config);
-        self.registry.register(path_buf.clone(), info)?;
 
-        // Mark as loaded and get handle
-        let handle = self.registry.mark_loaded(&path_buf, memory)?;
+        // Register the model (inline)
+        {
+            let mut models = self.registered_models.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire registered_models lock".to_string())
+            })?;
+            models.insert(path_buf.clone(), info);
+        }
+
+        // Mark as loaded and get handle (inline)
+        let handle = ModelHandle::new(self.next_handle.fetch_add(1, Ordering::SeqCst));
+
+        // Update model info loaded state
+        {
+            let mut models = self.registered_models.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire registered_models lock".to_string())
+            })?;
+            if let Some(info) = models.get_mut(&path_buf) {
+                info.loaded = true;
+                info.memory_bytes = Some(memory);
+            }
+        }
+
+        // Track loaded handle
+        {
+            let mut loaded = self.loaded_handles.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire loaded_handles lock".to_string())
+            })?;
+            loaded.insert(handle, path_buf.clone());
+        }
 
         // Store the loaded model
         {
@@ -250,7 +286,7 @@ impl Vortex {
     /// Returns an error if the model cannot be unloaded.
     #[allow(clippy::unused_async)] // Will use async when cleanup is truly async
     pub async fn unload_model(&self, handle: ModelHandle) -> VortexResult<()> {
-        if !self.registry.is_valid(handle) {
+        if !self.is_valid_handle(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
         }
 
@@ -279,7 +315,24 @@ impl Vortex {
         }
 
         self.tokenizers.unload(handle)?;
-        self.registry.mark_unloaded(handle)?;
+
+        // Inline registry unload logic
+        let path = {
+            let mut loaded = self.loaded_handles.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire loaded_handles lock".to_string())
+            })?;
+            loaded.remove(&handle)
+        };
+
+        if let Some(path) = path {
+            let mut models = self.registered_models.write().map_err(|_| {
+                VortexError::ConfigError("failed to acquire registered_models lock".to_string())
+            })?;
+            if let Some(info) = models.get_mut(&path) {
+                info.loaded = false;
+                info.memory_bytes = None;
+            }
+        }
 
         info!("Model {} unloaded successfully", handle);
 
@@ -305,7 +358,7 @@ impl Vortex {
             }
         }
 
-        if !self.registry.is_valid(handle) {
+        if !self.is_valid_handle(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
         }
 
@@ -337,7 +390,7 @@ impl Vortex {
             }
         }
 
-        if !self.registry.is_valid(handle) {
+        if !self.is_valid_handle(handle) {
             return Err(VortexError::InvalidHandle(handle.raw()));
         }
 
@@ -351,18 +404,35 @@ impl Vortex {
 
     /// List available models.
     pub fn list_models(&self) -> Vec<ModelInfo> {
-        self.registry.list()
+        self.registered_models
+            .read()
+            .map(|m| m.values().cloned().collect())
+            .unwrap_or_default()
     }
 
     /// List loaded models and their handles.
     pub fn list_loaded_models(&self) -> Vec<(ModelHandle, ModelInfo)> {
-        self.registry.list_loaded()
+        let Ok(loaded) = self.loaded_handles.read() else {
+            return Vec::new();
+        };
+
+        let Ok(models) = self.registered_models.read() else {
+            return Vec::new();
+        };
+
+        loaded
+            .iter()
+            .filter_map(|(handle, path)| models.get(path).map(|info| (*handle, info.clone())))
+            .collect()
     }
 
     /// Get information about a specific model.
     pub fn model_info(&self, handle: ModelHandle) -> Option<ModelInfo> {
-        let path = self.registry.get_path(handle)?;
-        self.registry.get_info(&path)
+        let loaded = self.loaded_handles.read().ok()?;
+        let path = loaded.get(&handle)?;
+
+        let models = self.registered_models.read().ok()?;
+        models.get(path).cloned()
     }
 
     /// Get a reference to a loaded model.
@@ -386,6 +456,16 @@ impl Vortex {
         self.loaded_models
             .read()
             .map(|models| models.contains_key(&handle))
+            .unwrap_or(false)
+    }
+
+    /// Check if a handle is valid (loaded or at least registered and tracked).
+    /// But wait, `is_valid` usually means "exists and is loaded".
+    /// The original registry.is_valid checked if it was in `loaded` map.
+    fn is_valid_handle(&self, handle: ModelHandle) -> bool {
+        self.loaded_handles
+            .read()
+            .map(|l| l.contains_key(&handle))
             .unwrap_or(false)
     }
 

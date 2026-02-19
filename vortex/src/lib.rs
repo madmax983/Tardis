@@ -54,5 +54,5 @@ pub use config::{InferenceParams, ModelLoadConfig};
 pub use error::{VortexError, VortexResult};
 pub use inference::Vortex;
 pub use loader::ModelPreset;
-pub use model::{ModelHandle, ModelInfo, ModelRegistry};
+pub use model::{ModelHandle, ModelInfo};
 pub use tokenizer::TokenizerService;

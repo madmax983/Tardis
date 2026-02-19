@@ -115,39 +115,6 @@ impl ShellCommand for FixCommand {
     }
 }
 
-/// Dashboard command.
-#[cfg(feature = "nova")]
-#[derive(Debug)]
-pub struct DashboardCommand;
-
-#[cfg(feature = "nova")]
-#[async_trait]
-impl ShellCommand for DashboardCommand {
-    fn name(&self) -> &str {
-        "dashboard"
-    }
-
-    fn description(&self) -> &str {
-        "Show system dashboard"
-    }
-
-    async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        match crate::dashboard::tui::Dashboard::new(
-            Arc::clone(&context.gallifrey),
-            context.telemetry.clone(),
-            context.prophet.clone(),
-        ) {
-            Ok(mut dashboard) => {
-                if let Err(e) = dashboard.run() {
-                    println!("Dashboard failed: {e}");
-                }
-            }
-            Err(e) => println!("Failed to initialize dashboard: {e}"),
-        }
-        Ok(CommandResult::Continue)
-    }
-}
-
 /// Timeline command.
 #[cfg(feature = "nova")]
 #[derive(Debug)]

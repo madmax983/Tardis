@@ -7,9 +7,6 @@ use tardis_common::SessionId;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-
 /// Context provided to every shell command.
 pub struct CommandContext {
     /// Access to the Knowledge Graph.
@@ -18,9 +15,6 @@ pub struct CommandContext {
     pub chronos: Arc<Chronos>,
     /// Access to Telemetry (optional).
     pub telemetry: Option<Arc<TelemetryStore>>,
-    /// Access to the Prophet Engine (optional, Nova only).
-    #[cfg(feature = "nova")]
-    pub prophet: Option<Arc<Prophet>>,
     /// The current session ID.
     pub session_id: SessionId,
 }

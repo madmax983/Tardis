@@ -1,16 +1,41 @@
 //! Model management for Vortex.
 //!
 //! Provides:
-//! - Model registry for tracking available and loaded models
 //! - Model loading from various formats
 //! - Model metadata and capabilities
 
-mod registry;
-
-pub use registry::{ModelInfo, ModelRegistry};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 pub use tardis_common::id::ModelHandle;
 
-use serde::{Deserialize, Serialize};
+/// Information about a model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelInfo {
+    /// Model name.
+    pub name: String,
+    /// Path to model files.
+    pub path: PathBuf,
+    /// Model architecture.
+    pub architecture: Architecture,
+    /// Number of parameters.
+    pub parameters: u64,
+    /// Maximum context length.
+    pub context_length: usize,
+    /// Quantization type.
+    pub quantization: Quantization,
+    /// Whether the model is currently loaded.
+    pub loaded: bool,
+    /// Memory usage in bytes (if loaded).
+    pub memory_bytes: Option<u64>,
+    /// Number of layers.
+    pub num_layers: usize,
+    /// Hidden size.
+    pub hidden_size: usize,
+    /// Number of attention heads.
+    pub num_heads: usize,
+    /// Vocabulary size.
+    pub vocab_size: usize,
+}
 
 /// Supported model architectures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

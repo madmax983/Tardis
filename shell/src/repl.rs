@@ -14,9 +14,6 @@ use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tracing::{error, info};
 
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
 pub struct Repl {
@@ -33,9 +30,6 @@ pub struct Repl {
     /// Telemetry store (optional).
     #[allow(dead_code)]
     telemetry_store: Option<Arc<TelemetryStore>>,
-    /// Prophet engine (optional, Nova only).
-    #[cfg(feature = "nova")]
-    prophet: Option<Arc<Prophet>>,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -52,7 +46,6 @@ impl Repl {
         chronos: Arc<Chronos>,
         gallifrey: Arc<Gallifrey>,
         telemetry_store: Option<Arc<TelemetryStore>>,
-        #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
@@ -70,8 +63,6 @@ impl Repl {
             chronos,
             gallifrey,
             telemetry_store,
-            #[cfg(feature = "nova")]
-            prophet,
             session_id,
             running: true,
         })
@@ -97,7 +88,6 @@ impl Repl {
         {
             registry.register(Box::new(commands::experimental::SonicCommand));
             registry.register(Box::new(commands::experimental::FixCommand));
-            registry.register(Box::new(commands::experimental::DashboardCommand));
             registry.register(Box::new(commands::experimental::TimelineCommand));
             registry.register(Box::new(commands::experimental::MapCommand));
             registry.register(Box::new(commands::experimental::HeatmapCommand));
@@ -179,8 +169,6 @@ impl Repl {
                 gallifrey: self.gallifrey.clone(),
                 chronos: self.chronos.clone(),
                 telemetry: self.telemetry_store.clone(),
-                #[cfg(feature = "nova")]
-                prophet: self.prophet.clone(),
                 session_id: self.session_id,
             };
 

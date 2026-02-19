@@ -44,43 +44,6 @@ pub enum QueryIntent {
     Chat,
 }
 
-struct IntentRule {
-    required: &'static [&'static str],
-    any: &'static [&'static str],
-    intent: QueryIntent,
-}
-
-impl IntentRule {
-    fn matches(&self, query_lower: &str) -> bool {
-        let has_required = self.required.iter().all(|k| query_lower.contains(k));
-        let has_any = self.any.is_empty() || self.any.iter().any(|k| query_lower.contains(k));
-        has_required && has_any
-    }
-}
-
-const INTENT_RULES: &[IntentRule] = &[
-    IntentRule {
-        required: &[],
-        any: &["remember that", "remember this"],
-        intent: QueryIntent::Remember,
-    },
-    IntentRule {
-        required: &[],
-        any: &["what did we", "recall", "what was"],
-        intent: QueryIntent::Recall,
-    },
-    IntentRule {
-        required: &["how has", "changed"],
-        any: &[],
-        intent: QueryIntent::TemporalDiff,
-    },
-    IntentRule {
-        required: &[],
-        any: &["system state", "snapshot"],
-        intent: QueryIntent::SystemQuery,
-    },
-];
-
 /// Analyze a query.
 ///
 /// # Examples
@@ -159,12 +122,30 @@ pub fn analyze_at(query: &str, now: DateTime<Utc>) -> ChronosResult<AnalyzedQuer
 
 /// Classify the intent of a query.
 fn classify_intent(query_lower: &str, has_question_mark: bool) -> QueryIntent {
-    for rule in INTENT_RULES {
-        if rule.matches(query_lower) {
-            return rule.intent.clone();
-        }
+    // 1. Remember
+    if query_lower.contains("remember that") || query_lower.contains("remember this") {
+        return QueryIntent::Remember;
     }
 
+    // 2. Recall
+    if query_lower.contains("what did we")
+        || query_lower.contains("recall")
+        || query_lower.contains("what was")
+    {
+        return QueryIntent::Recall;
+    }
+
+    // 3. Temporal Diff
+    if query_lower.contains("how has") && query_lower.contains("changed") {
+        return QueryIntent::TemporalDiff;
+    }
+
+    // 4. System Query
+    if query_lower.contains("system state") || query_lower.contains("snapshot") {
+        return QueryIntent::SystemQuery;
+    }
+
+    // Fallback
     if has_question_mark {
         return QueryIntent::Question;
     }

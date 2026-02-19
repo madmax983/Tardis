@@ -6,13 +6,7 @@
 pub mod psychic_paper;
 
 #[cfg(feature = "nova")]
-pub mod prophecy;
-
-#[cfg(feature = "nova")]
 pub mod doctor;
 
 #[cfg(feature = "nova")]
 pub mod curiosity;
-
-#[cfg(feature = "nova")]
-pub mod fugue;

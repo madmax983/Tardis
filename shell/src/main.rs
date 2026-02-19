@@ -11,9 +11,6 @@ use tardis_telemetry::{init, TelemetryConfig};
 use tardis_vortex::Vortex;
 use tracing::info;
 
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::prophecy::Prophet;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize telemetry
@@ -35,14 +32,7 @@ async fn main() -> Result<()> {
     // Print banner
     print_banner();
 
-    #[cfg(feature = "nova")]
-    let prophet = Arc::new(Prophet::new(vortex.clone()));
-
     // Create and run REPL
-    #[cfg(feature = "nova")]
-    let mut repl = Repl::new(chronos, gallifrey, telemetry_store, Some(prophet))?;
-
-    #[cfg(not(feature = "nova"))]
     let mut repl = Repl::new(chronos, gallifrey, telemetry_store)?;
 
     repl.run().await?;
