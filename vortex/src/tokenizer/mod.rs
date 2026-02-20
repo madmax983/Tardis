@@ -216,16 +216,35 @@ impl TokenizerService {
     ///
     /// Returns an error if encoding fails.
     pub fn encode_with_bos(&self, handle: ModelHandle, text: &str) -> VortexResult<Vec<u32>> {
-        let mut tokens = self.encode(handle, text)?;
+        let tokenizers = self
+            .tokenizers
+            .read()
+            .map_err(|_| VortexError::LockPoisoned {
+                context: "tokenizer read lock",
+            })?;
 
-        if let Some(bos) = self.get_special_tokens(handle).and_then(|s| s.bos_token_id) {
-            // Only prepend if not already present (tokenizer may have added it)
-            if tokens.first() != Some(&bos) {
-                tokens.insert(0, bos);
+        let loaded = tokenizers.get(&handle).ok_or_else(|| {
+            VortexError::TokenizationError(format!("no tokenizer for handle {handle}"))
+        })?;
+
+        let encoding = loaded
+            .tokenizer
+            .encode(text, true)
+            .map_err(|e| VortexError::TokenizationError(format!("encoding failed: {e}")))?;
+
+        let ids = encoding.get_ids();
+        let bos = loaded.special_tokens.bos_token_id;
+
+        if let Some(bos_id) = bos {
+            if ids.first() != Some(&bos_id) {
+                let mut tokens = Vec::with_capacity(ids.len() + 1);
+                tokens.push(bos_id);
+                tokens.extend_from_slice(ids);
+                return Ok(tokens);
             }
         }
 
-        Ok(tokens)
+        Ok(ids.to_vec())
     }
 
     /// Decode tokens to text.
@@ -443,5 +462,90 @@ mod tests {
         let service = TokenizerService::new();
         let result = service.decode_with_special_tokens(ModelHandle::new(999), &[1, 2, 3]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_encode_with_bos_integration() -> VortexResult<()> {
+        use std::io::Write;
+
+        // Create temp dir
+        let temp_dir = std::env::temp_dir();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let test_dir = temp_dir.join(format!("vortex_tokenizer_test_{}", timestamp));
+        std::fs::create_dir_all(&test_dir)?;
+
+        let tokenizer_path = test_dir.join("tokenizer.json");
+
+        // Minimal WordLevel tokenizer JSON
+        let json_content = r#"{
+          "version": "1.0",
+          "truncation": null,
+          "padding": null,
+          "added_tokens": [
+            {
+              "id": 0,
+              "special": true,
+              "content": "<s>",
+              "single_word": false,
+              "lstrip": false,
+              "rstrip": false,
+              "normalized": false
+            }
+          ],
+          "normalizer": null,
+          "pre_tokenizer": {
+            "type": "Whitespace"
+          },
+          "post_processor": null,
+          "decoder": null,
+          "model": {
+            "type": "WordLevel",
+            "vocab": {
+              "<s>": 0,
+              "hello": 1,
+              "world": 2
+            },
+            "unk_token": "<unk>"
+          }
+        }"#;
+
+        let mut file = std::fs::File::create(&tokenizer_path)?;
+        file.write_all(json_content.as_bytes())?;
+
+        // Create tokenizer config to specify BOS token ID explicitly
+        let config_path = test_dir.join("tokenizer_config.json");
+        let config_content = r#"{
+            "bos_token_id": 0,
+            "eos_token_id": null,
+            "pad_token_id": null,
+            "unk_token_id": null,
+            "chat_template": null
+        }"#;
+        let mut config_file = std::fs::File::create(&config_path)?;
+        config_file.write_all(config_content.as_bytes())?;
+
+        let service = TokenizerService::new();
+        let handle = ModelHandle::new(123);
+
+        service.load(handle, &tokenizer_path)?;
+
+        // Test encode (without BOS)
+        // "hello" -> [1]
+        // Note: Tokenizer output depends on pre-tokenization, but minimal BPE should map direct words
+        let tokens = service.encode(handle, "hello")?;
+        assert_eq!(tokens, vec![1]);
+
+        // Test encode_with_bos
+        // Should prepend 0
+        let tokens_bos = service.encode_with_bos(handle, "hello")?;
+        assert_eq!(tokens_bos, vec![0, 1]);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(test_dir);
+
+        Ok(())
     }
 }
