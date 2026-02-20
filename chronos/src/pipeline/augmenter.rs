@@ -37,6 +37,15 @@ use std::fmt::Write;
 
 /// Augment a prompt with retrieved context.
 ///
+/// # Silent Truncation
+///
+/// This function enforces the token budget defined in `config.max_context_tokens`.
+/// If the context exceeds this limit:
+/// 1. Sources are processed in order.
+/// 2. If a source partially fits, it is **silently truncated** to fill the remaining space.
+/// 3. Subsequent sources are **dropped entirely**.
+/// 4. A summary note (e.g., "... (N more sources truncated)") is appended.
+///
 /// # Examples
 ///
 /// ```

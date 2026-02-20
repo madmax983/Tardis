@@ -71,6 +71,18 @@ fn general_help() {
     println!("    @<time> <query>   Time-travel query (e.g., @yesterday what did we discuss)");
     println!("    ?<query>          Direct LLM query (no RAG)");
     println!();
+    #[cfg(feature = "nova")]
+    {
+        println!("  EXPERIMENTAL COMMANDS (Nova):");
+        println!("    sonic <file>      System diagnosis and repair");
+        println!("    biography <name>  Generate entity biography");
+        println!("    map <name>        Show entity relationship map");
+        println!("    heatmap <name>    Show temporal activity");
+        println!("    curiosity         Active learning scan");
+        println!("    capsule           Manage time capsules");
+        println!("    dashboard         System TUI dashboard");
+        println!();
+    }
     println!("  EXAMPLES:");
     println!("    > What did we discuss about Rust?");
     println!("    > remember that the API uses JWT tokens");
