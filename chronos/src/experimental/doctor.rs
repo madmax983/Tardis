@@ -257,7 +257,7 @@ impl SystemDoctor {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::unchecked_time_subtraction)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
