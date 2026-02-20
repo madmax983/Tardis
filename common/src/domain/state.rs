@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tardis_common::id::SnapshotId;
+use crate::id::SnapshotId;
 
 /// A snapshot of system state.
 ///
@@ -13,7 +13,7 @@ use tardis_common::id::SnapshotId;
 /// # Examples
 ///
 /// ```
-/// use tardis_gallifrey::domain::{Snapshot, SnapshotTrigger, SystemState};
+/// use tardis_common::domain::{Snapshot, SnapshotTrigger, SystemState};
 /// use tardis_common::id::SnapshotId;
 /// use chrono::Utc;
 /// use std::collections::HashMap;
@@ -107,7 +107,7 @@ pub struct FileMetadata {
 /// # Examples
 ///
 /// ```
-/// use tardis_gallifrey::domain::{Change, ChangeType};
+/// use tardis_common::domain::{Change, ChangeType};
 /// use chrono::Utc;
 /// use serde_json::json;
 ///

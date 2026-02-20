@@ -29,14 +29,6 @@ pub enum ChronosError {
     #[error("invalid temporal reference: {0}")]
     InvalidTemporalReference(String),
 
-    /// Vortex error.
-    #[error("vortex error: {0}")]
-    Vortex(#[from] tardis_vortex::VortexError),
-
-    /// Gallifrey error.
-    #[error("gallifrey error: {0}")]
-    Gallifrey(#[from] tardis_gallifrey::GallifreyError),
-
     /// Common error.
     #[error("common error: {0}")]
     Common(#[from] tardis_common::Error),

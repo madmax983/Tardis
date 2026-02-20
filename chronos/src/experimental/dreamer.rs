@@ -69,7 +69,7 @@ impl Dreamer {
             .gallifrey
             .conversation()
             .get_recent_messages(session_id, 20)
-            .map_err(ChronosError::Gallifrey)?;
+            .map_err(|e| ChronosError::Common(e.into()))?;
 
         if messages.is_empty() {
             info!("Dreamer: No messages to dream about.");
@@ -103,7 +103,11 @@ impl Dreamer {
             .with_temperature(0.3) // Be factual
             .with_max_tokens(1024);
 
-        let response = self.vortex.infer(self.model, &prompt, params).await?;
+        let response = self
+            .vortex
+            .infer(self.model, &prompt, params)
+            .await
+            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         // 4. Parse output
         let parsed = self
@@ -138,7 +142,7 @@ impl Dreamer {
                 .gallifrey
                 .insert(entity)
                 .await
-                .map_err(ChronosError::Common)?;
+                .map_err(|e| ChronosError::Common(e.into()))?;
 
             created_ids.push(id);
         }

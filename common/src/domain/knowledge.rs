@@ -3,7 +3,7 @@
 use crate::temporal::BiTemporalInterval;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tardis_common::id::EntityId;
+use crate::id::EntityId;
 
 /// A node in the knowledge graph.
 ///
@@ -15,9 +15,9 @@ use tardis_common::id::EntityId;
 /// Creating a simple entity representing a person:
 ///
 /// ```
-/// use tardis_gallifrey::domain::Entity;
+/// use tardis_common::domain::Entity;
 /// use tardis_common::id::EntityId;
-/// use tardis_gallifrey::temporal::BiTemporalInterval;
+/// use tardis_common::temporal::BiTemporalInterval;
 /// use std::collections::HashMap;
 /// use serde_json::json;
 ///

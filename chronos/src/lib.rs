@@ -15,17 +15,16 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_vortex::Vortex;
-//! use tardis_gallifrey::Gallifrey;
+//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 //!
-//! # async fn example() -> anyhow::Result<()> {
-//! // 1. Initialize dependencies (Vortex & Gallifrey)
-//! // In a real app, these are typically shared Arc<T> instances.
-//! let vortex = Arc::new(Vortex::new()?);
-//! let gallifrey = Arc::new(Gallifrey::new());
-//!
+//! # async fn example(
+//! #     llm: Arc<dyn LlmService>,
+//! #     knowledge: Arc<dyn KnowledgeService>,
+//! #     conversation: Arc<dyn ConversationService>,
+//! #     system_state: Arc<dyn SystemStateService>
+//! # ) -> anyhow::Result<()> {
 //! // 2. Create the Chronos RAG engine
-//! let chronos = Chronos::new(vortex, gallifrey);
+//! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
 //!
 //! // 3. Ask a question!
 //! // Chronos will:

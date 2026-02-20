@@ -31,9 +31,9 @@
 //!
 //! ```rust
 //! use tardis_gallifrey::Gallifrey;
-//! use tardis_gallifrey::domain::Entity;
+//! use tardis_common::domain::Entity;
 //! use tardis_common::id::EntityId;
-//! use tardis_gallifrey::temporal::{BiTemporalInterval, TemporalQuery};
+//! use tardis_common::temporal::{BiTemporalInterval, TemporalQuery};
 //! use std::collections::HashMap;
 //!
 //! # #[tokio::main]
@@ -76,6 +76,7 @@ pub mod error;
 #[cfg(feature = "nova")]
 /// Experimental features (Nova).
 pub mod experimental;
+pub mod services;
 pub mod stores;
 pub mod temporal;
 

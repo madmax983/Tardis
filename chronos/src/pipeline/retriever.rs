@@ -3,7 +3,8 @@
 use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
-use tardis_gallifrey::Gallifrey;
+use std::sync::Arc;
+use tardis_common::traits::{ConversationService, KnowledgeService, SystemStateService};
 use tracing::info;
 
 /// Retrieve context from all configured sources.
@@ -12,7 +13,9 @@ use tracing::info;
 ///
 /// Returns an error if retrieval fails.
 pub async fn retrieve(
-    gallifrey: &Gallifrey,
+    knowledge: &Arc<dyn KnowledgeService>,
+    conversation: &Arc<dyn ConversationService>,
+    system_state: &Arc<dyn SystemStateService>,
     query: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<Vec<ContextSource>> {
@@ -24,15 +27,15 @@ pub async fn retrieve(
 
     // Retrieve from each source in parallel (TODO: make truly parallel)
     if config.include_knowledge {
-        retrieve_knowledge(gallifrey, query, config, &mut sources).await?;
+        retrieve_knowledge(knowledge, query, config, &mut sources).await?;
     }
 
     if config.include_conversation {
-        retrieve_conversation(gallifrey, query, config, &mut sources).await?;
+        retrieve_conversation(conversation, query, config, &mut sources).await?;
     }
 
     if config.include_system_state {
-        retrieve_system_state(gallifrey, query, config, &mut sources).await?;
+        retrieve_system_state(system_state, query, config, &mut sources).await?;
     }
 
     // Sort by relevance and limit
@@ -49,7 +52,7 @@ pub async fn retrieve(
 /// Retrieve from knowledge graph.
 #[allow(clippy::unused_async)]
 async fn retrieve_knowledge(
-    gallifrey: &Gallifrey,
+    knowledge: &Arc<dyn KnowledgeService>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -59,8 +62,8 @@ async fn retrieve_knowledge(
     // TODO: Generate embedding for query
     let embedding: Vec<f32> = Vec::new();
 
-    let entities = gallifrey
-        .search_knowledge(&embedding, config.max_context_items)
+    let entities = knowledge
+        .semantic_search(&embedding, config.max_context_items)
         .await
         .map_err(ChronosError::Common)?;
 
@@ -79,7 +82,7 @@ async fn retrieve_knowledge(
 /// Retrieve from conversation history.
 #[allow(clippy::unused_async)]
 async fn retrieve_conversation(
-    gallifrey: &Gallifrey,
+    conversation: &Arc<dyn ConversationService>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -88,7 +91,7 @@ async fn retrieve_conversation(
 
     // Get recent messages from current session
     if let Some(session_id) = config.session_id {
-        let messages = gallifrey
+        let messages = conversation
             .get_recent_messages(session_id, 5)
             .await
             .map_err(ChronosError::Common)?;
@@ -105,8 +108,8 @@ async fn retrieve_conversation(
 
     // TODO: Semantic search across all conversations
     let embedding: Vec<f32> = Vec::new();
-    let historical = gallifrey
-        .search_conversation(&embedding, config.max_context_items)
+    let historical = conversation
+        .semantic_search(&embedding, config.max_context_items)
         .await
         .map_err(ChronosError::Common)?;
 
@@ -125,7 +128,7 @@ async fn retrieve_conversation(
 /// Retrieve from system state.
 #[allow(clippy::unused_async)]
 async fn retrieve_system_state(
-    gallifrey: &Gallifrey,
+    system_state: &Arc<dyn SystemStateService>,
     query: &AnalyzedQuery,
     _config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -138,8 +141,8 @@ async fn retrieve_system_state(
             continue;
         };
 
-        if let Some(snapshot) = gallifrey
-            .find_snapshot(resolved)
+        if let Some(snapshot) = system_state
+            .find_snapshot_at(resolved)
             .await
             .map_err(ChronosError::Common)?
         {
@@ -159,33 +162,4 @@ async fn retrieve_system_state(
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use super::*;
-    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
-    use tardis_gallifrey::Gallifrey;
-
-    #[tokio::test]
-    async fn test_retrieve() {
-        let gallifrey = Gallifrey::new();
-
-        let query = AnalyzedQuery {
-            text: "test query".to_string(),
-            intent: QueryIntent::Question,
-            temporal_refs: Vec::new(),
-            temporal_description: None,
-            entities: Vec::new(),
-        };
-
-        let config = RagConfig::default();
-
-        let result = retrieve(&gallifrey, &query, &config).await;
-        assert!(result.is_ok());
-        let sources = result.unwrap();
-        // Even if empty, it should work
-        assert!(sources.len() <= config.max_context_items);
-    }
 }

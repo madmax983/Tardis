@@ -11,15 +11,16 @@ rust-version.workspace = true
 workspace = true
 
 [features]
-nova = ["telemetry", "tardis-gallifrey/nova"]
+nova = ["telemetry", "tardis-gallifrey/nova", "dep:tardis-vortex"]
 telemetry = ["dep:tardis-telemetry"]
 
 [dependencies]
 # Internal
 tardis-common = { path = "../common" }
-tardis-vortex = { path = "../vortex" }
-tardis-gallifrey = { path = "../gallifrey" }
 tardis-telemetry = { path = "../telemetry", optional = true }
+# Optional dependency for experimental features
+tardis-gallifrey = { path = "../gallifrey", optional = true }
+tardis-vortex = { path = "../vortex", optional = true }
 
 # Async runtime
 tokio = { workspace = true }
@@ -43,6 +44,8 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 [dev-dependencies]
+tardis-vortex = { path = "../vortex" }
+tardis-gallifrey = { path = "../gallifrey" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 criterion = { workspace = true }
 

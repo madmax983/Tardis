@@ -66,7 +66,8 @@ impl Prophet {
                     ..Default::default()
                 },
             )
-            .await?;
+            .await
+            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         let parsed = self
             .paper
