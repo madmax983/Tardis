@@ -17,6 +17,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::weaver::Weaver;
 
 /// Chameleon command (System Persona).
 #[cfg(feature = "nova")]
@@ -103,6 +105,50 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Weave command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct WeaveCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for WeaveCommand {
+    fn name(&self) -> &str {
+        "weave"
+    }
+
+    fn description(&self) -> &str {
+        "Weave a narrative between two entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: weave <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+        let start_name = &args[0];
+        let end_name = &args[1];
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let weaver = Weaver::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.vortex(),
+                *handle,
+            );
+
+            println!("🕸️ Weaving the threads of destiny...");
+            match weaver.weave(start_name, end_name).await {
+                Ok(narrative) => println!("\n{}\n", narrative),
+                Err(e) => println!("The thread snapped: {e}"),
+            }
+        } else {
+            println!("Weaving requires a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }
