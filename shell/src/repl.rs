@@ -111,6 +111,7 @@ impl Repl {
             registry.register(Box::new(commands::experimental::CuriosityCommand));
             registry.register(Box::new(commands::experimental::CapsuleCommand));
             registry.register(Box::new(commands::experimental::DreamCommand));
+            registry.register(Box::new(commands::experimental::MediumCommand));
         }
     }
 

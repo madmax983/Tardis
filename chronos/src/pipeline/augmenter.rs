@@ -120,11 +120,7 @@ pub fn augment(
 }
 
 /// Write system context header to buffer.
-fn write_system_context(
-    buffer: &mut String,
-    analysis: &AnalyzedQuery,
-    persona: Option<&str>,
-) {
+fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery, persona: Option<&str>) {
     if let Some(p) = persona {
         let _ = writeln!(buffer, "# {p}\n");
     } else {

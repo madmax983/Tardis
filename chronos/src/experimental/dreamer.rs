@@ -42,11 +42,7 @@ struct DreamEntity {
 impl Dreamer {
     /// Create a new Dreamer engine.
     #[must_use]
-    pub const fn new(
-        gallifrey: Arc<Gallifrey>,
-        vortex: Arc<Vortex>,
-        model: ModelHandle,
-    ) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
             vortex,
@@ -143,7 +139,10 @@ impl Dreamer {
             created_ids.push(id);
         }
 
-        info!("Dreamer: Created {} new knowledge entities.", created_ids.len());
+        info!(
+            "Dreamer: Created {} new knowledge entities.",
+            created_ids.len()
+        );
 
         Ok(created_ids)
     }

@@ -5,6 +5,7 @@
 use crate::commands::traits::{CommandContext, CommandResult, ShellCommand};
 use anyhow::Result;
 use async_trait::async_trait;
+use std::io::Write;
 use std::sync::Arc;
 
 #[cfg(feature = "nova")]
@@ -15,6 +16,8 @@ use crate::experimental::{
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
@@ -139,7 +142,10 @@ impl ShellCommand for DreamCommand {
                     if ids.is_empty() {
                         println!("No new memories formed.");
                     } else {
-                        println!("✨ Consolidated {} new memories into long-term storage.", ids.len());
+                        println!(
+                            "✨ Consolidated {} new memories into long-term storage.",
+                            ids.len()
+                        );
                     }
                 }
                 Err(e) => println!("Nightmare encountered: {e}"),
@@ -455,6 +461,97 @@ impl ShellCommand for CapsuleCommand {
             }
             _ => println!("Unknown capsule command: {subcommand}"),
         }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Medium command (Time Travel).
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &str {
+        "medium"
+    }
+
+    fn description(&self) -> &str {
+        "Talk to the system state at a specific time"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.is_empty() {
+            println!("Usage: medium <timestamp>");
+            return Ok(CommandResult::Continue);
+        }
+
+        // Parse timestamp
+        let timestamp_str = &args[0];
+        let timestamp = match chrono::DateTime::parse_from_rfc3339(timestamp_str) {
+            Ok(dt) => dt.with_timezone(&chrono::Utc),
+            Err(_) => {
+                println!("Invalid timestamp format. Use RFC3339 (e.g. 2023-10-27T10:00:00Z)");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        // Get Vortex and Model
+        let vortex = context.chronos.vortex();
+        let loaded_models = vortex.list_loaded_models();
+
+        let model_handle = match loaded_models.first() {
+            Some((handle, _)) => *handle,
+            None => {
+                println!("No model loaded. Please load a model first using 'models load'.");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        println!("🔮 Summoning the medium for {}...", timestamp);
+
+        // Summon Medium
+        let medium = match Medium::summon(&context.gallifrey, vortex, model_handle, timestamp) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("Failed to summon medium: {e}");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        println!("The Medium is listening. Type 'exit' to break the trance.");
+
+        // Interaction Loop
+        let stdin = std::io::stdin();
+        let mut stdout = std::io::stdout();
+        let mut buffer = String::new();
+
+        loop {
+            print!("👻 > ");
+            stdout.flush()?;
+            buffer.clear();
+
+            if stdin.read_line(&mut buffer).is_err() {
+                break;
+            }
+
+            let input = buffer.trim();
+            if input.eq_ignore_ascii_case("exit") || input.eq_ignore_ascii_case("quit") {
+                break;
+            }
+
+            if input.is_empty() {
+                continue;
+            }
+
+            match medium.ask(input).await {
+                Ok(response) => println!("\n{}\n", response),
+                Err(e) => println!("The connection fades... ({e})"),
+            }
+        }
+
+        println!("Trace ended.");
         Ok(CommandResult::Continue)
     }
 }
