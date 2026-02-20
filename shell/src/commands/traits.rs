@@ -37,12 +37,15 @@ impl fmt::Debug for CommandContext {
 }
 
 /// Result of a command execution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandResult {
     /// Continue the shell loop.
     Continue,
     /// Exit the shell loop.
     Quit,
+    /// Set the system persona.
+    #[cfg(feature = "nova")]
+    SetPersona(Option<String>),
 }
 
 /// A shell command.

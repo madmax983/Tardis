@@ -95,7 +95,12 @@ pub fn augment(
     let mut augmented = String::with_capacity(capacity);
 
     // System context
-    write_system_context(&mut augmented, analysis);
+    #[cfg(feature = "nova")]
+    let persona = config.persona.as_deref();
+    #[cfg(not(feature = "nova"))]
+    let persona = None;
+
+    write_system_context(&mut augmented, analysis, persona);
 
     // Retrieved context
     if !context.is_empty() {
@@ -115,8 +120,16 @@ pub fn augment(
 }
 
 /// Write system context header to buffer.
-fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery) {
-    buffer.push_str("# Tardis AI Assistant\n\n");
+fn write_system_context(
+    buffer: &mut String,
+    analysis: &AnalyzedQuery,
+    persona: Option<&str>,
+) {
+    if let Some(p) = persona {
+        let _ = writeln!(buffer, "# {p}\n");
+    } else {
+        buffer.push_str("# Tardis AI Assistant\n\n");
+    }
     // Bolt: Optimized format string usage
     let _ = writeln!(
         buffer,
@@ -429,5 +442,20 @@ mod tests {
             result.contains("15 more sources truncated"),
             "Should report 15 dropped sources"
         );
+    }
+
+    #[cfg(feature = "nova")]
+    #[test]
+    fn test_augment_with_persona() {
+        let config = RagConfig {
+            persona: Some("You are a Dalek.".to_string()),
+            ..RagConfig::default()
+        };
+        let analysis = create_mock_analysis();
+
+        let result = augment("query", &[], &analysis, &config).unwrap();
+
+        assert!(result.contains("# You are a Dalek."));
+        assert!(!result.contains("# Tardis AI Assistant"));
     }
 }

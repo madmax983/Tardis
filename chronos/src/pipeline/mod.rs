@@ -86,6 +86,9 @@ pub struct RagConfig {
     pub session_id: Option<SessionId>,
     /// Maximum number of tokens for context.
     pub max_context_tokens: usize,
+    /// System persona description (optional).
+    #[cfg(feature = "nova")]
+    pub persona: Option<String>,
 }
 
 impl Default for RagConfig {
@@ -97,6 +100,8 @@ impl Default for RagConfig {
             include_system_state: false,
             session_id: None,
             max_context_tokens: 4096,
+            #[cfg(feature = "nova")]
+            persona: None,
         }
     }
 }

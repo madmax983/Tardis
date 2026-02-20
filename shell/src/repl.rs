@@ -40,6 +40,9 @@ pub struct Repl {
     session_id: SessionId,
     /// Whether to continue running.
     running: bool,
+    /// System persona.
+    #[cfg(feature = "nova")]
+    persona: Option<String>,
 }
 
 impl Repl {
@@ -74,6 +77,8 @@ impl Repl {
             prophet,
             session_id,
             running: true,
+            #[cfg(feature = "nova")]
+            persona: None,
         })
     }
 
@@ -95,6 +100,7 @@ impl Repl {
         // Experimental
         #[cfg(feature = "nova")]
         {
+            registry.register(Box::new(commands::experimental::ChameleonCommand));
             registry.register(Box::new(commands::experimental::SonicCommand));
             registry.register(Box::new(commands::experimental::FixCommand));
             registry.register(Box::new(commands::experimental::DashboardCommand));
@@ -189,6 +195,15 @@ impl Repl {
                 Ok(CommandResult::Quit) => {
                     self.running = false;
                 }
+                #[cfg(feature = "nova")]
+                Ok(CommandResult::SetPersona(persona)) => {
+                    self.persona = persona.clone();
+                    if let Some(p) = persona {
+                        println!("System persona set to: {}", p);
+                    } else {
+                        println!("System persona reset to default.");
+                    }
+                }
                 Err(e) => println!("Command failed: {e}"),
             }
         } else {
@@ -205,10 +220,16 @@ impl Repl {
 
     /// Handle a Chronos RAG query.
     async fn handle_chronos_query(&self, query: &str) {
-        let config = RagConfig {
+        #[allow(unused_mut)]
+        let mut config = RagConfig {
             session_id: Some(self.session_id),
             ..RagConfig::default()
         };
+
+        #[cfg(feature = "nova")]
+        {
+            config.persona = self.persona.clone();
+        }
 
         match self.chronos.query(query, config).await {
             Ok(response) => {
