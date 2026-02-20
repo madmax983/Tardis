@@ -444,4 +444,144 @@ mod tests {
         let result = service.decode_with_special_tokens(ModelHandle::new(999), &[1, 2, 3]);
         assert!(result.is_err());
     }
+
+    // --- Sentry Integration Tests ---
+
+    fn create_dummy_tokenizer_files(dir: &Path) -> std::path::PathBuf {
+        use tokenizers::models::wordlevel::WordLevel;
+        use tokenizers::AddedToken;
+
+        std::fs::create_dir_all(dir).expect("failed to create temp dir");
+
+        // Create a simple WordLevel tokenizer
+        // ID 0: <s>, 1: </s>, 2: <pad>, 3: <unk>
+        // ID 4: hello, 5: world, 6: !
+        let vocab = HashMap::from([
+            ("<s>".to_string(), 0),
+            ("</s>".to_string(), 1),
+            ("<pad>".to_string(), 2),
+            ("<unk>".to_string(), 3),
+            ("hello".to_string(), 4),
+            ("world".to_string(), 5),
+            ("!".to_string(), 6),
+        ]);
+
+        let vocab_path = dir.join("vocab.json");
+        let vocab_str = serde_json::to_string(&vocab).expect("failed to serialize vocab");
+        std::fs::write(&vocab_path, vocab_str).expect("failed to write vocab file");
+
+        let model = WordLevel::from_file(vocab_path.to_str().unwrap(), "<unk>".to_string())
+            .expect("failed to build model");
+
+        let mut tokenizer = tokenizers::Tokenizer::new(model);
+        tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::whitespace::Whitespace::default()));
+
+        tokenizer.add_special_tokens(&[
+            AddedToken::from("<s>", true),
+            AddedToken::from("</s>", true),
+            AddedToken::from("<pad>", true),
+            AddedToken::from("<unk>", true),
+        ]);
+
+        let tokenizer_path = dir.join("tokenizer.json");
+        tokenizer
+            .save(&tokenizer_path, true)
+            .expect("failed to save tokenizer");
+
+        // Create config
+        let config = serde_json::json!({
+            "bos_token_id": 0,
+            "eos_token_id": 1,
+            "pad_token_id": 2,
+            "unk_token_id": 3,
+            "chat_template": "TEST_TEMPLATE"
+        });
+
+        let config_path = dir.join("tokenizer_config.json");
+        std::fs::write(&config_path, config.to_string()).expect("failed to save config");
+
+        tokenizer_path
+    }
+
+    #[test]
+    fn test_tokenizer_integration_flow() {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("tardis_test_{}_{}", std::process::id(), timestamp));
+        let tokenizer_path = create_dummy_tokenizer_files(&temp_dir);
+        let service = TokenizerService::new();
+        let handle = ModelHandle::new(42);
+
+        // 1. Test Load
+        service
+            .load(handle, &tokenizer_path)
+            .expect("failed to load tokenizer");
+        assert!(service.is_loaded(handle));
+
+        // 2. Test Special Tokens
+        let special = service.get_special_tokens(handle).unwrap();
+        assert_eq!(special.bos_token_id, Some(0));
+        assert_eq!(special.eos_token_id, Some(1));
+
+        // 3. Test Vocab Size
+        assert_eq!(service.vocab_size(handle), Some(7));
+
+        // 4. Test Encode
+        // Note: WordLevel splits by space.
+        let encoded = service
+            .encode(handle, "hello world !")
+            .expect("failed to encode");
+        assert_eq!(encoded, vec![4, 5, 6]);
+
+        // 5. Test Encode with BOS
+        // Case A: BOS missing
+        let with_bos = service
+            .encode_with_bos(handle, "hello world !")
+            .expect("failed to encode with bos");
+        assert_eq!(with_bos, vec![0, 4, 5, 6]);
+
+        // Case B: BOS already present in input
+        // If we manually include the BOS token in the input string, the tokenizer
+        // (with special tokens enabled) should encode it as BOS.
+        // Then encode_with_bos should NOT add another one.
+        let with_bos_manual = service
+            .encode_with_bos(handle, "<s> hello")
+            .expect("failed to encode with manual bos");
+        assert_eq!(with_bos_manual, vec![0, 4]);
+
+        // 6. Test Decode
+        let decoded = service
+            .decode(handle, &[4, 5, 6])
+            .expect("failed to decode");
+        assert_eq!(decoded, "hello world !");
+
+        // 7. Test Decode with Special Tokens
+        let decoded_special = service
+            .decode_with_special_tokens(handle, &[0, 4, 5, 1])
+            .expect("failed to decode special");
+        assert_eq!(decoded_special, "<s> hello world </s>");
+
+        // 8. Test Chat Template
+        assert!(service.has_chat_template(handle));
+        // Our dummy template logic checks for "TEST_TEMPLATE" string?
+        // Wait, `apply_jinja_template` checks for specific substrings like "<|im_start|>" etc.
+        // If it doesn't match any known ones, it falls back to simple.
+        // My config put "TEST_TEMPLATE". `apply_jinja_template` will likely fall through to default.
+        // I should check `template.rs` again.
+        // Ah, `apply_chat_template` calls `template::apply_jinja_template`.
+        // `apply_jinja_template` checks `template.contains(...)`.
+        // "TEST_TEMPLATE" won't match anything, so it calls `apply_simple_template`.
+
+        let msgs = vec![ChatMessage::user("hello")];
+        let prompt = service
+            .apply_chat_template(handle, &msgs, false)
+            .expect("failed to apply template");
+        // Simple template: "user: hello\n"
+        assert!(prompt.contains("user: hello"));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
 }

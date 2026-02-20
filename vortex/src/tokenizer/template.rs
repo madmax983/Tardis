@@ -254,4 +254,41 @@ mod tests {
             "Should end with assistant response"
         );
     }
+
+    #[test]
+    fn test_apply_llama2_template_multiple_system_messages() {
+        let messages = vec![
+            ChatMessage::system("Sys1"),
+            ChatMessage::user("Hi"),
+            ChatMessage::system("Sys2"),
+            ChatMessage::user("Bye"),
+        ];
+
+        let result = apply_llama2_template(&messages, true);
+        assert!(result.contains("Sys1"), "First system message should be included");
+        assert!(!result.contains("Sys2"), "Second system message should be ignored");
+    }
+
+    #[test]
+    fn test_apply_llama2_template_system_after_user() {
+        let messages = vec![
+            ChatMessage::user("Hi"),
+            ChatMessage::system("Sys1"),
+        ];
+
+        let result = apply_llama2_template(&messages, true);
+        // The first system message is hoisted to the first user message.
+        // User -> adds [INST] -> takes system_msg -> adds <<SYS>>Sys1... -> adds "Hi".
+        // So "Sys1" should appear BEFORE "Hi" inside the [INST] block.
+
+        assert!(result.contains("Sys1"));
+        assert!(result.contains("Hi"));
+
+        let sys_pos = result.find("Sys1").unwrap();
+        let hi_pos = result.find("Hi").unwrap();
+        assert!(
+            sys_pos < hi_pos,
+            "System message should be hoisted before user message"
+        );
+    }
 }
