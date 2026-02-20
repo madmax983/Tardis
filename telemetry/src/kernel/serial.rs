@@ -1,18 +1,32 @@
 //! Serial port output for kernel telemetry.
 //!
-//! Provides direct serial port (COM1) output for:
-//! - Early boot messages before ring buffer is available
-//! - Panic messages when ring buffer may be corrupted
-//! - Debug output when configured
+//! # Overview
 //!
-//! # Hardware
+//! This module provides a direct interface to the PC serial port (COM1),
+//! primarily used for:
+//! 1.  **Early Boot Logging**: Emitting messages before the memory allocator or ring buffer are initialized.
+//! 2.  **Panic Handling**: Reliability dumping panic information when the system state is corrupted.
+//! 3.  **Fallback Logging**: Providing an output channel when the telemetry ring buffer is full.
 //!
-//! Uses the standard PC COM1 port at I/O address 0x3F8 with 8N1 configuration.
+//! # Safety & Implementation
 //!
-//! # Safety
+//! This module interacts directly with hardware I/O ports (specifically `0x3F8` for COM1).
 //!
-//! This module uses port I/O which requires kernel-level access.
-//! In userspace builds, these functions are no-ops.
+//! -   **Unsafe Operations**: All functions are marked `unsafe` because they perform raw I/O
+//!     and rely on the hardware being present and correctly mapped.
+//! -   **Kernel Context**: These functions should *only* be called when running in kernel mode (ring 0).
+//! -   **Synchronization**: The implementation assumes it is the sole owner of the serial port.
+//!     While `init` has a basic atomic guard, concurrent writes from multiple cores are NOT locked
+//!     (to prevent deadlocks in panic handlers) and may result in interleaved output.
+//!
+//! # Configuration
+//!
+//! The `init()` function configures the UART to:
+//! -   **Baud Rate**: 115200
+//! -   **Data Bits**: 8
+//! -   **Parity**: None
+//! -   **Stop Bits**: 1
+//! -   **FIFO**: Enabled (14-byte threshold)
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -30,8 +44,11 @@ static SERIAL_INITIALIZED: AtomicBool = AtomicBool::new(false);
 ///
 /// # Safety
 ///
-/// This function performs port I/O and should only be called
+/// This function performs raw port I/O and should only be called
 /// during kernel initialization.
+///
+/// It checks `SERIAL_INITIALIZED` to prevent double-initialization,
+/// but callers must ensure no other code is accessing the serial port hardware.
 #[cfg(target_arch = "x86_64")]
 #[allow(clippy::needless_return)]
 pub unsafe fn init() {
@@ -61,6 +78,7 @@ pub unsafe fn init() {
         lcr.write(0x80);
 
         // Set divisor to 1 (115200 baud)
+        // Divisor = 115200 / 115200 = 1
         port.write(0x01u8);
         ier.write(0x00);
 
@@ -95,6 +113,7 @@ pub unsafe fn init() {
 /// # Safety
 ///
 /// This function performs port I/O and should only be called in kernel context.
+/// It assumes the port has been initialized via `init()`.
 #[cfg(all(target_arch = "x86_64", feature = "kernel"))]
 #[allow(clippy::needless_return)]
 pub unsafe fn write_byte(byte: u8) {
@@ -115,6 +134,7 @@ pub unsafe fn write_byte(byte: u8) {
         use x86_64::instructions::port::Port;
 
         // Wait for transmit buffer to be empty
+        // Bit 5 (0x20) of LSR indicates "Transmitter Holding Register Empty"
         let mut lsr: Port<u8> = Port::new(COM1_PORT + 5);
         while (lsr.read() & 0x20) == 0 {
             core::hint::spin_loop();
@@ -186,6 +206,7 @@ pub unsafe fn write_line(prefix: &str, message: &str) {
 /// # Safety
 ///
 /// This function calls `write_str` which performs port I/O.
+/// It is designed to be minimal and robust for use in crash conditions.
 pub unsafe fn write_panic(message: &str, file: &str, line: u32) {
     unsafe {
         write_str("\n!!! KERNEL PANIC !!!\n");

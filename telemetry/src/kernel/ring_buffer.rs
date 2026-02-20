@@ -1,19 +1,33 @@
 //! Lock-free ring buffer for kernel telemetry.
 //!
-//! This module provides a Single-Producer Single-Consumer (SPSC) ring buffer
-//! optimized for kernel telemetry:
+//! # Overview
 //!
-//! - Zero allocation after initialization
-//! - Sub-microsecond write latency
-//! - Safe for use in interrupt handlers
-//! - Readable from userspace via shared memory
+//! This module implements a **Single-Producer Single-Consumer (SPSC)** ring buffer designed for
+//! extremely low-latency telemetry logging from the kernel to userspace.
 //!
-//! # Design
+//! Key characteristics:
+//! -   **Lock-Free**: Uses atomic sequence numbers to coordinate reads/writes without mutexes.
+//! -   **Zero-Copy (ish)**: Writes directly to shared memory; reads use volatile copy.
+//! -   **Interrupt-Safe**: Can be safely called from interrupt handlers or panic context.
+//! -   **Overwrite Semantics**: If the buffer fills up, old data is overwritten (circular buffer).
 //!
-//! The ring buffer uses sequence numbers for lock-free synchronization:
-//! - Each slot has a sequence number
-//! - Odd sequence = slot being written
-//! - Even sequence = slot ready to read
+//! # Safety Mechanism: The Seqlock Pattern
+//!
+//! To ensure data consistency without locks, the buffer uses a sequence counter for each slot:
+//!
+//! 1.  **State Tracking**:
+//!     -   **Even Sequence**: Slot is stable and ready to read.
+//!     -   **Odd Sequence**: Slot is being written to.
+//!
+//! 2.  **Write Protocol**:
+//!     -   Producer increments sequence to Odd (claiming the slot).
+//!     -   Producer writes data using `volatile` operations.
+//!     -   Producer increments sequence to Even (releasing the slot).
+//!
+//! 3.  **Read Protocol**:
+//!     -   Consumer reads sequence (must be Even).
+//!     -   Consumer reads data.
+//!     -   Consumer re-reads sequence. If it changed, the data is torn/corrupted -> Retry.
 //!
 //! # Memory Layout
 //!
@@ -154,6 +168,18 @@ impl RingSlot {
 ///
 /// This buffer is designed to be placed in a shared memory region
 /// accessible by both kernel and userspace.
+///
+/// # Concurrency Safety
+///
+/// This structure relies on strict memory ordering and the Single-Producer Single-Consumer invariant.
+///
+/// -   **Producer (Kernel)**: Owns `write_pos`. Advances it monotonically.
+///     Uses `Acquire`/`Release` ordering on `sequence` to publish writes.
+/// -   **Consumer (Userspace)**: Owns `read_pos`. Advances it monotonically.
+///     Uses `Acquire`/`Release` ordering to detect stable slots.
+///
+/// If multiple producers attempt to write simultaneously (e.g., re-entrant interrupt),
+/// the `compare_exchange` on the sequence number will fail for one of them, forcing a retry loop.
 #[repr(C)]
 #[allow(missing_debug_implementations)]
 pub struct RingBuffer {
