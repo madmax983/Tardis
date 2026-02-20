@@ -8,11 +8,11 @@ pub struct HelpCommand;
 
 #[async_trait]
 impl ShellCommand for HelpCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "help"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show usage information"
     }
 
@@ -29,11 +29,11 @@ pub struct ExitCommand;
 
 #[async_trait]
 impl ShellCommand for ExitCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "exit"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Exit the shell"
     }
 
@@ -49,11 +49,11 @@ pub struct ClearCommand;
 
 #[async_trait]
 impl ShellCommand for ClearCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "clear"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Clear the screen"
     }
 
@@ -69,11 +69,11 @@ pub struct ModelsCommand;
 
 #[async_trait]
 impl ShellCommand for ModelsCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "models"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "List available LLM models"
     }
 
@@ -89,11 +89,11 @@ pub struct ContextCommand;
 
 #[async_trait]
 impl ShellCommand for ContextCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "context"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show current session context"
     }
 

@@ -9,6 +9,8 @@
 //! 4.  **Built-in Commands**: Known commands like `help` or `history`.
 //! 5.  **Chronos Queries**: Everything else is treated as a natural language query for the RAG engine.
 
+use std::collections::HashSet;
+
 /// Classified intent of user input.
 #[derive(Debug, Clone)]
 pub enum Intent {
@@ -57,36 +59,15 @@ pub enum Intent {
 #[derive(Debug)]
 pub struct Router {
     /// Built-in command names.
-    builtins: Vec<&'static str>,
+    builtins: HashSet<String>,
 }
 
 impl Router {
-    /// Create a new router.
-    ///
-    /// Initializes the router with the standard list of built-in commands.
+    /// Create a new router with the given built-in commands.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(builtins: impl IntoIterator<Item = String>) -> Self {
         Self {
-            builtins: vec![
-                "help",
-                "exit",
-                "quit",
-                "history",
-                "remember",
-                "recall",
-                "models",
-                "context",
-                "clear",
-                "snapshot",
-                "restore",
-                "timeline",
-                "forget",
-                "export",
-                #[cfg(feature = "nova")]
-                "sonic",
-                #[cfg(feature = "nova")]
-                "fix",
-            ],
+            builtins: builtins.into_iter().collect(),
         }
     }
 
@@ -97,7 +78,7 @@ impl Router {
     /// ```
     /// use tardis_shell::router::{Router, Intent};
     ///
-    /// let router = Router::new();
+    /// let router = Router::new(vec!["help".to_string()]);
     ///
     /// // Built-in command
     /// let intent = router.route("help me");
@@ -141,7 +122,7 @@ impl Router {
         let first_word = parts.first().map(|s| s.to_lowercase());
 
         if let Some(ref cmd) = first_word {
-            if self.builtins.contains(&cmd.as_str()) {
+            if self.builtins.contains(cmd.as_str()) {
                 let args = if parts.len() > 1 {
                     parts[1].split_whitespace().map(String::from).collect()
                 } else {
@@ -201,20 +182,21 @@ impl Router {
     }
 }
 
-impl Default for Router {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::panic)]
 mod tests {
     use super::*;
 
+    fn test_router() -> Router {
+        Router::new(vec![
+            "help".to_string(),
+            "history".to_string(),
+        ])
+    }
+
     #[test]
     fn test_shell_command() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("!ls -la");
 
         match intent {
@@ -225,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_builtin_command() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("help");
 
         match intent {
@@ -239,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_chronos_query() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("what is rust?");
 
         match intent {
@@ -252,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_time_travel() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("@yesterday what did we discuss");
 
         match intent {
@@ -266,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_time_travel_with_space() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("@ yesterday query");
 
         match intent {
@@ -280,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_shell_command_with_space() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("! ls");
 
         match intent {
@@ -291,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_shell_command_trailing_space() {
-        let router = Router::new();
+        let router = test_router();
         let intent = router.route("!ls ");
 
         match intent {
