@@ -24,11 +24,11 @@ pub struct SonicCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for SonicCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "sonic"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Sonic Screwdriver tool"
     }
 
@@ -82,11 +82,11 @@ pub struct FixCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for FixCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "fix"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Repair a file (alias for sonic repair)"
     }
 
@@ -123,11 +123,11 @@ pub struct DashboardCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for DashboardCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "dashboard"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show system dashboard"
     }
 
@@ -156,11 +156,11 @@ pub struct TimelineCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for TimelineCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "timeline"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show entity timeline"
     }
 
@@ -188,11 +188,11 @@ pub struct MapCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for MapCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "map"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show entity map"
     }
 
@@ -221,11 +221,11 @@ pub struct HeatmapCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for HeatmapCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "heatmap"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show temporal heatmap"
     }
 
@@ -246,11 +246,11 @@ pub struct BiographerCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for BiographerCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "biography"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Generate entity biography"
     }
 
@@ -286,11 +286,11 @@ pub struct CuriosityCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for CuriosityCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "curiosity"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Ask the Curiosity Engine"
     }
 
@@ -323,11 +323,11 @@ pub struct CapsuleCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for CapsuleCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "capsule"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Manage time capsules"
     }
 

@@ -214,7 +214,7 @@ impl SonicScrewdriver {
     }
 }
 
-/// Reads a file with a size limit to prevent DoS.
+/// Reads a file with a size limit to prevent `DoS`.
 fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
     let file =
         fs::File::open(path).with_context(|| format!("Failed to open file: {}", path.display()))?;
@@ -226,16 +226,14 @@ fn read_file_with_limit(path: &Path, limit: u64) -> Result<String> {
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
     if content.len() as u64 > limit {
-        anyhow::bail!(
-            "File too large (exceeds {} bytes). Sonic Screwdriver safety overload!",
-            limit
-        );
+        anyhow::bail!("File too large (exceeds {limit} bytes). Sonic Screwdriver safety overload!",);
     }
 
     Ok(content)
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs::File;
@@ -247,9 +245,9 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("sonic_test_{}.tmp", nanos));
+        let path = std::env::temp_dir().join(format!("sonic_test_{nanos}.tmp"));
         let mut file = File::create(&path).unwrap();
-        write!(file, "{}", content).unwrap();
+        write!(file, "{content}").unwrap();
 
         let path_clone = path.clone();
         let cleanup = move || {
@@ -297,7 +295,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_file_limit() -> Result<()> {
+    fn test_read_file_limit() {
         let (path, cleanup) = create_temp_file("1234567890");
 
         // Limit = 5. File = 10. Should fail.
@@ -316,7 +314,6 @@ mod tests {
         assert_eq!(result.unwrap(), "1234567890");
 
         cleanup();
-        Ok(())
     }
 
     #[tokio::test]

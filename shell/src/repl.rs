@@ -63,9 +63,16 @@ impl Repl {
         let mut registry = CommandRegistry::new();
         Self::register_commands(&mut registry);
 
+        let builtins: Vec<String> = registry
+            .list_commands()
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+        let router = Router::new(builtins);
+
         Ok(Self {
             editor,
-            router: Router::new(),
+            router,
             registry,
             chronos,
             gallifrey,

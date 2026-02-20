@@ -6,9 +6,10 @@ use tardis_shell::router::Router;
 
 fn bench_router_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("router_creation");
+    let builtins = vec!["help".to_string(), "history".to_string()];
 
     group.bench_function("Router::new", |b| {
-        b.iter(|| black_box(Router::new()));
+        b.iter(|| black_box(Router::new(builtins.clone())));
     });
 
     group.finish();
@@ -18,7 +19,11 @@ fn bench_router_routing(c: &mut Criterion) {
     let mut group = c.benchmark_group("router_routing");
     group.throughput(Throughput::Elements(1));
 
-    let router = Router::new();
+    let router = Router::new(vec![
+        "help".to_string(),
+        "history".to_string(),
+        "remember".to_string(),
+    ]);
 
     // Shell commands
     group.bench_function("route_shell_command", |b| {
