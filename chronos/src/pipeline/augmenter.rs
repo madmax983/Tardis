@@ -459,3 +459,85 @@ mod tests {
         assert!(!result.contains("# Tardis AI Assistant"));
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::panic)]
+mod sentry_tests {
+    use super::*;
+    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
+    use crate::pipeline::{ContextSource, ContextSourceType};
+
+    fn create_mock_analysis(intent: QueryIntent) -> AnalyzedQuery {
+        AnalyzedQuery {
+            text: "test".to_string(),
+            intent,
+            temporal_refs: vec![],
+            temporal_description: None,
+            entities: vec![],
+        }
+    }
+
+    fn create_mock_source(content: &str) -> ContextSource {
+        ContextSource {
+            source_type: ContextSourceType::Knowledge,
+            content: content.to_string(),
+            relevance: 1.0,
+            entity_id: None,
+        }
+    }
+
+    #[test]
+    fn test_write_instructions_intent_coverage() {
+        let config = RagConfig::default();
+        let intents = vec![
+            (QueryIntent::Recall, "Focus on accurately recalling"),
+            (QueryIntent::TemporalDiff, "Compare the states"),
+            (QueryIntent::SystemQuery, "Provide accurate system state"),
+            (QueryIntent::Chat, "Be helpful and concise"),
+            (QueryIntent::Question, "Be helpful and concise"),
+            (QueryIntent::Remember, "Be helpful and concise"),
+        ];
+
+        for (intent, expected_phrase) in intents {
+            let analysis = create_mock_analysis(intent.clone());
+            let result = augment("query", &[], &analysis, &config).unwrap();
+
+            assert!(
+                result.contains(expected_phrase),
+                "Instructions for {:?} should contain '{}'",
+                intent,
+                expected_phrase
+            );
+        }
+    }
+
+    #[test]
+    fn test_augment_truncation_boundary_conditions() {
+        let config = RagConfig {
+            max_context_tokens: 10, // 40 chars
+            ..RagConfig::default()
+        };
+
+        // Source 1: 39 chars. 10 tokens (39/4 ceil = 10).
+        // Remaining budget: 10 - 10 = 0 tokens.
+        let s1 = create_mock_source(&"a".repeat(39));
+
+        // Source 2: 1 char. Should be dropped.
+        let s2 = create_mock_source("SHOULD_NOT_APPEAR");
+
+        let analysis = create_mock_analysis(QueryIntent::Question);
+
+        let result = augment("query", &[s1, s2], &analysis, &config).unwrap();
+
+        assert!(result.contains(&"a".repeat(39)), "Should contain s1");
+        assert!(
+            !result.contains("SHOULD_NOT_APPEAR"),
+            "Should not contain s2"
+        );
+        assert!(
+            result.contains("1 more sources truncated"),
+            "Should report s2 dropped"
+        );
+    }
+}
