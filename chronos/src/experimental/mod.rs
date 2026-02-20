@@ -19,3 +19,6 @@ pub mod fugue;
 
 #[cfg(feature = "nova")]
 pub mod dreamer;
+
+#[cfg(feature = "nova")]
+pub mod medium;

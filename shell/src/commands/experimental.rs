@@ -16,7 +16,11 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
+#[cfg(feature = "nova")]
+use tardis_vortex::InferenceParams;
 
 /// Chameleon command (System Persona).
 #[cfg(feature = "nova")]
@@ -104,6 +108,124 @@ impl ShellCommand for SonicCommand {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
         }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Medium command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &str {
+        "medium"
+    }
+
+    fn description(&self) -> &str {
+        "Talk to the past state of an entity"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: medium <entity> <time> (e.g. '2023-10-01T12:00:00Z')");
+            return Ok(CommandResult::Continue);
+        }
+
+        let entity_name = &args[0];
+        let time_str = &args[1];
+
+        let time = match chrono::DateTime::parse_from_rfc3339(time_str) {
+            Ok(t) => t.with_timezone(&chrono::Utc),
+            Err(e) => {
+                println!("Invalid time format: {e}");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let model_handle = if let Some((h, _)) = loaded_models.first() {
+            *h
+        } else {
+            println!("Medium requires a loaded model. Use 'models load <path>'.");
+            return Ok(CommandResult::Continue);
+        };
+
+        let medium = Medium::new(
+            Arc::clone(&context.gallifrey),
+        );
+
+        let session = match medium.summon(entity_name, time, model_handle) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("Summoning failed: {e}");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        println!("🕯️ Seance started with {} from {}. Type 'exit' to end.", session.entity_name, session.time);
+        println!("---------------------------------------------------");
+
+        // Initial system prompt injection (simulated conversation start)
+        // In a real chat loop we would maintain a buffer of messages.
+        let mut conversation_history = format!("<<SYS>>\n{}\n<</SYS>>\n\n", session.system_prompt);
+
+        use std::io::{self, Write};
+        let stdin = io::stdin();
+        let mut stdout = io::stdout();
+
+        loop {
+            print!("medium> ");
+            stdout.flush()?;
+
+            let mut input = String::new();
+            if stdin.read_line(&mut input).is_err() {
+                break;
+            }
+
+            let input = input.trim();
+            if input.eq_ignore_ascii_case("exit") || input.eq_ignore_ascii_case("quit") {
+                break;
+            }
+            if input.is_empty() {
+                continue;
+            }
+
+            // Append user message
+            conversation_history.push_str(&format!("[INST] {} [/INST] ", input));
+
+            // Run inference
+            let params = InferenceParams {
+                max_tokens: 512,
+                temperature: 0.8, // Higher temperature for "spirit" like creativity
+                ..Default::default()
+            };
+
+            // Use the last N chars to avoid context overflow if no truncation
+            // Ideally we use a proper window manager, but for this experiment:
+            let context_str = if conversation_history.len() > 4000 {
+                // Crude truncation keeping system prompt and tail
+                // NOTE: This is just a safety valve, real implementation needs token counting
+                let split = conversation_history.len() - 3000;
+                let tail = &conversation_history[split..];
+                format!("<<SYS>>\n{}\n<</SYS>>\n...{}", session.system_prompt, tail)
+            } else {
+                conversation_history.clone()
+            };
+
+            match context.chronos.vortex().infer(model_handle, &context_str, params).await {
+                Ok(response) => {
+                    println!("{}", response);
+                    conversation_history.push_str(&response);
+                    conversation_history.push('\n');
+                }
+                Err(e) => println!("The connection is weak... (Error: {e})"),
+            }
+        }
+
+        println!("🕯️ Seance ended.");
         Ok(CommandResult::Continue)
     }
 }
