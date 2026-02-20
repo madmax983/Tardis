@@ -1,9 +1,6 @@
 //! Domain entities shared across Tardis OS.
+//!
+//! Note: These types have been moved to `tardis_common::domain`.
+//! This module re-exports them.
 
-pub(crate) mod conversation;
-pub(crate) mod knowledge;
-pub(crate) mod state;
-
-pub use conversation::*;
-pub use knowledge::*;
-pub use state::*;
+pub use tardis_common::domain::*;

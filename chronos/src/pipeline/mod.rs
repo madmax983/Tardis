@@ -8,17 +8,16 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_vortex::Vortex;
-//! use tardis_gallifrey::Gallifrey;
+//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 //!
-//! # async fn example() -> anyhow::Result<()> {
-//! // 1. Initialize dependencies
-//! // In a real app, these would be shared instances
-//! let vortex = Arc::new(Vortex::new()?);
-//! let gallifrey = Arc::new(Gallifrey::new());
-//!
+//! # async fn example(
+//! #     llm: Arc<dyn LlmService>,
+//! #     knowledge: Arc<dyn KnowledgeService>,
+//! #     conversation: Arc<dyn ConversationService>,
+//! #     system_state: Arc<dyn SystemStateService>
+//! # ) -> anyhow::Result<()> {
 //! // 2. Create Chronos engine
-//! let chronos = Chronos::new(vortex, gallifrey);
+//! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
 //!
 //! // 3. Execute a RAG query
 //! let response = chronos.query(
@@ -42,11 +41,10 @@ pub use retriever::retrieve;
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tardis_common::{EntityId, SessionId};
-use tardis_gallifrey::Gallifrey;
-#[cfg(feature = "telemetry")]
-use tardis_telemetry::gallifrey::TelemetryStore;
-use tardis_vortex::Vortex;
+use tardis_common::domain::Entity;
+use tardis_common::id::{EntityId, SessionId};
+use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+use tardis_common::llm::InferenceParams;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -59,19 +57,6 @@ use tracing::{info, instrument};
 /// Retrieved context items are prioritized by relevance. If the budget is exceeded:
 /// 1. Lower-relevance items are dropped entirely.
 /// 2. The last included item may be silently truncated to fit the remaining space.
-///
-/// # Examples
-///
-/// ```rust
-/// use tardis_chronos::RagConfig;
-///
-/// let config = RagConfig {
-///     max_context_items: 5,
-///     include_knowledge: true,
-///     include_conversation: false,
-///     ..RagConfig::default()
-/// };
-/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagConfig {
     /// Maximum number of context items to retrieve.
@@ -151,60 +136,30 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    vortex: Arc<Vortex>,
-    gallifrey: Arc<Gallifrey>,
-    #[cfg(feature = "telemetry")]
-    telemetry: Option<Arc<TelemetryStore>>,
+    llm: Arc<dyn LlmService>,
+    knowledge: Arc<dyn KnowledgeService>,
+    conversation: Arc<dyn ConversationService>,
+    system_state: Arc<dyn SystemStateService>,
 }
 
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(
+        llm: Arc<dyn LlmService>,
+        knowledge: Arc<dyn KnowledgeService>,
+        conversation: Arc<dyn ConversationService>,
+        system_state: Arc<dyn SystemStateService>,
+    ) -> Self {
         Self {
-            vortex,
-            gallifrey,
-            #[cfg(feature = "telemetry")]
-            telemetry: None,
+            llm,
+            knowledge,
+            conversation,
+            system_state,
         }
     }
 
-    /// Attach a telemetry store to Chronos.
-    #[cfg(feature = "telemetry")]
-    #[must_use]
-    pub fn with_telemetry(mut self, telemetry: Arc<TelemetryStore>) -> Self {
-        self.telemetry = Some(telemetry);
-        self
-    }
-
-    /// Get access to the underlying Vortex engine.
-    #[must_use]
-    pub fn vortex(&self) -> Arc<Vortex> {
-        Arc::clone(&self.vortex)
-    }
-
     /// Execute a RAG query.
-    ///
-    /// The query process follows this pipeline:
-    /// 1. **Analysis**: The query is analyzed for intent and temporal references (e.g., "yesterday").
-    /// 2. **Retrieval**: Relevant context is fetched from the knowledge graph and conversation history.
-    /// 3. **Augmentation**: The context is formatted into a prompt for the LLM.
-    /// 4. **Inference**: The LLM generates a response based on the augmented prompt.
-    ///
-    /// # ⚠️ Mock Implementation
-    ///
-    /// Currently, the inference step is **mocked**. It will return a static string
-    /// indicating what *would* have been sent to the LLM, along with the retrieved context items.
-    ///
-    /// **Why?** The `vortex` crate integration is in progress. This allows testing the
-    /// orchestration pipeline (analysis -> retrieval -> augmentation) without loading full LLM weights.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any stage of the pipeline fails, such as:
-    /// - Vector database connection errors.
-    /// - LLM inference failures.
-    /// - Tokenization limits exceeded.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -214,19 +169,24 @@ impl Chronos {
         info!("Query analyzed: {:?}", analysis.intent);
 
         // 2. Retrieve relevant context
-        let context = retriever::retrieve(&self.gallifrey, &analysis, &config).await?;
+        let context = retriever::retrieve(
+            &self.knowledge,
+            &self.conversation,
+            &self.system_state,
+            &analysis,
+            &config
+        ).await?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
-        let _augmented_prompt = augmenter::augment(prompt, &context, &analysis, &config)?;
+        let augmented_prompt = augmenter::augment(prompt, &context, &analysis, &config)?;
 
         // 4. Run inference
-        // TODO: Use actual model handle
-        let text = format!(
-            "[Chronos] RAG response for: {}... (with {} context items)",
-            &prompt[..prompt.len().min(50)],
-            context.len()
-        );
+        let params = InferenceParams::default();
+        let text = match self.llm.infer(&augmented_prompt, params).await {
+             Ok(t) => t,
+             Err(e) => return Err(ChronosError::Common(e)),
+        };
 
         Ok(RagResponse {
             text,
@@ -237,18 +197,6 @@ impl Chronos {
     }
 
     /// Store a memory.
-    ///
-    /// This is a convenience wrapper around `Gallifrey::insert`. It creates an `Entity`
-    /// representing the memory and stores it in the Knowledge Graph.
-    ///
-    /// # Limitations
-    ///
-    /// Currently, this method **does not generate embeddings** for the stored memory.
-    /// Semantic search will not find these memories until embeddings are implemented.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if storage fails.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -258,7 +206,7 @@ impl Chronos {
         info!("Storing memory: {:?}", category);
 
         // Create entity in knowledge graph
-        let entity = tardis_gallifrey::domain::Entity {
+        let entity = Entity {
             id: EntityId::new(),
             entity_type: format!("Memory:{category:?}"),
             name: content[..content.len().min(50)].to_string(),
@@ -276,8 +224,8 @@ impl Chronos {
         };
 
         let id = self
-            .gallifrey
-            .insert(entity)
+            .knowledge
+            .insert_entity(entity)
             .await
             .map_err(ChronosError::Common)?;
 
@@ -285,23 +233,14 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
-    ///
-    /// # Limitations
-    ///
-    /// Currently, this method **ignores the query text** and returns the most recent
-    /// memories from the knowledge graph (via an empty embedding search).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if retrieval fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
 
         // Search knowledge graph
         let results = self
-            .gallifrey
-            .search_knowledge(&[], limit)
+            .knowledge
+            .semantic_search(&[], limit)
             .await
             .map_err(ChronosError::Common)?;
 

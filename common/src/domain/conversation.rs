@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tardis_common::id::{EntityId, SessionId};
+use crate::id::{EntityId, SessionId};
 
 /// Role in a conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub enum Role {
 /// # Examples
 ///
 /// ```
-/// use tardis_gallifrey::domain::{Message, Role};
+/// use tardis_common::domain::{Message, Role};
 /// use tardis_common::id::{EntityId, SessionId};
 /// use chrono::Utc;
 ///
@@ -69,7 +69,7 @@ pub struct Message {
 /// # Examples
 ///
 /// ```
-/// use tardis_gallifrey::domain::Session;
+/// use tardis_common::domain::Session;
 /// use tardis_common::id::SessionId;
 /// use chrono::Utc;
 /// use std::collections::HashMap;

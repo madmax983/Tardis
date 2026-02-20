@@ -90,7 +90,11 @@ impl Curiosity {
             .with_temperature(0.8) // Be creative
             .with_max_tokens(64);
 
-        let question = self.vortex.infer(self.model, &prompt, params).await?;
+        let question = self
+            .vortex
+            .infer(self.model, &prompt, params)
+            .await
+            .map_err(|e| crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         Ok(format!(
             "🤔 Regarding '{}': {}",

@@ -99,7 +99,7 @@ impl Fugue {
                     }
                 }
             })
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(|e| ChronosError::Common(e.into()))?;
 
         let mut candidates = candidates_cell.into_inner().unwrap_or_default();
 

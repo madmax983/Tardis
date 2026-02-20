@@ -47,6 +47,7 @@ pub mod error;
 pub mod inference;
 pub mod loader;
 pub mod model;
+pub mod services;
 pub mod tokenizer;
 
 // Re-export main types
@@ -55,4 +56,5 @@ pub use error::{VortexError, VortexResult};
 pub use inference::Vortex;
 pub use loader::ModelPreset;
 pub use model::{ModelHandle, ModelInfo, ModelRegistry};
+pub use services::VortexLlmService;
 pub use tokenizer::TokenizerService;
