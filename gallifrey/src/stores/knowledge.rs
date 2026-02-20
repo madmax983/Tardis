@@ -22,6 +22,15 @@ use tardis_common::EntityId;
 ///
 /// - **Reads**: Concurrent readers are allowed.
 /// - **Writes**: Exclusive write access is required for inserts and updates.
+///
+/// # Performance Warning
+///
+/// ⚠️ **Missing Index**: This store currently maps `EntityId` -> `Entity`.
+/// There is **no secondary index** for entity names or properties.
+///
+/// To find an entity by name, you must perform a full linear scan of the store
+/// (O(N) complexity). For production use cases involving frequent name lookups,
+/// consider maintaining an external index or using `EntityId` references.
 #[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
@@ -342,6 +351,11 @@ impl KnowledgeStore {
     ///
     /// This method allows iterating over the entire knowledge graph's history
     /// without cloning the underlying storage structure.
+    ///
+    /// # Performance
+    ///
+    /// This operation is **O(N)** where N is the number of entities in the store.
+    /// It acquires a read lock on the entire store.
     ///
     /// # Errors
     ///

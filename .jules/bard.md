@@ -25,3 +25,7 @@
 ## 2026-02-13 - The Bi-Temporal Blind Spot
 **Confusion:** Users struggled to understand why `update()` created a new version instead of overwriting data, leading to "ghost" data from the past.
 **Clarification:** Expanded the "Bi-Temporality" section in `gallifrey` docs to explain the "Append-Only" nature of updates and how to query valid vs. transaction time.
+
+## 2026-06-15 - The Linear Scan Trap
+**Confusion:** Developers assumed `Gallifrey` had an index for entity names, leading to O(N) performance issues when looking up entities by name.
+**Clarification:** Documented `KnowledgeStore`'s lack of a name index and the cost of `scan_history`, warning users to rely on `EntityId` for fast lookups.
