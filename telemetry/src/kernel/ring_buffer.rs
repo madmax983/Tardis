@@ -454,7 +454,9 @@ impl RingBuffer {
         let write_pos = self.write_pos.load(Ordering::Acquire);
         let read_pos = self.read_pos.load(Ordering::Relaxed);
         // Use wrapping_sub to handle potential usize wrapping correctly
-        write_pos.wrapping_sub(read_pos)
+        let available = write_pos.wrapping_sub(read_pos);
+        // Cap at buffer size to prevent misleading values when writer wraps around
+        available.min(RING_BUFFER_SIZE)
     }
 
     /// Returns the number of dropped entries.
@@ -777,6 +779,18 @@ mod tests {
                 BUFFER.available(),
                 10,
                 "available() should handle wrapping arithmetic"
+            );
+
+            // Case 3: Overflow (Writer far ahead)
+            // write_pos = 10000, read_pos = 0.
+            // available = 10000. But buffer size is 4096.
+            // Should return 4096.
+            (*read_pos_ptr).store(0, Ordering::Relaxed);
+            (*write_pos_ptr).store(10000, Ordering::Relaxed);
+            assert_eq!(
+                BUFFER.available(),
+                RING_BUFFER_SIZE,
+                "available() should be capped at RING_BUFFER_SIZE"
             );
         }
     }

@@ -33,3 +33,7 @@
 **2025-06-05 - Supply Chain Attack**
 **Threat:** `serde_json` v1.0.149 introduced a malicious dependency `zmij` v1.0.19. Additionally, `zip` v7.4.0 (a typosquatted/hijacked crate version) was pulled in by `candle-core` v0.9.2. These compromised versions posed a critical risk of arbitrary code execution.
 **Defense:** Pinned `serde_json` to known safe version `=1.0.128`. Downgraded `candle-core` to `0.9.1` and patched the dependency to use the official Git repository, forcing dependency resolution to safe versions (e.g., `zip` v1.1.4). Removed compromised crate versions from `Cargo.lock`.
+
+**2025-06-06 - RingBuffer DoS Vector**
+**Threat:** `RingBuffer::available()` returned `write_pos - read_pos` without clamping, leading to potentially huge values (>> `RING_BUFFER_SIZE`) if the writer wrapped around. This could cause userspace consumers to allocate massive buffers, leading to OOM or panic.
+**Defense:** Clamped the return value of `available()` to `min(diff, RING_BUFFER_SIZE)`. Added a regression test case to verify the fix.
