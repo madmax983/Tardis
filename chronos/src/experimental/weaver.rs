@@ -8,13 +8,13 @@
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tardis_gallifrey::domain::Entity;
-use tardis_gallifrey::Gallifrey;
+use tardis_gallifrey::KnowledgeStore;
 use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
 
 /// The Weaver engine.
 #[derive(Debug)]
 pub struct Weaver {
-    gallifrey: Arc<Gallifrey>,
+    knowledge: Arc<KnowledgeStore>,
     vortex: Arc<Vortex>,
     model: ModelHandle,
 }
@@ -22,9 +22,9 @@ pub struct Weaver {
 impl Weaver {
     /// Create a new Weaver instance.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(knowledge: Arc<KnowledgeStore>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
-            gallifrey,
+            knowledge,
             vortex,
             model,
         }
@@ -69,7 +69,7 @@ The connection is: [/INST]",
     }
 
     fn find_entity(&self, name: &str) -> Result<Entity> {
-        let knowledge = self.gallifrey.knowledge();
+        let knowledge = &self.knowledge;
         let mut found = None;
 
         // Scan all entities to find the one with the matching name (case-insensitive)

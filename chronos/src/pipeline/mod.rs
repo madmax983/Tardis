@@ -196,6 +196,27 @@ impl Chronos {
         })
     }
 
+    /// Get the experimental Weaver engine.
+    ///
+    /// This requires the `nova` feature and concrete implementations of `VortexLlmService`
+    /// and `KnowledgeStore` to be active.
+    #[cfg(feature = "nova")]
+    #[must_use]
+    pub fn weaver(&self) -> Option<crate::experimental::weaver::Weaver> {
+        // Downcast LlmService to VortexLlmService
+        let llm = self.llm.as_any().downcast_ref::<tardis_vortex::VortexLlmService>()?;
+
+        // Downcast KnowledgeService to Arc<KnowledgeStore>
+        // Note: We need Arc<KnowledgeStore> because Weaver needs to own it (or share ownership)
+        let knowledge = self.knowledge.clone().as_any_arc().downcast::<tardis_gallifrey::KnowledgeStore>().ok()?;
+
+        Some(crate::experimental::weaver::Weaver::new(
+            knowledge,
+            llm.engine(),
+            llm.model(),
+        ))
+    }
+
     /// Store a memory.
     #[allow(clippy::unused_async)]
     pub async fn remember(

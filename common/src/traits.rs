@@ -10,6 +10,8 @@ use crate::id::{EntityId, SessionId};
 use crate::Result;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::any::Any;
+use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 /// Interface for LLM inference services.
@@ -20,6 +22,12 @@ pub trait LlmService: Send + Sync + Debug {
 
     /// Generate embeddings for text.
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
+
+    /// Upcast to Any for downcasting to concrete type.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Upcast Arc to Any for downcasting to concrete Arc type.
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 /// Interface for knowledge graph storage.
@@ -39,6 +47,12 @@ pub trait KnowledgeService: Send + Sync + Debug {
 
     /// Find entities by semantic similarity.
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>>;
+
+    /// Upcast to Any for downcasting to concrete type.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Upcast Arc to Any for downcasting to concrete Arc type.
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 /// Interface for conversation history storage.
@@ -61,6 +75,12 @@ pub trait ConversationService: Send + Sync + Debug {
 
     /// Search messages by semantic similarity.
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Message>>;
+
+    /// Upcast to Any for downcasting to concrete type.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Upcast Arc to Any for downcasting to concrete Arc type.
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 /// Interface for system state storage.
@@ -71,4 +91,10 @@ pub trait SystemStateService: Send + Sync + Debug {
 
     /// Record a system change.
     async fn record_change(&self, change: Change) -> Result<()>;
+
+    /// Upcast to Any for downcasting to concrete type.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Upcast Arc to Any for downcasting to concrete Arc type.
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }

@@ -8,6 +8,8 @@ use tardis_common::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use std::any::Any;
+use std::sync::Arc;
 
 #[async_trait]
 impl KnowledgeService for KnowledgeStore {
@@ -29,6 +31,14 @@ impl KnowledgeService for KnowledgeStore {
 
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>> {
         self.semantic_search(embedding, limit).map_err(tardis_common::Error::from)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
     }
 }
 
@@ -57,6 +67,14 @@ impl ConversationService for ConversationStore {
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Message>> {
         self.semantic_search(embedding, limit).map_err(tardis_common::Error::from)
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
+    }
 }
 
 #[async_trait]
@@ -67,5 +85,13 @@ impl SystemStateService for SystemStateStore {
 
     async fn record_change(&self, change: Change) -> Result<()> {
         self.record_change(change).map_err(tardis_common::Error::from)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
     }
 }
