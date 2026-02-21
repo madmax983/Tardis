@@ -36,9 +36,12 @@ otlp = [
 ]
 
 # Kernel support (no_std)
-kernel = []
+kernel = ["dep:spin"]
 
 [dependencies]
+# Spinlocks for no_std (used by kernel logger)
+spin = { workspace = true, optional = true }
+
 # Core (always available, no_std compatible)
 # tardis-common moved to optional for no_std support
 tardis-common = { path = "../common", optional = true }

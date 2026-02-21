@@ -3973,6 +3973,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "spin",
  "tardis-common",
  "tardis-gallifrey",
  "thiserror 2.0.18",
