@@ -360,7 +360,10 @@ impl RingBuffer {
             let write_pos = self.write_pos.load(Ordering::Acquire);
 
             // Check if buffer is empty
-            if read_pos >= write_pos {
+            // We use wrapping arithmetic to handle usize overflow correctly.
+            // If write_pos wrapped around (e.g., 0) and read_pos is near MAX,
+            // a direct comparison (read_pos >= write_pos) would falsely indicate empty.
+            if write_pos == read_pos {
                 return None;
             }
 
@@ -898,6 +901,43 @@ mod tests {
             assert_eq!(read_entry.event_type, EventType::Unknown); // Mapped from 60000
         } else {
             panic!("Should have returned an entry");
+        }
+    }
+
+    #[test]
+    fn test_ring_buffer_usize_wrapping_bug() {
+        // Use static to avoid stack overflow
+        static BUFFER: RingBuffer = RingBuffer::new();
+        BUFFER.reset();
+
+        // Set write_pos and read_pos to usize::MAX
+        // This puts us right at the wrapping boundary
+        // We can access private fields directly because we are in a child module
+        BUFFER.write_pos.store(usize::MAX, Ordering::Relaxed);
+        BUFFER.read_pos.store(usize::MAX, Ordering::Relaxed);
+
+        // Write one entry. This will increment write_pos to 0 (wrap).
+        let entry = TelemetryEntry {
+            timestamp_ns: 12345,
+            level: Level::Info,
+            subsystem: Subsystem::Kernel,
+            event_type: EventType::Log,
+            span_id: SpanId::NONE,
+            trace_id: TraceId::NONE,
+            parent_span_id: SpanId::NONE,
+            payload_len: 0,
+        };
+        BUFFER.try_write(&entry, &[]);
+
+        // Now:
+        // write_pos = 0
+        // read_pos = usize::MAX
+        // available = 0 - MAX = 1
+        // BUT: read_pos (MAX) >= write_pos (0) is TRUE.
+        // So try_read will likely return None, failing to read the entry.
+
+        if BUFFER.try_read().is_none() {
+            panic!("RingBuffer failed to read after usize wrapping! read_pos >= write_pos check is flawed.");
         }
     }
 }
