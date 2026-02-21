@@ -4,7 +4,7 @@ use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
-use tardis_common::traits::{ConversationService, KnowledgeService, SystemStateService};
+use tardis_gallifrey::stores::{ConversationStore, KnowledgeStore, SystemStateStore};
 use tracing::info;
 
 /// Retrieve context from all configured sources.
@@ -12,10 +12,10 @@ use tracing::info;
 /// # Errors
 ///
 /// Returns an error if retrieval fails.
-pub async fn retrieve(
-    knowledge: &Arc<dyn KnowledgeService>,
-    conversation: &Arc<dyn ConversationService>,
-    system_state: &Arc<dyn SystemStateService>,
+pub fn retrieve(
+    knowledge: &Arc<KnowledgeStore>,
+    conversation: &Arc<ConversationStore>,
+    system_state: &Arc<SystemStateStore>,
     query: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<Vec<ContextSource>> {
@@ -27,15 +27,15 @@ pub async fn retrieve(
 
     // Retrieve from each source in parallel (TODO: make truly parallel)
     if config.include_knowledge {
-        retrieve_knowledge(knowledge, query, config, &mut sources).await?;
+        retrieve_knowledge(knowledge, query, config, &mut sources)?;
     }
 
     if config.include_conversation {
-        retrieve_conversation(conversation, query, config, &mut sources).await?;
+        retrieve_conversation(conversation, query, config, &mut sources)?;
     }
 
     if config.include_system_state {
-        retrieve_system_state(system_state, query, config, &mut sources).await?;
+        retrieve_system_state(system_state, query, config, &mut sources)?;
     }
 
     // Sort by relevance and limit
@@ -50,9 +50,8 @@ pub async fn retrieve(
 }
 
 /// Retrieve from knowledge graph.
-#[allow(clippy::unused_async)]
-async fn retrieve_knowledge(
-    knowledge: &Arc<dyn KnowledgeService>,
+fn retrieve_knowledge(
+    knowledge: &Arc<KnowledgeStore>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -64,7 +63,7 @@ async fn retrieve_knowledge(
 
     let entities = knowledge
         .semantic_search(&embedding, config.max_context_items)
-        .await
+        .map_err(|e| tardis_common::Error::Internal(e.to_string()))
         .map_err(ChronosError::Common)?;
 
     for e in entities {
@@ -80,9 +79,8 @@ async fn retrieve_knowledge(
 }
 
 /// Retrieve from conversation history.
-#[allow(clippy::unused_async)]
-async fn retrieve_conversation(
-    conversation: &Arc<dyn ConversationService>,
+fn retrieve_conversation(
+    conversation: &Arc<ConversationStore>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -93,7 +91,7 @@ async fn retrieve_conversation(
     if let Some(session_id) = config.session_id {
         let messages = conversation
             .get_recent_messages(session_id, 5)
-            .await
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
             .map_err(ChronosError::Common)?;
 
         for msg in messages {
@@ -110,7 +108,7 @@ async fn retrieve_conversation(
     let embedding: Vec<f32> = Vec::new();
     let historical = conversation
         .semantic_search(&embedding, config.max_context_items)
-        .await
+        .map_err(|e| tardis_common::Error::Internal(e.to_string()))
         .map_err(ChronosError::Common)?;
 
     for msg in historical {
@@ -126,9 +124,8 @@ async fn retrieve_conversation(
 }
 
 /// Retrieve from system state.
-#[allow(clippy::unused_async)]
-async fn retrieve_system_state(
-    system_state: &Arc<dyn SystemStateService>,
+fn retrieve_system_state(
+    system_state: &Arc<SystemStateStore>,
     query: &AnalyzedQuery,
     _config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -143,7 +140,7 @@ async fn retrieve_system_state(
 
         if let Some(snapshot) = system_state
             .find_snapshot_at(resolved)
-            .await
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
             .map_err(ChronosError::Common)?
         {
             sources.push(ContextSource {

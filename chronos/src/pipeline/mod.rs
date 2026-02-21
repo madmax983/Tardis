@@ -8,13 +8,15 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! // Concrete types are now required
+//! use tardis_vortex::services::VortexLlmService;
+//! use tardis_gallifrey::stores::{KnowledgeStore, ConversationStore, SystemStateStore};
 //!
 //! # async fn example(
-//! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
+//! #     llm: Arc<VortexLlmService>,
+//! #     knowledge: Arc<KnowledgeStore>,
+//! #     conversation: Arc<ConversationStore>,
+//! #     system_state: Arc<SystemStateStore>
 //! # ) -> anyhow::Result<()> {
 //! // 2. Create Chronos engine
 //! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
@@ -43,8 +45,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
-use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 use tardis_common::llm::InferenceParams;
+use tardis_gallifrey::stores::{ConversationStore, KnowledgeStore, SystemStateStore};
+use tardis_vortex::services::VortexLlmService;
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -136,20 +139,20 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    llm: Arc<dyn LlmService>,
-    knowledge: Arc<dyn KnowledgeService>,
-    conversation: Arc<dyn ConversationService>,
-    system_state: Arc<dyn SystemStateService>,
+    llm: Arc<VortexLlmService>,
+    knowledge: Arc<KnowledgeStore>,
+    conversation: Arc<ConversationStore>,
+    system_state: Arc<SystemStateStore>,
 }
 
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub fn new(
-        llm: Arc<dyn LlmService>,
-        knowledge: Arc<dyn KnowledgeService>,
-        conversation: Arc<dyn ConversationService>,
-        system_state: Arc<dyn SystemStateService>,
+    pub const fn new(
+        llm: Arc<VortexLlmService>,
+        knowledge: Arc<KnowledgeStore>,
+        conversation: Arc<ConversationStore>,
+        system_state: Arc<SystemStateStore>,
     ) -> Self {
         Self {
             llm,
@@ -160,6 +163,10 @@ impl Chronos {
     }
 
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -175,7 +182,7 @@ impl Chronos {
             &self.system_state,
             &analysis,
             &config
-        ).await?;
+        )?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -197,6 +204,10 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if storing memory fails.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -226,13 +237,17 @@ impl Chronos {
         let id = self
             .knowledge
             .insert_entity(entity)
-            .await
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
             .map_err(ChronosError::Common)?;
 
         Ok(id)
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if recall fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
@@ -241,7 +256,7 @@ impl Chronos {
         let results = self
             .knowledge
             .semantic_search(&[], limit)
-            .await
+            .map_err(|e| tardis_common::Error::Internal(e.to_string()))
             .map_err(ChronosError::Common)?;
 
         Ok(results

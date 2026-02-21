@@ -76,7 +76,7 @@ pub mod error;
 #[cfg(feature = "nova")]
 /// Experimental features (Nova).
 pub mod experimental;
-pub mod services;
+// pub mod services; // Removed
 pub mod stores;
 pub mod temporal;
 

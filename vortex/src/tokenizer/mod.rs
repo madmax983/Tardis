@@ -400,6 +400,7 @@ impl Default for TokenizerService {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -472,9 +473,9 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("Time went backwards")
             .as_nanos();
-        let test_dir = temp_dir.join(format!("vortex_tokenizer_test_{}", timestamp));
+        let test_dir = temp_dir.join(format!("vortex_tokenizer_test_{timestamp}"));
         std::fs::create_dir_all(&test_dir)?;
 
         let tokenizer_path = test_dir.join("tokenizer.json");
