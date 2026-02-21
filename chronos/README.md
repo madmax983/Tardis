@@ -37,21 +37,37 @@ User Query ──► [ 1. Analysis ] ───► [ 2. Retrieval ] ───► 
 
 ## 🚀 Usage
 
-Chronos is typically used by the `tardis-shell` or other user-facing interfaces.
+Chronos is typically used by the `tardis-shell` or other user-facing interfaces. It requires an initialized LLM service (via `Vortex`) and storage services (via `Gallifrey`).
 
 ```rust,no_run
 use std::sync::Arc;
 use tardis_chronos::{Chronos, RagConfig};
+use tardis_vortex::{Vortex, VortexLlmService, ModelLoadConfig};
+use tardis_gallifrey::Gallifrey;
 
 # async fn example() -> anyhow::Result<()> {
-// Assume Vortex and Gallifrey are initialized
-# let vortex = Arc::new(tardis_vortex::Vortex::new()?);
-# let gallifrey = Arc::new(tardis_gallifrey::Gallifrey::new());
+// 1. Initialize Vortex (LLM Engine)
+let vortex = Arc::new(Vortex::new()?);
+let model_handle = vortex.load_model(
+    "/path/to/model.safetensors",
+    ModelLoadConfig::default()
+).await?;
 
-// Initialize Chronos
-let chronos = Chronos::new(vortex, gallifrey);
+// Create the service adapter
+let llm_service = Arc::new(VortexLlmService::new(vortex, model_handle));
 
-// Run a query
+// 2. Initialize Gallifrey (Temporal Knowledge Store)
+let gallifrey = Gallifrey::new();
+
+// 3. Initialize Chronos with specific services
+let chronos = Chronos::new(
+    llm_service,              // LlmService
+    gallifrey.knowledge(),    // KnowledgeService
+    gallifrey.conversation(), // ConversationService
+    gallifrey.system_state()  // SystemStateService
+);
+
+// 4. Run a query
 let response = chronos.query(
     "What did I work on yesterday?",
     RagConfig::default()

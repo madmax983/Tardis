@@ -15,18 +15,28 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! use tardis_vortex::{Vortex, VortexLlmService, ModelLoadConfig};
+//! use tardis_gallifrey::Gallifrey;
 //!
-//! # async fn example(
-//! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
-//! # ) -> anyhow::Result<()> {
-//! // 2. Create the Chronos RAG engine
-//! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
+//! # async fn example() -> anyhow::Result<()> {
+//! // 1. Initialize Vortex (LLM)
+//! let vortex = Arc::new(Vortex::new()?);
+//! let handle = vortex.load_model("model.safetensors", ModelLoadConfig::default()).await?;
+//! let llm = Arc::new(VortexLlmService::new(vortex, handle));
 //!
-//! // 3. Ask a question!
+//! // 2. Initialize Gallifrey (Memory)
+//! let gallifrey = Gallifrey::new();
+//!
+//! // 3. Create the Chronos RAG engine
+//! // Connects semantic reasoning (LLM) with bi-temporal memory (Gallifrey)
+//! let chronos = Chronos::new(
+//!     llm,
+//!     gallifrey.knowledge(),
+//!     gallifrey.conversation(),
+//!     gallifrey.system_state()
+//! );
+//!
+//! // 4. Ask a question!
 //! // Chronos will:
 //! // - Analyze the query for intent and temporal references (e.g., "yesterday")
 //! // - Retrieve relevant context from Gallifrey

@@ -8,16 +8,23 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! use tardis_vortex::{Vortex, VortexLlmService, ModelLoadConfig};
+//! use tardis_gallifrey::Gallifrey;
 //!
-//! # async fn example(
-//! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
-//! # ) -> anyhow::Result<()> {
+//! # async fn example() -> anyhow::Result<()> {
+//! // 1. Initialize services
+//! let vortex = Arc::new(Vortex::new()?);
+//! let handle = vortex.load_model("model.safetensors", ModelLoadConfig::default()).await?;
+//! let llm = Arc::new(VortexLlmService::new(vortex, handle));
+//! let gallifrey = Gallifrey::new();
+//!
 //! // 2. Create Chronos engine
-//! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
+//! let chronos = Chronos::new(
+//!     llm,
+//!     gallifrey.knowledge(),
+//!     gallifrey.conversation(),
+//!     gallifrey.system_state()
+//! );
 //!
 //! // 3. Execute a RAG query
 //! let response = chronos.query(
@@ -43,8 +50,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
-use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 use tardis_common::llm::InferenceParams;
+use tardis_common::traits::{
+    ConversationService, KnowledgeService, LlmService, SystemStateService,
+};
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -160,6 +169,14 @@ impl Chronos {
     }
 
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Query analysis fails.
+    /// - Retrieval from Gallifrey fails.
+    /// - Augmentation fails.
+    /// - LLM inference fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -174,8 +191,9 @@ impl Chronos {
             &self.conversation,
             &self.system_state,
             &analysis,
-            &config
-        ).await?;
+            &config,
+        )
+        .await?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -184,8 +202,8 @@ impl Chronos {
         // 4. Run inference
         let params = InferenceParams::default();
         let text = match self.llm.infer(&augmented_prompt, params).await {
-             Ok(t) => t,
-             Err(e) => return Err(ChronosError::Common(e)),
+            Ok(t) => t,
+            Err(e) => return Err(ChronosError::Common(e)),
         };
 
         Ok(RagResponse {
@@ -197,6 +215,17 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// Creates a new entity in the knowledge graph with the specified category.
+    ///
+    /// # Limitations
+    ///
+    /// - **Embeddings**: Currently, embeddings are not generated for new memories (TODO).
+    ///   This means semantic search will not find this memory until embeddings are implemented.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity cannot be inserted into the knowledge store.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -233,6 +262,17 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// Performs a semantic search in the knowledge graph.
+    ///
+    /// # Limitations
+    ///
+    /// - **Mock Implementation**: This currently passes an empty query embedding to the
+    ///   knowledge service, as embedding generation is not yet implemented.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the semantic search fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);

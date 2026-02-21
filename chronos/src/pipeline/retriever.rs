@@ -9,9 +9,22 @@ use tracing::info;
 
 /// Retrieve context from all configured sources.
 ///
+/// This function aggregates context from:
+/// 1.  **Knowledge Graph**: Semantic search for facts (currently using mock embeddings).
+/// 2.  **Conversation History**: Recent messages and semantic search (mock embeddings).
+/// 3.  **System State**: Snapshots matching temporal references in the query.
+///
+/// Sources are retrieved sequentially (TODO: parallelize) and then sorted by relevance.
+///
+/// # Limitations
+///
+/// - **Mock Embeddings**: Semantic search currently uses empty embedding vectors.
+///   This means retrieval quality relies entirely on the storage backend's fallback behavior
+///   (likely returning random or all items).
+///
 /// # Errors
 ///
-/// Returns an error if retrieval fails.
+/// Returns an error if retrieval fails for any source.
 pub async fn retrieve(
     knowledge: &Arc<dyn KnowledgeService>,
     conversation: &Arc<dyn ConversationService>,

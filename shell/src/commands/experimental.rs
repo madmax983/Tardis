@@ -160,7 +160,10 @@ impl ShellCommand for DreamCommand {
                     if ids.is_empty() {
                         println!("No new memories formed.");
                     } else {
-                        println!("✨ Consolidated {} new memories into long-term storage.", ids.len());
+                        println!(
+                            "✨ Consolidated {} new memories into long-term storage.",
+                            ids.len()
+                        );
                     }
                 }
                 Err(e) => println!("Nightmare encountered: {e}"),

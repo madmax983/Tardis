@@ -1,9 +1,9 @@
 //! Knowledge graph entities.
 
+use crate::id::EntityId;
 use crate::temporal::BiTemporalInterval;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::id::EntityId;
 
 /// A node in the knowledge graph.
 ///
