@@ -936,8 +936,9 @@ mod tests {
         // BUT: read_pos (MAX) >= write_pos (0) is TRUE.
         // So try_read will likely return None, failing to read the entry.
 
-        if BUFFER.try_read().is_none() {
-            panic!("RingBuffer failed to read after usize wrapping! read_pos >= write_pos check is flawed.");
-        }
+        assert!(
+            BUFFER.try_read().is_some(),
+            "RingBuffer failed to read after usize wrapping! read_pos >= write_pos check is flawed."
+        );
     }
 }
