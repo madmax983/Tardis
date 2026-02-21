@@ -118,6 +118,7 @@ impl Repl {
             registry.register(Box::new(commands::experimental::CuriosityCommand));
             registry.register(Box::new(commands::experimental::CapsuleCommand));
             registry.register(Box::new(commands::experimental::DreamCommand));
+            registry.register(Box::new(commands::experimental::MediumCommand));
             registry.register(Box::new(commands::experimental::WeaveCommand));
         }
     }
@@ -206,9 +207,9 @@ impl Repl {
                 }
                 #[cfg(feature = "nova")]
                 Ok(CommandResult::SetPersona(persona)) => {
-                    self.persona = persona.clone();
+                    self.persona.clone_from(&persona);
                     if let Some(p) = persona {
-                        println!("System persona set to: {}", p);
+                        println!("System persona set to: {p}");
                     } else {
                         println!("System persona reset to default.");
                     }
@@ -237,7 +238,7 @@ impl Repl {
 
         #[cfg(feature = "nova")]
         {
-            config.persona = self.persona.clone();
+            config.persona.clone_from(&self.persona);
         }
 
         match self.chronos.query(query, config).await {

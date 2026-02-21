@@ -43,8 +43,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
-use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 use tardis_common::llm::InferenceParams;
+use tardis_common::traits::{
+    ConversationService, KnowledgeService, LlmService, SystemStateService,
+};
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -160,6 +162,10 @@ impl Chronos {
     }
 
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if query analysis, retrieval, or inference fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -174,8 +180,9 @@ impl Chronos {
             &self.conversation,
             &self.system_state,
             &analysis,
-            &config
-        ).await?;
+            &config,
+        )
+        .await?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -184,8 +191,8 @@ impl Chronos {
         // 4. Run inference
         let params = InferenceParams::default();
         let text = match self.llm.infer(&augmented_prompt, params).await {
-             Ok(t) => t,
-             Err(e) => return Err(ChronosError::Common(e)),
+            Ok(t) => t,
+            Err(e) => return Err(ChronosError::Common(e)),
         };
 
         Ok(RagResponse {
@@ -197,6 +204,10 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the memory cannot be stored in the knowledge graph.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -233,6 +244,10 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the search fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
@@ -253,6 +268,24 @@ impl Chronos {
                 entity_id: Some(e.id),
             })
             .collect())
+    }
+}
+
+#[cfg(feature = "nova")]
+impl Chronos {
+    /// Get the underlying Vortex engine.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the LLM service is not Vortex.
+    #[must_use]
+    #[allow(clippy::expect_used)]
+    pub fn vortex(&self) -> &Arc<tardis_vortex::Vortex> {
+        self.llm
+            .as_any()
+            .downcast_ref::<tardis_vortex::VortexLlmService>()
+            .expect("Chronos LLM service must be Vortex for experimental features")
+            .engine()
     }
 }
 

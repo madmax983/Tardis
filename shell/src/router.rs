@@ -188,10 +188,7 @@ mod tests {
     use super::*;
 
     fn test_router() -> Router {
-        Router::new(vec![
-            "help".to_string(),
-            "history".to_string(),
-        ])
+        Router::new(vec!["help".to_string(), "history".to_string()])
     }
 
     #[test]

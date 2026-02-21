@@ -42,11 +42,7 @@ struct DreamEntity {
 impl Dreamer {
     /// Create a new Dreamer engine.
     #[must_use]
-    pub const fn new(
-        gallifrey: Arc<Gallifrey>,
-        vortex: Arc<Vortex>,
-        model: ModelHandle,
-    ) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
             vortex,
@@ -77,14 +73,15 @@ impl Dreamer {
         }
 
         // 2. Construct prompt
+        use std::fmt::Write as _;
         let mut transcript = String::new();
         for msg in &messages {
-            transcript.push_str(&format!("{:?}: {}\n", msg.role, msg.content));
+            let _ = writeln!(transcript, "{:?}: {}", msg.role, msg.content);
         }
 
         let prompt = format!(
             "CONVERSATION TRANSCRIPT:\n\
-             {}\n\n\
+             {transcript}\n\n\
              TASK: Extract key facts, user preferences, and important entities from the above conversation.\n\
              Ignore trivial greetings. Focus on long-term knowledge.\n\
              Output a JSON list of objects. Each object must have:\n\
@@ -94,8 +91,7 @@ impl Dreamer {
              - \"properties\": (object) Key-value pairs of details.\n\
              Example:\n\
              [\n  {{ \"name\": \"User\", \"type\": \"Person\", \"description\": \"The user likes blue.\", \"properties\": {{ \"favorite_color\": \"blue\" }} }}\n]\n\
-             Output ONLY JSON.",
-            transcript
+             Output ONLY JSON."
         );
 
         // 3. Inference
@@ -142,12 +138,15 @@ impl Dreamer {
                 .gallifrey
                 .insert(entity)
                 .await
-                .map_err(|e| ChronosError::Common(e.into()))?;
+                .map_err(ChronosError::Common)?;
 
             created_ids.push(id);
         }
 
-        info!("Dreamer: Created {} new knowledge entities.", created_ids.len());
+        info!(
+            "Dreamer: Created {} new knowledge entities.",
+            created_ids.len()
+        );
 
         Ok(created_ids)
     }

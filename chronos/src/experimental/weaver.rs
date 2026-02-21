@@ -22,7 +22,7 @@ pub struct Weaver {
 impl Weaver {
     /// Create a new Weaver instance.
     #[must_use]
-    pub fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
             vortex,
@@ -79,9 +79,10 @@ The connection is: [/INST]",
             }
 
             // Find latest version that matches name
-            if let Some(e) = history.iter().find(|e| {
-                e.name.eq_ignore_ascii_case(name) && e.temporal.is_current()
-            }) {
+            if let Some(e) = history
+                .iter()
+                .find(|e| e.name.eq_ignore_ascii_case(name) && e.temporal.is_current())
+            {
                 found = Some(e.clone());
             }
         })?;
@@ -121,11 +122,13 @@ mod tests {
 
         let knowledge = gallifrey.knowledge();
         let mut found = None;
-        knowledge.scan_history(|history| {
-             if let Some(e) = history.iter().find(|e| e.name == "TestBot") {
-                 found = Some(e.clone());
-             }
-        }).unwrap();
+        knowledge
+            .scan_history(|history| {
+                if let Some(e) = history.iter().find(|e| e.name == "TestBot") {
+                    found = Some(e.clone());
+                }
+            })
+            .unwrap();
 
         assert!(found.is_some());
         assert_eq!(found.unwrap().name, "TestBot");
