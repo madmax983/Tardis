@@ -51,7 +51,13 @@ async fn main() -> Result<()> {
 
     // Create and run REPL
     #[cfg(feature = "nova")]
-    let mut repl = Repl::new(chronos, gallifrey, telemetry_store, Some(prophet))?;
+    let mut repl = Repl::new(
+        chronos,
+        gallifrey,
+        telemetry_store,
+        Some(prophet),
+        Some(vortex),
+    )?;
 
     #[cfg(not(feature = "nova"))]
     let mut repl = Repl::new(chronos, gallifrey, telemetry_store)?;

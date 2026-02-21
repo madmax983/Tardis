@@ -1,9 +1,9 @@
 //! System state entities.
 
+use crate::id::SnapshotId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::id::SnapshotId;
 
 /// A snapshot of system state.
 ///

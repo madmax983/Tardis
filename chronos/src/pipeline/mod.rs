@@ -43,8 +43,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
-use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
 use tardis_common::llm::InferenceParams;
+use tardis_common::traits::{
+    ConversationService, KnowledgeService, LlmService, SystemStateService,
+};
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -174,8 +176,9 @@ impl Chronos {
             &self.conversation,
             &self.system_state,
             &analysis,
-            &config
-        ).await?;
+            &config,
+        )
+        .await?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -184,8 +187,8 @@ impl Chronos {
         // 4. Run inference
         let params = InferenceParams::default();
         let text = match self.llm.infer(&augmented_prompt, params).await {
-             Ok(t) => t,
-             Err(e) => return Err(ChronosError::Common(e)),
+            Ok(t) => t,
+            Err(e) => return Err(ChronosError::Common(e)),
         };
 
         Ok(RagResponse {

@@ -94,7 +94,9 @@ impl Curiosity {
             .vortex
             .infer(self.model, &prompt, params)
             .await
-            .map_err(|e| crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(|e| {
+                crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string()))
+            })?;
 
         Ok(format!(
             "🤔 Regarding '{}': {}",

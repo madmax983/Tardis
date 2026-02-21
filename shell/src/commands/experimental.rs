@@ -25,6 +25,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
@@ -37,11 +39,11 @@ pub struct ChameleonCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for ChameleonCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "chameleon"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Set the system persona"
     }
 
@@ -93,13 +95,18 @@ impl ShellCommand for SonicCommand {
             return Ok(CommandResult::Continue);
         }
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex()),
+            context.vortex.clone(),
             model_handle,
         );
 
@@ -129,6 +136,65 @@ impl ShellCommand for SonicCommand {
     }
 }
 
+/// Medium command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &'static str {
+        "medium"
+    }
+
+    fn description(&self) -> &'static str {
+        "Summon system state from past"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: medium <timestamp> <query>");
+            println!("Example: medium 2023-10-27T10:00:00Z \"What was the system status?\"");
+            return Ok(CommandResult::Continue);
+        }
+
+        let timestamp_str = &args[0];
+        // Join the rest of the args as the query
+        let query = args[1..].join(" ");
+
+        let timestamp = match chrono::DateTime::parse_from_rfc3339(timestamp_str) {
+            Ok(dt) => dt.with_timezone(&chrono::Utc),
+            Err(_) => {
+                println!("Invalid timestamp format. Use RFC3339 (e.g. 2023-10-27T10:00:00Z)");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let medium = Medium::new(
+                Arc::clone(&context.gallifrey),
+                context.vortex.as_ref().expect("Vortex missing").clone(),
+                *handle,
+            );
+
+            println!("🕯️  Summoning the spirits of {}...", timestamp);
+            match medium.summon(timestamp, &query).await {
+                Ok(response) => println!("\n{response}\n"),
+                Err(e) => println!("The connection to the other side failed: {e}"),
+            }
+        } else {
+            println!("The Medium needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
 /// Dreamer command.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
@@ -137,20 +203,25 @@ pub struct DreamCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for DreamCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "dream"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Consolidate memories from conversation"
     }
 
     async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let dreamer = Dreamer::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.vortex.as_ref().expect("Vortex missing").clone(),
                 *handle,
             );
 
@@ -160,7 +231,10 @@ impl ShellCommand for DreamCommand {
                     if ids.is_empty() {
                         println!("No new memories formed.");
                     } else {
-                        println!("✨ Consolidated {} new memories into long-term storage.", ids.len());
+                        println!(
+                            "✨ Consolidated {} new memories into long-term storage.",
+                            ids.len()
+                        );
                     }
                 }
                 Err(e) => println!("Nightmare encountered: {e}"),
@@ -202,13 +276,18 @@ impl ShellCommand for FixCommand {
             return Ok(CommandResult::Continue);
         }
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex()),
+            context.vortex.clone(),
             model_handle,
         );
 
@@ -413,12 +492,17 @@ impl ShellCommand for BiographerCommand {
         }
         let entity_name = args.join(" ");
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let biographer = Biographer::new(
             Arc::clone(&context.gallifrey),
-            context.chronos.vortex(),
+            context.vortex.as_ref().expect("Vortex missing").clone(),
             model_handle,
         );
 
@@ -459,11 +543,16 @@ impl ShellCommand for CuriosityCommand {
     }
 
     async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let curiosity = Curiosity::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.vortex.as_ref().expect("Vortex missing").clone(),
                 *handle,
             );
 
@@ -563,11 +652,11 @@ pub struct WeaveCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for WeaveCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "weave"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Generate a narrative connection between two entities"
     }
 
@@ -580,11 +669,16 @@ impl ShellCommand for WeaveCommand {
         let entity1 = &args[0];
         let entity2 = &args[1];
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex missing")
+            .clone()
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let weaver = Weaver::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.vortex.as_ref().expect("Vortex missing").clone(),
                 *handle,
             );
 
