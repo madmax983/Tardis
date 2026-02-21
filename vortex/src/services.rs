@@ -7,6 +7,7 @@ use tardis_common::traits::LlmService;
 use tardis_common::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
+use std::any::Any;
 
 /// A wrapper around Vortex that binds it to a specific model.
 ///
@@ -21,13 +22,29 @@ pub struct VortexLlmService {
 impl VortexLlmService {
     /// Create a new service adapter.
     #[must_use]
-    pub fn new(engine: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub const fn new(engine: Arc<Vortex>, model: ModelHandle) -> Self {
         Self { engine, model }
+    }
+
+    /// Get the underlying Vortex engine.
+    #[must_use]
+    pub fn engine(&self) -> Arc<Vortex> {
+        self.engine.clone()
+    }
+
+    /// Get the model handle.
+    #[must_use]
+    pub const fn model(&self) -> ModelHandle {
+        self.model
     }
 }
 
 #[async_trait]
 impl LlmService for VortexLlmService {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     async fn infer(&self, prompt: &str, params: InferenceParams) -> Result<String> {
         self.engine
             .infer(self.model, prompt, params)

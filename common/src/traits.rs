@@ -10,11 +10,15 @@ use crate::id::{EntityId, SessionId};
 use crate::Result;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::any::Any;
 use chrono::{DateTime, Utc};
 
 /// Interface for LLM inference services.
 #[async_trait]
 pub trait LlmService: Send + Sync + Debug {
+    /// As Any.
+    fn as_any(&self) -> &dyn Any;
+
     /// Generate text based on a prompt.
     async fn infer(&self, prompt: &str, params: InferenceParams) -> Result<String>;
 

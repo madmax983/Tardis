@@ -41,6 +41,10 @@ pub use retriever::retrieve;
 use crate::error::{ChronosError, ChronosResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+#[cfg(feature = "nova")]
+use tardis_vortex::VortexLlmService;
+#[cfg(feature = "nova")]
+use tardis_vortex::Vortex;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
@@ -159,7 +163,30 @@ impl Chronos {
         }
     }
 
+    /// Get the Vortex engine.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the underlying LLM service is not a `VortexLlmService`.
+    #[cfg(feature = "nova")]
+    #[must_use]
+    #[allow(clippy::expect_used)]
+    pub fn vortex(&self) -> Arc<Vortex> {
+        self.llm
+            .as_any()
+            .downcast_ref::<VortexLlmService>()
+            .expect("LlmService is not VortexLlmService")
+            .engine()
+    }
+
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Query analysis fails.
+    /// - Context retrieval fails.
+    /// - LLM inference fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -197,6 +224,10 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the memory cannot be stored in Gallifrey.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -233,6 +264,10 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the semantic search fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);

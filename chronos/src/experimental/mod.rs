@@ -22,3 +22,6 @@ pub mod dreamer;
 
 #[cfg(feature = "nova")]
 pub mod weaver;
+
+#[cfg(feature = "nova")]
+pub mod medium;

@@ -25,6 +25,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
@@ -37,11 +39,11 @@ pub struct ChameleonCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for ChameleonCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "chameleon"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Set the system persona"
     }
 
@@ -129,6 +131,100 @@ impl ShellCommand for SonicCommand {
     }
 }
 
+/// Medium command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &'static str {
+        "medium"
+    }
+
+    fn description(&self) -> &'static str {
+        "Channel a past version of an entity"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: medium <entity> <timestamp>");
+            println!("Example: medium Doctor 2023-10-27T10:00:00Z");
+            return Ok(CommandResult::Continue);
+        }
+
+        let entity_name = &args[0];
+        let time_str = &args[1];
+
+        // Parse time (basic RFC3339 for now)
+        let time = match chrono::DateTime::parse_from_rfc3339(time_str) {
+            Ok(dt) => dt.with_timezone(&chrono::Utc),
+            Err(e) => {
+                println!("Invalid time format: {e}. Use RFC3339 (e.g., 2023-10-27T10:00:00Z)");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let medium = Medium::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.vortex(),
+                *handle,
+            );
+
+            println!("🔮 Summoning '{entity_name}' from {time}...");
+
+            match medium.summon(entity_name, time) {
+                Ok(mut session) => {
+                    println!("\n[Entity Summoned. Type 'exit' to break the connection.]\n");
+
+                    // Initial greeting (optional, or just wait for user)
+                    // Let's print the entity status found
+                    println!("Entity: {} ({})", session.entity.name, session.entity.entity_type);
+                    println!("State at time: {:?}", session.entity.properties);
+                    println!();
+
+                    // Interaction loop
+                    // Note: We use std::io directly. This effectively pauses the main REPL.
+                    let stdin = std::io::stdin();
+                    let mut input = String::new();
+
+                    loop {
+                        use std::io::Write;
+                        print!("medium> ");
+                        std::io::stdout().flush()?;
+
+                        input.clear();
+                        if stdin.read_line(&mut input).is_err() {
+                            break;
+                        }
+
+                        let query = input.trim();
+                        if query.eq_ignore_ascii_case("exit") || query.eq_ignore_ascii_case("quit") {
+                            break;
+                        }
+                        if query.is_empty() {
+                            continue;
+                        }
+
+                        match session.ask(query).await {
+                            Ok(response) => println!("\n{response}\n"),
+                            Err(e) => println!("The connection wavers: {e}"),
+                        }
+                    }
+                    println!("🔮 Connection broken.");
+                }
+                Err(e) => println!("Failed to summon entity: {e}"),
+            }
+        } else {
+            println!("The Medium needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
 /// Dreamer command.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
@@ -137,11 +233,11 @@ pub struct DreamCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for DreamCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "dream"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Consolidate memories from conversation"
     }
 
@@ -563,11 +659,11 @@ pub struct WeaveCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for WeaveCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "weave"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Generate a narrative connection between two entities"
     }
 
