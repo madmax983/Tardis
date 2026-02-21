@@ -29,7 +29,7 @@
 //!     -   Any subsequent sources are **dropped entirely**, and a summary note
 //!         (e.g., "... (N more sources truncated)") is appended.
 
-use super::{ContextSource, ContextSourceType, RagConfig};
+use super::{ContextSource, RagConfig};
 use crate::error::ChronosResult;
 use crate::pipeline::analyzer::AnalyzedQuery;
 use chrono::Utc;
@@ -128,6 +128,19 @@ pub fn augment(
     Ok(augmented)
 }
 
+/// Estimate tokens from text (4 chars per token).
+const fn estimate_tokens(text: &str) -> usize {
+    text.len().div_ceil(4)
+}
+
+/// Truncate string to a maximum number of characters, respecting UTF-8 boundaries.
+fn truncate_string(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        Some((idx, _)) => &s[..idx],
+        None => s,
+    }
+}
+
 /// Write system context header to buffer.
 fn write_system_context(
     buffer: &mut String,
@@ -156,15 +169,7 @@ fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usi
     let mut token_estimate = 0;
 
     for (i, source) in context.iter().enumerate() {
-        let source_type = match source.source_type {
-            ContextSourceType::Knowledge => "Knowledge",
-            ContextSourceType::Conversation => "Conversation",
-            ContextSourceType::SystemState => "System State",
-        };
-
-        // Rough token estimate (4 chars per token)
-        // Ceiling division to ensure non-empty sources cost at least 1 token
-        let source_tokens = source.content.len().div_ceil(4);
+        let source_tokens = estimate_tokens(&source.content);
 
         if token_estimate + source_tokens > max_tokens {
             // Calculate remaining budget
@@ -173,18 +178,11 @@ fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usi
 
             // If we have space for at least some content, include it partially
             if chars_to_take > 0 {
-                // Bolt optimization: slice string instead of allocating new one
-                let end_index = source
-                    .content
-                    .char_indices()
-                    .map(|(i, _)| i)
-                    .nth(chars_to_take)
-                    .unwrap_or(source.content.len());
-
-                let truncated_content = &source.content[..end_index];
+                let truncated_content = truncate_string(&source.content, chars_to_take);
                 let _ = writeln!(
                     buffer,
-                    "### {source_type} {} (relevance: {:.2})\n{}...\n",
+                    "### {} {} (relevance: {:.2})\n{}...\n",
+                    source.source_type,
                     i + 1,
                     source.relevance,
                     truncated_content
@@ -211,7 +209,8 @@ fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usi
 
         let _ = writeln!(
             buffer,
-            "### {source_type} {} (relevance: {:.2})\n{}\n",
+            "### {} {} (relevance: {:.2})\n{}\n",
+            source.source_type,
             i + 1,
             source.relevance,
             source.content

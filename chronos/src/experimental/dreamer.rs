@@ -10,6 +10,7 @@ use crate::experimental::psychic_paper::{Intent, PsychicPaper};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::Arc;
 use tardis_common::id::EntityId;
 use tardis_common::temporal::BiTemporalInterval;
@@ -79,12 +80,12 @@ impl Dreamer {
         // 2. Construct prompt
         let mut transcript = String::new();
         for msg in &messages {
-            transcript.push_str(&format!("{:?}: {}\n", msg.role, msg.content));
+            let _ = writeln!(transcript, "{:?}: {}", msg.role, msg.content);
         }
 
         let prompt = format!(
             "CONVERSATION TRANSCRIPT:\n\
-             {}\n\n\
+             {transcript}\n\n\
              TASK: Extract key facts, user preferences, and important entities from the above conversation.\n\
              Ignore trivial greetings. Focus on long-term knowledge.\n\
              Output a JSON list of objects. Each object must have:\n\
@@ -94,8 +95,7 @@ impl Dreamer {
              - \"properties\": (object) Key-value pairs of details.\n\
              Example:\n\
              [\n  {{ \"name\": \"User\", \"type\": \"Person\", \"description\": \"The user likes blue.\", \"properties\": {{ \"favorite_color\": \"blue\" }} }}\n]\n\
-             Output ONLY JSON.",
-            transcript
+             Output ONLY JSON."
         );
 
         // 3. Inference
@@ -142,7 +142,7 @@ impl Dreamer {
                 .gallifrey
                 .insert(entity)
                 .await
-                .map_err(|e| ChronosError::Common(e.into()))?;
+                .map_err(ChronosError::Common)?;
 
             created_ids.push(id);
         }

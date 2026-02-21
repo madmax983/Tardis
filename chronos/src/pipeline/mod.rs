@@ -120,6 +120,16 @@ pub enum ContextSourceType {
     SystemState,
 }
 
+impl std::fmt::Display for ContextSourceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Knowledge => write!(f, "Knowledge"),
+            Self::Conversation => write!(f, "Conversation"),
+            Self::SystemState => write!(f, "System State"),
+        }
+    }
+}
+
 /// Response from a RAG query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagResponse {
@@ -160,6 +170,14 @@ impl Chronos {
     }
 
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Query analysis fails.
+    /// - Context retrieval fails.
+    /// - Prompt augmentation fails.
+    /// - LLM inference fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -197,6 +215,10 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the memory cannot be inserted into the knowledge graph.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -233,6 +255,10 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the semantic search fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
