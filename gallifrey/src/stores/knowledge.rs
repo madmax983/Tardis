@@ -9,7 +9,7 @@ pub use crate::domain::{Entity, Relationship};
 use crate::error::{GallifreyError, GallifreyResult};
 use crate::temporal::BiTemporalInterval;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 use tardis_common::EntityId;
 
@@ -29,12 +29,13 @@ use tardis_common::EntityId;
 /// There is **no secondary index** for entity names or properties.
 ///
 /// To find an entity by name, you must perform a full linear scan of the store
-/// (O(N) complexity). For production use cases involving frequent name lookups,
-/// consider maintaining an external index or using `EntityId` references.
+/// (O(N) complexity). The `find_by_type` method uses an internal index (O(1)).
 #[derive(Debug)]
 pub struct KnowledgeStore {
     /// Entities indexed by ID.
     entities: RwLock<HashMap<EntityId, Vec<Entity>>>,
+    /// Entities indexed by type.
+    type_index: RwLock<HashMap<String, HashSet<EntityId>>>,
     /// Relationships indexed by ID.
     relationships: RwLock<HashMap<EntityId, Vec<Relationship>>>,
 }
@@ -45,6 +46,7 @@ impl KnowledgeStore {
     pub fn new() -> Self {
         Self {
             entities: RwLock::new(HashMap::new()),
+            type_index: RwLock::new(HashMap::new()),
             relationships: RwLock::new(HashMap::new()),
         }
     }
@@ -78,9 +80,16 @@ impl KnowledgeStore {
     /// Returns an error if the lock is poisoned.
     pub fn insert_entity(&self, entity: Entity) -> GallifreyResult<EntityId> {
         let id = entity.id;
+        let type_name = entity.entity_type.clone();
 
         let mut entities = self
             .entities
+            .write()
+            .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+
+        // Lock index after entities to avoid deadlock
+        let mut index = self
+            .type_index
             .write()
             .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
 
@@ -95,6 +104,7 @@ impl KnowledgeStore {
         }
 
         entities.entry(id).or_default().push(entity);
+        index.entry(type_name).or_default().insert(id);
 
         Ok(id)
     }
@@ -305,6 +315,15 @@ impl KnowledgeStore {
     ///
     /// Returns an error if the lock is poisoned.
     pub fn find_by_type(&self, entity_type: &str) -> GallifreyResult<Vec<Entity>> {
+        // First get the IDs from the index
+        let ids = {
+            let index = self
+                .type_index
+                .read()
+                .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
+            index.get(entity_type).cloned().unwrap_or_default()
+        };
+
         let entities = self
             .entities
             .read()
@@ -312,10 +331,15 @@ impl KnowledgeStore {
 
         let now = Utc::now();
 
-        Ok(entities
-            .values()
-            .flat_map(|versions| versions.iter())
-            .filter(|e| e.temporal.active_at(now, now) && e.entity_type == entity_type)
+        Ok(ids
+            .iter()
+            .filter_map(|id| {
+                entities.get(id).and_then(|versions| {
+                    versions.iter().find(|e| {
+                        e.temporal.active_at(now, now) && e.entity_type == entity_type
+                    })
+                })
+            })
             .cloned()
             .collect())
     }
@@ -580,5 +604,24 @@ mod tests {
         let store = KnowledgeStore::new();
         let id = EntityId::new();
         assert!(store.get_entity(id).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_find_by_type_updates() {
+        let store = KnowledgeStore::new();
+        let entity = create_test_entity("History", "TypeH");
+        let id = entity.id;
+        store.insert_entity(entity).unwrap();
+
+        // Update creates a new version
+        let mut updates = HashMap::new();
+        updates.insert("prop".to_string(), json!("val"));
+        store.update_entity(id, updates).unwrap();
+
+        // find_by_type should return 1 entity (the current version)
+        let results = store.find_by_type("TypeH").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, id);
+        assert_eq!(results[0].properties.get("prop"), Some(&json!("val")));
     }
 }
