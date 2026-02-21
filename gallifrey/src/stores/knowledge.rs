@@ -335,9 +335,9 @@ impl KnowledgeStore {
             .iter()
             .filter_map(|id| {
                 entities.get(id).and_then(|versions| {
-                    versions.iter().find(|e| {
-                        e.temporal.active_at(now, now) && e.entity_type == entity_type
-                    })
+                    versions
+                        .iter()
+                        .find(|e| e.temporal.active_at(now, now) && e.entity_type == entity_type)
                 })
             })
             .cloned()
