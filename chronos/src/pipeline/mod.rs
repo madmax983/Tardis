@@ -143,6 +143,24 @@ pub struct Chronos {
 }
 
 impl Chronos {
+    /// Get the underlying Vortex engine.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the LLM backend is not Vortex.
+    #[cfg(feature = "nova")]
+    #[must_use]
+    #[allow(clippy::panic)]
+    pub fn vortex(&self) -> Arc<tardis_vortex::Vortex> {
+        self.llm
+            .as_any()
+            .downcast_ref::<tardis_vortex::VortexLlmService>()
+            .map_or_else(
+                || panic!("Chronos LLM backend must be Vortex when Nova is enabled"),
+                tardis_vortex::VortexLlmService::engine,
+            )
+    }
+
     /// Create a new Chronos instance.
     #[must_use]
     pub fn new(
@@ -160,6 +178,10 @@ impl Chronos {
     }
 
     /// Execute a RAG query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if query analysis, retrieval, or inference fails.
     #[instrument(skip(self, config))]
     pub async fn query(&self, prompt: &str, config: RagConfig) -> ChronosResult<RagResponse> {
         info!("Processing RAG query");
@@ -197,6 +219,10 @@ impl Chronos {
     }
 
     /// Store a memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if memory storage fails.
     #[allow(clippy::unused_async)]
     pub async fn remember(
         &self,
@@ -233,6 +259,10 @@ impl Chronos {
     }
 
     /// Recall memories matching a query.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if memory retrieval fails.
     #[allow(clippy::unused_async)]
     pub async fn recall(&self, query: &str, limit: usize) -> ChronosResult<Vec<ContextSource>> {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);

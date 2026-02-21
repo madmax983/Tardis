@@ -10,16 +10,20 @@ use crate::id::{EntityId, SessionId};
 use crate::Result;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::any::Any;
 use chrono::{DateTime, Utc};
 
 /// Interface for LLM inference services.
 #[async_trait]
-pub trait LlmService: Send + Sync + Debug {
+pub trait LlmService: Send + Sync + Debug + Any {
     /// Generate text based on a prompt.
     async fn infer(&self, prompt: &str, params: InferenceParams) -> Result<String>;
 
     /// Generate embeddings for text.
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
+
+    /// Upcast to Any for downcasting.
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// Interface for knowledge graph storage.

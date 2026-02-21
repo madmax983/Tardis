@@ -21,8 +21,14 @@ pub struct VortexLlmService {
 impl VortexLlmService {
     /// Create a new service adapter.
     #[must_use]
-    pub fn new(engine: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub const fn new(engine: Arc<Vortex>, model: ModelHandle) -> Self {
         Self { engine, model }
+    }
+
+    /// Get the underlying Vortex engine.
+    #[must_use]
+    pub fn engine(&self) -> Arc<Vortex> {
+        Arc::clone(&self.engine)
     }
 }
 
@@ -40,5 +46,9 @@ impl LlmService for VortexLlmService {
             .embed(self.model, text)
             .await
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

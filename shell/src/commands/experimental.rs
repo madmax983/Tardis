@@ -27,6 +27,8 @@ use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Chameleon command (System Persona).
@@ -37,11 +39,11 @@ pub struct ChameleonCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for ChameleonCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "chameleon"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Set the system persona"
     }
 
@@ -129,6 +131,58 @@ impl ShellCommand for SonicCommand {
     }
 }
 
+/// Medium command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &'static str {
+        "medium"
+    }
+
+    fn description(&self) -> &'static str {
+        "Summon the system spirit from a specific time"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: medium <timestamp> <query>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let timestamp_str = &args[0];
+        let query = args[1..].join(" ");
+
+        let timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp_str) {
+            dt.with_timezone(&chrono::Utc)
+        } else {
+            println!("Invalid timestamp format. Please use RFC3339 (e.g., 2023-10-27T10:00:00Z)");
+            return Ok(CommandResult::Continue);
+        };
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let medium = Medium::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.vortex(),
+                *handle,
+            );
+
+            println!("🔮 Summoning the spirit of {timestamp}...");
+            match medium.summon(timestamp, &query).await {
+                Ok(response) => println!("\n{response}\n"),
+                Err(e) => println!("The connection is too weak: {e}"),
+            }
+        } else {
+            println!("The Medium requires a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
 /// Dreamer command.
 #[cfg(feature = "nova")]
 #[derive(Debug)]
@@ -137,11 +191,11 @@ pub struct DreamCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for DreamCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "dream"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Consolidate memories from conversation"
     }
 
@@ -563,11 +617,11 @@ pub struct WeaveCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for WeaveCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "weave"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Generate a narrative connection between two entities"
     }
 
