@@ -6,26 +6,10 @@
 use crate::kernel::ring_buffer::RingBuffer;
 use crate::kernel::serial;
 use crate::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
-use core::sync::atomic::{AtomicU8, Ordering};
+use spin::Once;
 
 /// Global kernel telemetry state.
-///
-/// # Safety
-///
-/// This static is effectively immutable after initialization.
-/// All access is gated through `get()` which checks `STATE`.
-/// Since `KernelLogger` itself is immutable (except for the internal
-/// state of `RingBuffer` which handles its own synchronization),
-/// accessing this via `&'static` reference is safe.
-static mut KERNEL_LOGGER: Option<KernelLogger> = None;
-
-// Initialization states
-const STATE_UNINIT: u8 = 0;
-const STATE_INITING: u8 = 1;
-const STATE_INITED: u8 = 2;
-
-/// Initialization state of the logger.
-static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
+static KERNEL_LOGGER: Once<KernelLogger> = Once::new();
 
 /// Kernel logger that writes to the ring buffer.
 #[allow(missing_debug_implementations)]
@@ -54,40 +38,17 @@ impl KernelLogger {
 
     /// Initializes the global kernel logger.
     ///
-    /// # Safety
-    ///
-    /// This function must be called exactly once during kernel initialization,
-    /// before any logging occurs.
-    ///
-    /// # Panics
-    ///
-    /// Panics if called more than once.
+    /// This function is idempotent. It ensures the logger is initialized exactly once.
+    /// Subsequent calls will be ignored.
     #[allow(clippy::panic, clippy::manual_assert)]
-    pub unsafe fn init(ring_buffer: &'static RingBuffer, serial_enabled: bool) {
-        // Try to transition from UNINIT to INITING
-        match STATE.compare_exchange(
-            STATE_UNINIT,
-            STATE_INITING,
-            Ordering::Acquire,
-            Ordering::Relaxed,
-        ) {
-            Ok(_) => {} // Proceed with initialization
-            Err(_) => panic!("KernelLogger::init called more than once"),
-        }
-
-        if serial_enabled {
-            // SAFETY: We are in kernel initialization phase.
-            unsafe { serial::init() };
-        }
-
-        // Initialize the logger
-        unsafe {
-            KERNEL_LOGGER = Some(KernelLogger::new(ring_buffer, serial_enabled));
-        }
-
-        // Mark as fully initialized
-        // Release ordering ensures the write to KERNEL_LOGGER is visible before STATE becomes INITED
-        STATE.store(STATE_INITED, Ordering::Release);
+    pub fn init(ring_buffer: &'static RingBuffer, serial_enabled: bool) {
+        KERNEL_LOGGER.call_once(|| {
+            if serial_enabled {
+                // SAFETY: We are in kernel initialization phase.
+                unsafe { serial::init() };
+            }
+            KernelLogger::new(ring_buffer, serial_enabled)
+        });
 
         // Note: In actual kernel, we would call log::set_logger here
         // For now, we provide manual logging functions
@@ -98,13 +59,7 @@ impl KernelLogger {
     /// Returns `None` if the logger hasn't been initialized.
     #[must_use]
     pub fn get() -> Option<&'static Self> {
-        // Acquire ordering ensures we see the write to KERNEL_LOGGER if STATE is INITED
-        if STATE.load(Ordering::Acquire) == STATE_INITED {
-            // SAFETY: We checked STATE is INITED, so KERNEL_LOGGER is initialized and immutable.
-            unsafe { (*core::ptr::addr_of!(KERNEL_LOGGER)).as_ref() }
-        } else {
-            None
-        }
+        KERNEL_LOGGER.get()
     }
 
     /// Logs a message.
@@ -263,9 +218,7 @@ mod tests {
 
         assert!(KernelLogger::get().is_none());
 
-        unsafe {
-            KernelLogger::init(&RING_BUFFER, false);
-        }
+        KernelLogger::init(&RING_BUFFER, false);
 
         assert!(KernelLogger::get().is_some());
     }

@@ -37,3 +37,7 @@
 **2025-06-06 - RingBuffer DoS Vector**
 **Threat:** `RingBuffer::available()` returned `write_pos - read_pos` without clamping, leading to potentially huge values (>> `RING_BUFFER_SIZE`) if the writer wrapped around. This could cause userspace consumers to allocate massive buffers, leading to OOM or panic.
 **Defense:** Clamped the return value of `available()` to `min(diff, RING_BUFFER_SIZE)`. Added a regression test case to verify the fix.
+
+**2025-06-07 - KernelLogger static mut Removal**
+**Threat:** `KernelLogger` relied on `static mut` and manual `AtomicU8` synchronization for initialization. While patched to be technically safe, `static mut` is error-prone and discouraged.
+**Defense:** Replaced `static mut KERNEL_LOGGER` and manual state machine with `spin::Once<KernelLogger>`, providing a robust, thread-safe, and `no_std` compatible initialization mechanism. Removed `unsafe` blocks related to `static mut` access.
