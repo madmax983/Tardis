@@ -1,9 +1,9 @@
 //! Conversation entities.
 
+use crate::id::{EntityId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::id::{EntityId, SessionId};
 
 /// Role in a conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

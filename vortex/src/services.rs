@@ -1,12 +1,13 @@
 //! Service implementations for Vortex.
 
 use crate::Vortex;
+use async_trait::async_trait;
+use std::any::Any;
+use std::sync::Arc;
 use tardis_common::id::ModelHandle;
 use tardis_common::llm::InferenceParams;
 use tardis_common::traits::LlmService;
 use tardis_common::Result;
-use async_trait::async_trait;
-use std::sync::Arc;
 
 /// A wrapper around Vortex that binds it to a specific model.
 ///
@@ -24,6 +25,12 @@ impl VortexLlmService {
     pub const fn new(engine: Arc<Vortex>, model: ModelHandle) -> Self {
         Self { engine, model }
     }
+
+    /// Get the underlying Vortex engine.
+    #[must_use]
+    pub const fn engine(&self) -> &Arc<Vortex> {
+        &self.engine
+    }
 }
 
 #[async_trait]
@@ -40,5 +47,9 @@ impl LlmService for VortexLlmService {
             .embed(self.model, text)
             .await
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

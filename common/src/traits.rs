@@ -3,14 +3,15 @@
 //! These traits define the interfaces for core system components, enabling
 //! decoupling and easier testing/mocking.
 
-use async_trait::async_trait;
-use crate::llm::InferenceParams;
-use crate::domain::{Entity, Message, Session, Snapshot, Change};
+use crate::domain::{Change, Entity, Message, Session, Snapshot};
 use crate::id::{EntityId, SessionId};
+use crate::llm::InferenceParams;
 use crate::Result;
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use chrono::{DateTime, Utc};
 
 /// Interface for LLM inference services.
 #[async_trait]
@@ -20,6 +21,9 @@ pub trait LlmService: Send + Sync + Debug {
 
     /// Generate embeddings for text.
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
+
+    /// Downcast to concrete type.
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// Interface for knowledge graph storage.
@@ -29,7 +33,11 @@ pub trait KnowledgeService: Send + Sync + Debug {
     async fn insert_entity(&self, entity: Entity) -> Result<EntityId>;
 
     /// Update an entity.
-    async fn update_entity(&self, id: EntityId, updates: HashMap<String, serde_json::Value>) -> Result<()>;
+    async fn update_entity(
+        &self,
+        id: EntityId,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> Result<()>;
 
     /// Get the current version of an entity.
     async fn get_entity(&self, id: EntityId) -> Result<Option<Entity>>;
@@ -57,7 +65,11 @@ pub trait ConversationService: Send + Sync + Debug {
     async fn add_message(&self, message: Message) -> Result<EntityId>;
 
     /// Get recent messages from a session.
-    async fn get_recent_messages(&self, session_id: SessionId, limit: usize) -> Result<Vec<Message>>;
+    async fn get_recent_messages(
+        &self,
+        session_id: SessionId,
+        limit: usize,
+    ) -> Result<Vec<Message>>;
 
     /// Search messages by semantic similarity.
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Message>>;

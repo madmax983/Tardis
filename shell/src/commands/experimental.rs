@@ -10,6 +10,7 @@
 //! - **Heatmap**: Temporal activity analysis.
 //! - **Curiosity**: Active learning.
 //! - **Time Capsule**: Backup and restore entity subgraphs.
+//! - **Medium**: Seance with past system states.
 
 use crate::commands::traits::{CommandContext, CommandResult, ShellCommand};
 use anyhow::Result;
@@ -25,6 +26,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
@@ -37,11 +40,11 @@ pub struct ChameleonCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for ChameleonCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "chameleon"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Set the system persona"
     }
 
@@ -99,7 +102,7 @@ impl ShellCommand for SonicCommand {
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex()),
+            Some(context.chronos.vortex().clone()),
             model_handle,
         );
 
@@ -137,11 +140,11 @@ pub struct DreamCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for DreamCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "dream"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Consolidate memories from conversation"
     }
 
@@ -150,7 +153,7 @@ impl ShellCommand for DreamCommand {
         if let Some((handle, _)) = loaded_models.first() {
             let dreamer = Dreamer::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.chronos.vortex().clone(),
                 *handle,
             );
 
@@ -160,7 +163,10 @@ impl ShellCommand for DreamCommand {
                     if ids.is_empty() {
                         println!("No new memories formed.");
                     } else {
-                        println!("✨ Consolidated {} new memories into long-term storage.", ids.len());
+                        println!(
+                            "✨ Consolidated {} new memories into long-term storage.",
+                            ids.len()
+                        );
                     }
                 }
                 Err(e) => println!("Nightmare encountered: {e}"),
@@ -208,7 +214,7 @@ impl ShellCommand for FixCommand {
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex()),
+            Some(context.chronos.vortex().clone()),
             model_handle,
         );
 
@@ -418,7 +424,7 @@ impl ShellCommand for BiographerCommand {
 
         let biographer = Biographer::new(
             Arc::clone(&context.gallifrey),
-            context.chronos.vortex(),
+            context.chronos.vortex().clone(),
             model_handle,
         );
 
@@ -463,7 +469,7 @@ impl ShellCommand for CuriosityCommand {
         if let Some((handle, _)) = loaded_models.first() {
             let curiosity = Curiosity::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.chronos.vortex().clone(),
                 *handle,
             );
 
@@ -563,11 +569,11 @@ pub struct WeaveCommand;
 #[cfg(feature = "nova")]
 #[async_trait]
 impl ShellCommand for WeaveCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "weave"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Generate a narrative connection between two entities"
     }
 
@@ -584,7 +590,7 @@ impl ShellCommand for WeaveCommand {
         if let Some((handle, _)) = loaded_models.first() {
             let weaver = Weaver::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex(),
+                context.chronos.vortex().clone(),
                 *handle,
             );
 
@@ -595,6 +601,68 @@ impl ShellCommand for WeaveCommand {
             }
         } else {
             println!("The Weaver needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Medium command.
+///
+/// Summon the system state from the past.
+///
+/// # Usage
+///
+/// ```text
+/// medium <time> <query>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct MediumCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for MediumCommand {
+    fn name(&self) -> &'static str {
+        "medium"
+    }
+
+    fn description(&self) -> &'static str {
+        "Summon system state from the past"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: medium <time> <query>");
+            println!("Example: medium 2023-10-27T12:00:00Z \"Who was the active user?\"");
+            return Ok(CommandResult::Continue);
+        }
+
+        let time_str = &args[0];
+        let query = args[1..].join(" ");
+
+        let time = match chrono::DateTime::parse_from_rfc3339(time_str) {
+            Ok(t) => t.with_timezone(&chrono::Utc),
+            Err(e) => {
+                println!("Invalid time format: {e}. Use ISO 8601 (e.g., 2023-10-27T12:00:00Z)");
+                return Ok(CommandResult::Continue);
+            }
+        };
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let medium = Medium::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.vortex().clone(),
+                *handle,
+            );
+
+            println!("🕯️ Summoning the past at {time}...");
+            match medium.summon(&query, time).await {
+                Ok(response) => println!("\n👻 The Spirit answers:\n\n{response}\n"),
+                Err(e) => println!("The connection was severed: {e}"),
+            }
+        } else {
+            println!("The Medium needs a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }
