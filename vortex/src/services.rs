@@ -36,8 +36,9 @@ impl VortexLlmService {
 #[async_trait]
 impl LlmService for VortexLlmService {
     async fn infer(&self, prompt: &str, params: InferenceParams) -> Result<String> {
+        let model = params.model.unwrap_or(self.model);
         self.engine
-            .infer(self.model, prompt, params)
+            .infer(model, prompt, params)
             .await
             .map_err(|e| tardis_common::Error::Internal(e.to_string()))
     }

@@ -3,6 +3,7 @@
 //! Provides configuration structs for model loading and inference,
 //! used by both Vortex (inference engine) and Chronos (RAG orchestrator).
 
+use crate::id::ModelHandle;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for loading a model.
@@ -89,6 +90,8 @@ pub struct InferenceParams {
     pub repetition_penalty: f32,
     /// Seed for reproducibility (None = random).
     pub seed: Option<u64>,
+    /// Optional model handle to override the default model.
+    pub model: Option<ModelHandle>,
 }
 
 impl Default for InferenceParams {
@@ -101,6 +104,7 @@ impl Default for InferenceParams {
             stop_sequences: Vec::new(),
             repetition_penalty: 1.1,
             seed: None,
+            model: None,
         }
     }
 }
@@ -146,6 +150,13 @@ impl InferenceParams {
     #[must_use]
     pub fn with_stop(mut self, sequence: &str) -> Self {
         self.stop_sequences.push(sequence.to_string());
+        self
+    }
+
+    /// Set the model to use for inference.
+    #[must_use]
+    pub const fn with_model(mut self, model: ModelHandle) -> Self {
+        self.model = Some(model);
         self
     }
 }

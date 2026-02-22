@@ -38,6 +38,71 @@ impl KnowledgeService for KnowledgeStore {
         self.semantic_search(embedding, limit)
             .map_err(tardis_common::Error::from)
     }
+
+    async fn find_entity_by_name(&self, name: &str) -> Result<Option<Entity>> {
+        let mut found = None;
+        let now = Utc::now();
+
+        self.scan_history(|history| {
+            if found.is_some() {
+                return;
+            }
+            if let Some(e) = history.iter().find(|e| {
+                e.name.eq_ignore_ascii_case(name) && e.temporal.active_at(now, now)
+            }) {
+                found = Some(e.clone());
+            }
+        })
+        .map_err(tardis_common::Error::from)?;
+
+        Ok(found)
+    }
+
+    async fn search_history(
+        &self,
+        query: &str,
+        time: Option<DateTime<Utc>>,
+        limit: usize,
+    ) -> Result<Vec<Entity>> {
+        let mut results = Vec::new();
+        let query_lower = query.to_lowercase();
+        // Split query into words for simple keyword matching
+        let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+        let query_time = time.unwrap_or_else(Utc::now);
+        // For historical query, we check what was valid at that time
+        // AND what was known at that time (bi-temporal snapshot).
+        let transaction_time = query_time;
+
+        self.scan_history(|history| {
+            if results.len() >= limit {
+                return;
+            }
+
+            // Find version active at query_time
+            if let Some(entity) = history
+                .iter()
+                .find(|e| e.temporal.active_at(query_time, transaction_time))
+            {
+                let name_lower = entity.name.to_lowercase();
+
+                // Simple relevance heuristic:
+                // 1. Entity name contains query (or part of it)
+                // 2. Query contains entity name
+                let relevant = query_lower.contains(&name_lower)
+                    || query_words
+                        .iter()
+                        .any(|w| w.len() > 3 && name_lower.contains(w));
+
+                if relevant {
+                    results.push(entity.clone());
+                }
+            }
+        })
+        .map_err(tardis_common::Error::from)?;
+
+        Ok(results)
+    }
 }
 
 #[async_trait]

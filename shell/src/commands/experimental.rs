@@ -589,9 +589,9 @@ impl ShellCommand for WeaveCommand {
         let loaded_models = context.chronos.vortex().list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let weaver = Weaver::new(
-                Arc::clone(&context.gallifrey),
-                context.chronos.vortex().clone(),
-                *handle,
+                context.gallifrey.knowledge(),
+                context.chronos.llm(),
+                Some(*handle),
             );
 
             println!("🕸️  Weaving destiny between '{entity1}' and '{entity2}'...");
@@ -651,9 +651,9 @@ impl ShellCommand for MediumCommand {
         let loaded_models = context.chronos.vortex().list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let medium = Medium::new(
-                Arc::clone(&context.gallifrey),
-                context.chronos.vortex().clone(),
-                *handle,
+                context.gallifrey.knowledge(),
+                context.chronos.llm(),
+                Some(*handle),
             );
 
             println!("🕯️ Summoning the past at {time}...");

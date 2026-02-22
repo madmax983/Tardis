@@ -191,6 +191,18 @@ impl Chronos {
             )
     }
 
+    /// Get the LLM service.
+    #[must_use]
+    pub fn llm(&self) -> Arc<dyn LlmService> {
+        self.llm.clone()
+    }
+
+    /// Get the knowledge service.
+    #[must_use]
+    pub fn knowledge(&self) -> Arc<dyn KnowledgeService> {
+        self.knowledge.clone()
+    }
+
     /// Execute a RAG query.
     ///
     /// # Errors

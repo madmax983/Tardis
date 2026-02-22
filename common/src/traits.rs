@@ -47,6 +47,17 @@ pub trait KnowledgeService: Send + Sync + Debug {
 
     /// Find entities by semantic similarity.
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>>;
+
+    /// Find an entity by name.
+    async fn find_entity_by_name(&self, name: &str) -> Result<Option<Entity>>;
+
+    /// Search entity history.
+    async fn search_history(
+        &self,
+        query: &str,
+        time: Option<DateTime<Utc>>,
+        limit: usize,
+    ) -> Result<Vec<Entity>>;
 }
 
 /// Interface for conversation history storage.

@@ -8,25 +8,29 @@ use crate::error::{ChronosError, ChronosResult};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tardis_common::id::ModelHandle;
-use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{InferenceParams, Vortex};
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::{KnowledgeService, LlmService};
 use tracing::{info, instrument};
 
 /// The Medium engine.
 #[derive(Debug)]
 pub struct Medium {
-    gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
-    model: ModelHandle,
+    knowledge: Arc<dyn KnowledgeService>,
+    llm: Arc<dyn LlmService>,
+    model: Option<ModelHandle>,
 }
 
 impl Medium {
     /// Create a new Medium engine.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(
+        knowledge: Arc<dyn KnowledgeService>,
+        llm: Arc<dyn LlmService>,
+        model: Option<ModelHandle>,
+    ) -> Self {
         Self {
-            gallifrey,
-            vortex,
+            knowledge,
+            llm,
             model,
         }
     }
@@ -41,7 +45,7 @@ impl Medium {
         info!("Medium: Summoning past state at {}", time);
 
         // 1. Gather context from the past
-        let context = self.gather_context(query, time)?;
+        let context = self.gather_context(query, time).await?;
 
         if context.trim().is_empty() {
             return Ok(
@@ -59,50 +63,40 @@ impl Medium {
              Do not hallucinate facts not present in the context.[/INST]"
         );
 
-        let params = InferenceParams::default()
+        let mut params = InferenceParams::default()
             .with_temperature(0.7)
             .with_max_tokens(512);
 
+        if let Some(model) = self.model {
+            params = params.with_model(model);
+        }
+
         let response = self
-            .vortex
-            .infer(self.model, &prompt, params)
+            .llm
+            .infer(&prompt, params)
             .await
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(ChronosError::Common)?;
 
         Ok(response)
     }
 
     #[allow(clippy::format_push_string)]
-    fn gather_context(&self, query: &str, time: DateTime<Utc>) -> ChronosResult<String> {
+    async fn gather_context(&self, query: &str, time: DateTime<Utc>) -> ChronosResult<String> {
         let mut context = String::new();
-        let knowledge = self.gallifrey.knowledge();
-        let query_lower = query.to_lowercase();
-        let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
-        // Scan history for relevant entities active at `time`
-        // We use a simple heuristic: check if entity name contains any query word (if word len > 3)
-        // or if query contains entity name.
-        knowledge
-            .scan_history(|history| {
-                // Find version active at `time` (using transaction time = time for "as known then")
-                if let Some(entity) = history.iter().find(|e| e.temporal.active_at(time, time)) {
-                    let name_lower = entity.name.to_lowercase();
+        let entities = self
+            .knowledge
+            .search_history(query, Some(time), 50)
+            .await
+            .map_err(ChronosError::Common)?;
 
-                    let relevant = query_lower.contains(&name_lower)
-                        || query_words
-                            .iter()
-                            .any(|w| w.len() > 3 && name_lower.contains(w));
-
-                    if relevant {
-                        context.push_str(&format!(
-                            "- Entity: {} ({})\n",
-                            entity.name, entity.entity_type
-                        ));
-                        context.push_str(&format!("  Properties: {:?}\n", entity.properties));
-                    }
-                }
-            })
-            .map_err(|e| ChronosError::Common(e.into()))?;
+        for entity in entities {
+            context.push_str(&format!(
+                "- Entity: {} ({})\n",
+                entity.name, entity.entity_type
+            ));
+            context.push_str(&format!("  Properties: {:?}\n", entity.properties));
+        }
 
         Ok(context)
     }
@@ -117,7 +111,8 @@ mod tests {
     use tardis_common::id::EntityId;
     use tardis_common::temporal::{BiTemporalInterval, TimeRange};
     use tardis_gallifrey::domain::Entity;
-    use tardis_vortex::{ModelHandle, ModelLoadConfig};
+    use tardis_gallifrey::Gallifrey;
+    use tardis_vortex::{ModelHandle, ModelLoadConfig, Vortex, VortexLlmService};
 
     fn create_test_entity(name: &str, entity_type: &str, time: DateTime<Utc>) -> Entity {
         Entity {
@@ -172,7 +167,11 @@ mod tests {
             .load_model("dummy", ModelLoadConfig::default())
             .await
             .unwrap();
-        let medium = Medium::new(gallifrey, vortex, handle);
+
+        let llm_service = Arc::new(VortexLlmService::new(vortex.clone(), handle));
+        let knowledge_service = gallifrey.knowledge();
+
+        let medium = Medium::new(knowledge_service, llm_service, Some(handle));
 
         // Summon at T1 + 1 minute (should see OldProject, but NOT NewProject)
         let query_time = t1 + chrono::Duration::minutes(1);
