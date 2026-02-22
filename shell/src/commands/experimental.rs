@@ -26,6 +26,8 @@ use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
@@ -128,6 +130,67 @@ impl ShellCommand for SonicCommand {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
         }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Navigate command.
+///
+/// Finds a semantic path between two entities.
+///
+/// # Usage
+///
+/// ```text
+/// navigate <start> <end>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct AstrolabeCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for AstrolabeCommand {
+    fn name(&self) -> &'static str {
+        "navigate"
+    }
+
+    fn description(&self) -> &'static str {
+        "Find semantic path between entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: navigate <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start_name = &args[0];
+        let end_name = &args[1];
+
+        let astrolabe = Astrolabe::new(Arc::clone(&context.gallifrey));
+
+        println!("🧭 Astrolabe is calculating course from '{start_name}' to '{end_name}'...");
+
+        match astrolabe.navigate(start_name, end_name) {
+            Ok(path) => {
+                println!("\nCourse plotted (Cost: {:.2}):", path.last().map_or(0.0, |p| p.cost));
+                for (i, segment) in path.iter().enumerate() {
+                    let connector = if i == 0 {
+                        "START".to_string()
+                    } else {
+                        segment.via.clone().unwrap_or_else(|| "-->".to_string())
+                    };
+
+                    // Indent based on depth
+                    let indent = "  ".repeat(i);
+                    println!("{indent}↓ [{connector}]");
+                    println!("{indent}★ {} ({})", segment.entity.name, segment.entity.entity_type);
+                }
+                println!();
+            }
+            Err(e) => println!("Navigation failed: {e}"),
+        }
+
         Ok(CommandResult::Continue)
     }
 }
