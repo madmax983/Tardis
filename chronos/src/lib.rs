@@ -15,13 +15,14 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! use tardis_vortex::VortexLlmService;
+//! use tardis_gallifrey::{KnowledgeStore, ConversationStore, SystemStateStore};
 //!
 //! # async fn example(
-//! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
+//! #     llm: Arc<VortexLlmService>,
+//! #     knowledge: Arc<KnowledgeStore>,
+//! #     conversation: Arc<ConversationStore>,
+//! #     system_state: Arc<SystemStateStore>
 //! # ) -> anyhow::Result<()> {
 //! // 2. Create the Chronos RAG engine
 //! let chronos = Chronos::new(llm, knowledge, conversation, system_state);

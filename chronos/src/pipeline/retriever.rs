@@ -4,7 +4,7 @@ use super::{ContextSource, ContextSourceType, RagConfig};
 use crate::error::{ChronosError, ChronosResult};
 use crate::pipeline::analyzer::AnalyzedQuery;
 use std::sync::Arc;
-use tardis_common::traits::{ConversationService, KnowledgeService, SystemStateService};
+use tardis_gallifrey::{ConversationStore, KnowledgeStore, SystemStateStore};
 use tracing::info;
 
 /// Retrieve context from all configured sources.
@@ -12,10 +12,11 @@ use tracing::info;
 /// # Errors
 ///
 /// Returns an error if retrieval fails.
+#[allow(clippy::unused_async)]
 pub async fn retrieve(
-    knowledge: &Arc<dyn KnowledgeService>,
-    conversation: &Arc<dyn ConversationService>,
-    system_state: &Arc<dyn SystemStateService>,
+    knowledge: &Arc<KnowledgeStore>,
+    conversation: &Arc<ConversationStore>,
+    system_state: &Arc<SystemStateStore>,
     query: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<Vec<ContextSource>> {
@@ -52,7 +53,7 @@ pub async fn retrieve(
 /// Retrieve from knowledge graph.
 #[allow(clippy::unused_async)]
 async fn retrieve_knowledge(
-    knowledge: &Arc<dyn KnowledgeService>,
+    knowledge: &Arc<KnowledgeStore>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -64,7 +65,7 @@ async fn retrieve_knowledge(
 
     let entities = knowledge
         .semantic_search(&embedding, config.max_context_items)
-        .await
+        .map_err(tardis_common::Error::from)
         .map_err(ChronosError::Common)?;
 
     for e in entities {
@@ -82,7 +83,7 @@ async fn retrieve_knowledge(
 /// Retrieve from conversation history.
 #[allow(clippy::unused_async)]
 async fn retrieve_conversation(
-    conversation: &Arc<dyn ConversationService>,
+    conversation: &Arc<ConversationStore>,
     _query: &AnalyzedQuery,
     config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -93,7 +94,7 @@ async fn retrieve_conversation(
     if let Some(session_id) = config.session_id {
         let messages = conversation
             .get_recent_messages(session_id, 5)
-            .await
+            .map_err(tardis_common::Error::from)
             .map_err(ChronosError::Common)?;
 
         for msg in messages {
@@ -110,7 +111,7 @@ async fn retrieve_conversation(
     let embedding: Vec<f32> = Vec::new();
     let historical = conversation
         .semantic_search(&embedding, config.max_context_items)
-        .await
+        .map_err(tardis_common::Error::from)
         .map_err(ChronosError::Common)?;
 
     for msg in historical {
@@ -128,7 +129,7 @@ async fn retrieve_conversation(
 /// Retrieve from system state.
 #[allow(clippy::unused_async)]
 async fn retrieve_system_state(
-    system_state: &Arc<dyn SystemStateService>,
+    system_state: &Arc<SystemStateStore>,
     query: &AnalyzedQuery,
     _config: &RagConfig,
     sources: &mut Vec<ContextSource>,
@@ -143,7 +144,7 @@ async fn retrieve_system_state(
 
         if let Some(snapshot) = system_state
             .find_snapshot_at(resolved)
-            .await
+            .map_err(tardis_common::Error::from)
             .map_err(ChronosError::Common)?
         {
             sources.push(ContextSource {

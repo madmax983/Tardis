@@ -8,13 +8,14 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! use tardis_vortex::VortexLlmService;
+//! use tardis_gallifrey::{KnowledgeStore, ConversationStore, SystemStateStore};
 //!
 //! # async fn example(
-//! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
+//! #     llm: Arc<VortexLlmService>,
+//! #     knowledge: Arc<KnowledgeStore>,
+//! #     conversation: Arc<ConversationStore>,
+//! #     system_state: Arc<SystemStateStore>
 //! # ) -> anyhow::Result<()> {
 //! // 2. Create Chronos engine
 //! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
@@ -44,10 +45,7 @@ use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::llm::InferenceParams;
-use tardis_common::traits::{
-    ConversationService, KnowledgeService, LlmService, SystemStateService,
-};
-#[cfg(feature = "nova")]
+use tardis_gallifrey::{ConversationStore, KnowledgeStore, SystemStateStore};
 use tardis_vortex::{Vortex, VortexLlmService};
 use tracing::{info, instrument};
 
@@ -150,20 +148,20 @@ pub struct RagResponse {
 /// The main Chronos RAG engine.
 #[derive(Debug)]
 pub struct Chronos {
-    llm: Arc<dyn LlmService>,
-    knowledge: Arc<dyn KnowledgeService>,
-    conversation: Arc<dyn ConversationService>,
-    system_state: Arc<dyn SystemStateService>,
+    llm: Arc<VortexLlmService>,
+    knowledge: Arc<KnowledgeStore>,
+    conversation: Arc<ConversationStore>,
+    system_state: Arc<SystemStateStore>,
 }
 
 impl Chronos {
     /// Create a new Chronos instance.
     #[must_use]
-    pub fn new(
-        llm: Arc<dyn LlmService>,
-        knowledge: Arc<dyn KnowledgeService>,
-        conversation: Arc<dyn ConversationService>,
-        system_state: Arc<dyn SystemStateService>,
+    pub const fn new(
+        llm: Arc<VortexLlmService>,
+        knowledge: Arc<KnowledgeStore>,
+        conversation: Arc<ConversationStore>,
+        system_state: Arc<SystemStateStore>,
     ) -> Self {
         Self {
             llm,
@@ -173,22 +171,10 @@ impl Chronos {
         }
     }
 
-    /// Get the underlying Vortex engine (Nova only).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the LLM service is not a `VortexLlmService`.
-    #[cfg(feature = "nova")]
+    /// Get the underlying Vortex engine.
     #[must_use]
-    #[allow(clippy::panic)]
     pub fn vortex(&self) -> &Arc<Vortex> {
-        self.llm
-            .as_any()
-            .downcast_ref::<VortexLlmService>()
-            .map_or_else(
-                || panic!("LlmService is not VortexLlmService"),
-                VortexLlmService::engine,
-            )
+        self.llm.engine()
     }
 
     /// Execute a RAG query.
@@ -271,7 +257,7 @@ impl Chronos {
         let id = self
             .knowledge
             .insert_entity(entity)
-            .await
+            .map_err(tardis_common::Error::from)
             .map_err(ChronosError::Common)?;
 
         Ok(id)
@@ -287,10 +273,11 @@ impl Chronos {
         info!("Recalling memories for: {}", &query[..query.len().min(50)]);
 
         // Search knowledge graph
+        // Note: semantic_search is synchronous in KnowledgeStore, returning GallifreyResult
         let results = self
             .knowledge
             .semantic_search(&[], limit)
-            .await
+            .map_err(tardis_common::Error::from)
             .map_err(ChronosError::Common)?;
 
         Ok(results
