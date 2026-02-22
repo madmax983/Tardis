@@ -6,6 +6,20 @@
 use serde::{Deserialize, Serialize};
 
 /// Configuration for loading a model.
+///
+/// This struct controls hardware acceleration, quantization, and context limits.
+///
+/// # Examples
+///
+/// Loading a model on GPU with 4-bit quantization:
+///
+/// ```
+/// use tardis_common::llm::ModelLoadConfig;
+///
+/// let config = ModelLoadConfig::cuda(0)
+///     .with_quantization("q4_k")
+///     .with_context_length(4096);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelLoadConfig {
     /// Device to load on ("cpu", "cuda:0", "metal").
@@ -73,6 +87,30 @@ impl ModelLoadConfig {
 }
 
 /// Parameters for inference.
+///
+/// Controls the randomness and length of the generated text.
+///
+/// # Examples
+///
+/// Creating a creative configuration:
+///
+/// ```
+/// use tardis_common::llm::InferenceParams;
+///
+/// let params = InferenceParams::default()
+///     .with_temperature(0.8)  // Note: Requires f32
+///     .with_max_tokens(100)   // Note: Requires usize
+///     .with_stop("User:");
+/// ```
+///
+/// Creating a deterministic configuration for coding tasks:
+///
+/// ```
+/// use tardis_common::llm::InferenceParams;
+///
+/// let params = InferenceParams::deterministic()
+///     .with_max_tokens(4096);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceParams {
     /// Sampling temperature (0.0 = deterministic, higher = more random).
