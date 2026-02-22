@@ -25,3 +25,5 @@ pub mod weaver;
 
 #[cfg(feature = "nova")]
 pub mod medium;
+#[cfg(feature = "nova")]
+pub mod astrolabe;
