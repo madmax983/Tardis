@@ -28,6 +28,8 @@ use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
@@ -127,6 +129,60 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Navigate command.
+///
+/// Finds a path between two entities in the knowledge graph.
+///
+/// # Usage
+///
+/// ```text
+/// navigate <start> <end>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct NavigateCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for NavigateCommand {
+    fn name(&self) -> &'static str {
+        "navigate"
+    }
+
+    fn description(&self) -> &'static str {
+        "Find a semantic path between entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: navigate <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start = &args[0];
+        let end = &args[1];
+
+        let astrolabe = Astrolabe::new(Arc::clone(&context.gallifrey));
+
+        println!("🧭 Navigating the stars from '{}' to '{}'...", start, end);
+        match astrolabe.navigate(start, end) {
+            Ok(path) => {
+                println!("\nPath found:");
+                for (i, node) in path.iter().enumerate() {
+                    if i < path.len() - 1 {
+                        println!("  {} ⬇️", node);
+                    } else {
+                        println!("  {} 🎉", node);
+                    }
+                }
+                println!();
+            }
+            Err(e) => println!("Lost in space: {e}"),
         }
         Ok(CommandResult::Continue)
     }
