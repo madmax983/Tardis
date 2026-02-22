@@ -86,6 +86,36 @@ impl TimeRange {
             end: Some(Utc::now()),
         }
     }
+
+    /// Calculate the intersection of two time ranges.
+    ///
+    /// Returns `Some(range)` representing the overlap, or `None` if they do not overlap.
+    #[must_use]
+    pub fn intersection(&self, other: &Self) -> Option<Self> {
+        // Start is the later of the two starts
+        let start = if self.start > other.start {
+            self.start
+        } else {
+            other.start
+        };
+
+        // End is the earlier of the two ends
+        // None represents positive infinity, so it's always "later" than Some(t)
+        let end = match (self.end, other.end) {
+            (Some(e1), Some(e2)) => Some(if e1 < e2 { e1 } else { e2 }),
+            (Some(e), None) | (None, Some(e)) => Some(e),
+            (None, None) => None,
+        };
+
+        // If end is defined and start >= end, the intersection is empty
+        if let Some(end_ts) = end {
+            if start >= end_ts {
+                return None;
+            }
+        }
+
+        Some(Self { start, end })
+    }
 }
 
 impl Default for TimeRange {
@@ -487,6 +517,49 @@ mod tests {
 
         let current_interval = BiTemporalInterval::now();
         assert!(current_interval.is_current_relative_to(now));
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn time_range_intersection() {
+        let now = Utc::now();
+        let h1 = Duration::hours(1);
+        let h2 = Duration::hours(2);
+        let h3 = Duration::hours(3);
+        let h4 = Duration::hours(4);
+
+        // Case 1: Overlap
+        let r1 = TimeRange::bounded(now, now + h2);
+        let r2 = TimeRange::bounded(now + h1, now + h3);
+        let intersection = r1.intersection(&r2).unwrap();
+        assert_eq!(intersection.start, now + h1);
+        assert_eq!(intersection.end, Some(now + h2));
+
+        // Case 2: Disjoint
+        let r3 = TimeRange::bounded(now + h3, now + h4);
+        assert!(r1.intersection(&r3).is_none());
+
+        // Case 3: Nested
+        let r4 = TimeRange::bounded(now + h1, now + h2); // Inside r1
+        let intersection = r1.intersection(&r4).unwrap();
+        assert_eq!(intersection.start, now + h1);
+        assert_eq!(intersection.end, Some(now + h2));
+
+        // Case 4: Touching (start == end) -> Empty -> None
+        let r5 = TimeRange::bounded(now + h2, now + h3);
+        assert!(r1.intersection(&r5).is_none());
+
+        // Case 5: Open-ended
+        let r_open = TimeRange::starting_at(now + h1);
+        let intersection = r1.intersection(&r_open).unwrap();
+        assert_eq!(intersection.start, now + h1);
+        assert_eq!(intersection.end, Some(now + h2));
+
+        // Case 6: Both open-ended
+        let r_open2 = TimeRange::starting_at(now);
+        let intersection = r_open.intersection(&r_open2).unwrap();
+        assert_eq!(intersection.start, now + h1);
+        assert_eq!(intersection.end, None);
     }
 
     proptest! {
