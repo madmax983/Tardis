@@ -30,6 +30,8 @@ use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Chameleon command (System Persona).
@@ -127,6 +129,63 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Navigate command.
+///
+/// Finds a path between two entities in the knowledge graph using semantic pathfinding.
+///
+/// # Usage
+///
+/// ```text
+/// navigate <start> <end>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct NavigateCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for NavigateCommand {
+    fn name(&self) -> &'static str {
+        "navigate"
+    }
+
+    fn description(&self) -> &'static str {
+        "Find semantic path between entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: navigate <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start = &args[0];
+        let end = &args[1];
+
+        let astrolabe = Astrolabe::new(
+            Arc::clone(&context.gallifrey),
+            Some(context.chronos.vortex().clone()),
+        );
+
+        println!("🧭 Navigating the Knowledge Graph from '{start}' to '{end}'...");
+        match astrolabe.navigate(start, end) {
+            Ok(path) => {
+                println!("\nPath found ({} steps):", path.len());
+                for (i, entity) in path.iter().enumerate() {
+                    if i < path.len() - 1 {
+                        println!("  ({}) {} ->", i + 1, entity.name);
+                    } else {
+                        println!("  ({}) {} 🏁", i + 1, entity.name);
+                    }
+                }
+                println!();
+            }
+            Err(e) => println!("Lost in space-time: {e}"),
         }
         Ok(CommandResult::Continue)
     }
