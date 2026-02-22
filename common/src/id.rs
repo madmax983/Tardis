@@ -2,12 +2,29 @@
 //!
 //! Provides strongly-typed identifiers for various entities to prevent
 //! mixing up different ID types at compile time.
+//!
+//! # Rationale
+//!
+//! Instead of using raw `Uuid` or `u64` everywhere, we wrap them in distinct
+//! newtypes. This ensures that you can't accidentally pass a `SessionId` to a
+//! function expecting an `EntityId`, catching bugs at compile time.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 
 /// A handle to a loaded LLM model in Vortex.
+///
+/// This is a lightweight reference to a model loaded in memory, typically backed by a `usize` index.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::ModelHandle;
+///
+/// let handle = ModelHandle::new(42);
+/// assert_eq!(handle.raw(), 42);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ModelHandle(u64);
 
@@ -32,6 +49,17 @@ impl fmt::Display for ModelHandle {
 }
 
 /// Unique identifier for an entity in the knowledge graph.
+///
+/// Wraps a UUID v4.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::EntityId;
+///
+/// let id = EntityId::new();
+/// println!("New entity: {}", id);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId(Uuid);
 
@@ -68,6 +96,16 @@ impl fmt::Display for EntityId {
 }
 
 /// Unique identifier for a conversation session.
+///
+/// Wraps a UUID v4.
+///
+/// # Examples
+///
+/// ```
+/// use tardis_common::id::SessionId;
+///
+/// let session_id = SessionId::new();
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(Uuid);
 
@@ -104,6 +142,18 @@ impl fmt::Display for SessionId {
 }
 
 /// Unique identifier for a system state snapshot.
+///
+/// Wraps a UUID v4.
+///
+/// # Examples
+///
+/// Using `SnapshotId::max()` for range queries:
+///
+/// ```
+/// use tardis_common::id::SnapshotId;
+///
+/// let end_of_time = SnapshotId::max();
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SnapshotId(Uuid);
 
