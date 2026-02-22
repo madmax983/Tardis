@@ -26,6 +26,11 @@ fn bench_span_id_generation(c: &mut Criterion) {
         b.iter(|| black_box(SpanId::generate()));
     });
 
+    group.bench_function("display", |b| {
+        let id = SpanId::generate();
+        b.iter(|| black_box(format!("{id}")));
+    });
+
     group.finish();
 }
 
