@@ -100,7 +100,12 @@ pub fn augment(
 
     // Bolt: Pre-allocate buffer to avoid re-allocations.
     // 4 chars per token + 1KB overhead for system prompts/instructions.
-    let capacity = max_context_tokens * 4 + 1024;
+    // Use saturating arithmetic to prevent overflow with large token limits.
+    // Cap allocation at 100MB to prevent OOM on huge limits (reallocation handles growth if needed).
+    let capacity = max_context_tokens
+        .saturating_mul(4)
+        .saturating_add(1024)
+        .min(100 * 1024 * 1024);
     let mut augmented = String::with_capacity(capacity);
 
     // System context
@@ -162,15 +167,17 @@ fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery, persona: 
 
 /// Write retrieved context to buffer.
 fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usize) {
-    let mut token_estimate = 0;
+    let mut token_estimate: usize = 0;
 
     for (i, source) in context.iter().enumerate() {
         let source_tokens = estimate_tokens(&source.content);
 
-        if token_estimate + source_tokens > max_tokens {
+        // Check against max_tokens using saturating add to avoid overflow
+        if token_estimate.saturating_add(source_tokens) > max_tokens {
             // Calculate remaining budget
             let remaining_tokens = max_tokens.saturating_sub(token_estimate);
-            let chars_to_take = remaining_tokens * 4;
+            // Use saturating multiplication to avoid overflow if max_tokens is huge
+            let chars_to_take = remaining_tokens.saturating_mul(4);
 
             // If we have space for at least some content, include it partially
             if chars_to_take > 0 {
@@ -212,7 +219,7 @@ fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usi
             source.content
         );
 
-        token_estimate += source_tokens;
+        token_estimate = token_estimate.saturating_add(source_tokens);
     }
 }
 
@@ -542,6 +549,95 @@ mod sentry_tests {
         assert!(
             result.contains("1 more sources truncated"),
             "Should report s2 dropped"
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::panic)]
+mod overflow_tests {
+    use super::*;
+    use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};
+    use crate::pipeline::{ContextSource, ContextSourceType};
+
+    fn create_mock_analysis() -> AnalyzedQuery {
+        AnalyzedQuery {
+            text: "test".to_string(),
+            intent: QueryIntent::Question,
+            temporal_refs: vec![],
+            temporal_description: None,
+            entities: vec![],
+        }
+    }
+
+    fn create_mock_source(content: &str) -> ContextSource {
+        ContextSource {
+            source_type: ContextSourceType::Knowledge,
+            content: content.to_string(),
+            relevance: 1.0,
+            entity_id: None,
+        }
+    }
+
+    #[test]
+    fn test_augment_capacity_overflow() {
+        // Exploit: Set max_context_tokens to a value that causes `max * 4 + 1024` to wrap.
+        // usize::MAX / 4 is the boundary.
+        // If we set it to (usize::MAX / 4) + 1000, max * 4 will overflow to ~4000.
+        // Then + 1024 is fine.
+        // But `String::with_capacity` will be small.
+        // Then we push data, and it reallocates.
+        // This test ensures it doesn't panic.
+        let huge_tokens = (usize::MAX / 4) + 1000;
+        let config = RagConfig {
+            max_context_tokens: huge_tokens,
+            ..RagConfig::default()
+        };
+
+        let analysis = create_mock_analysis();
+        let source = create_mock_source("Safe content");
+
+        // This might panic in debug mode due to overflow checks if not handled.
+        let result = augment("query", &[source], &analysis, &config);
+
+        // We just want to ensure it didn't panic and returned a result (even if OOM in real life, here we don't allocate much).
+        // Actually, since we only push "Safe content", it won't OOM.
+        assert!(result.is_ok());
+        let content = result.unwrap();
+        assert!(content.contains("Safe content"));
+    }
+
+    #[test]
+    fn test_chars_to_take_overflow() {
+        // Exploit: Set max_context_tokens such that remaining_tokens * 4 overflows.
+        // remaining_tokens = max - current.
+        // If max is (usize::MAX / 4) + 10.
+        // remaining * 4 will wrap to 40.
+        // So chars_to_take will be 40.
+        // If source is 100 chars, it will be truncated to 40 chars,
+        // even though we have "infinite" budget.
+
+        let huge_tokens = (usize::MAX / 4) + 10;
+        let config = RagConfig {
+            max_context_tokens: huge_tokens,
+            ..RagConfig::default()
+        };
+
+        let analysis = create_mock_analysis();
+        // Source with 100 chars
+        let long_content = "a".repeat(100);
+        let source = create_mock_source(&long_content);
+
+        // Before fix: Overflow causes wrap -> small limit -> truncation.
+        // After fix: Saturating -> max limit -> no truncation.
+        let result = augment("query", &[source], &analysis, &config).unwrap();
+
+        // If bug exists, this might fail (it might truncate).
+        // If fix works, it should contain full content.
+        assert!(
+            result.contains(&long_content),
+            "Result should contain full content even with huge max_tokens"
         );
     }
 }

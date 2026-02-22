@@ -41,3 +41,7 @@
 **2025-06-07 - KernelLogger static mut Removal**
 **Threat:** `KernelLogger` relied on `static mut` and manual `AtomicU8` synchronization for initialization. While patched to be technically safe, `static mut` is error-prone and discouraged.
 **Defense:** Replaced `static mut KERNEL_LOGGER` and manual state machine with `spin::Once<KernelLogger>`, providing a robust, thread-safe, and `no_std` compatible initialization mechanism. Removed `unsafe` blocks related to `static mut` access.
+
+**2025-06-08 - Chronos Pipeline Integer Overflow**
+**Threat:** Integer overflow in `augment` and `retrieve` functions allowed `RagConfig` with large `max_context_tokens` or `max_context_items` to cause panic (in debug) or wrap-around (in release). This could lead to incorrect context truncation (dropping critical safety instructions) or panic due to OOM.
+**Defense:** Switched to `saturating_mul` and `saturating_add` for all capacity and token calculations. Capped pre-allocation size to 100MB/100k items to prevent OOM panics while allowing the logic to handle "infinite" limits gracefully.

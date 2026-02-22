@@ -22,7 +22,12 @@ pub async fn retrieve(
     // Pre-allocate to avoid resizing.
     // We expect up to max_context_items from each source plus some recent messages.
     // 3 sources * max_context_items + 5 (recent messages padding)
-    let capacity = config.max_context_items * 3 + 5;
+    // Use saturating arithmetic and cap at 100,000 to prevent OOM/panic.
+    let capacity = config
+        .max_context_items
+        .saturating_mul(3)
+        .saturating_add(5)
+        .min(100_000);
     let mut sources = Vec::with_capacity(capacity);
 
     // Retrieve from each source in parallel (TODO: make truly parallel)
