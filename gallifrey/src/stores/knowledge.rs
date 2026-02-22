@@ -316,12 +316,17 @@ impl KnowledgeStore {
     /// Returns an error if the lock is poisoned.
     pub fn find_by_type(&self, entity_type: &str) -> GallifreyResult<Vec<Entity>> {
         // First get the IDs from the index
-        let ids = {
+        // Optimization: Collect into a Vec to avoid cloning the underlying HashSet structure.
+        // This reduces allocation overhead significantly for large sets.
+        let ids: Vec<EntityId> = {
             let index = self
                 .type_index
                 .read()
                 .map_err(|_| GallifreyError::StorageError("lock poisoned".to_string()))?;
-            index.get(entity_type).cloned().unwrap_or_default()
+            index
+                .get(entity_type)
+                .map(|s| s.iter().copied().collect())
+                .unwrap_or_default()
         };
 
         let entities = self
