@@ -30,6 +30,8 @@ use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Chameleon command (System Persona).
@@ -127,6 +129,60 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Navigate command.
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct NavigateCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for NavigateCommand {
+    fn name(&self) -> &'static str {
+        "navigate"
+    }
+
+    fn description(&self) -> &'static str {
+        "Find a semantic path between two entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: navigate <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start = &args[0];
+        let end = &args[1];
+
+        // Astrolabe accepts Option<Arc<Vortex>>.
+        // We pass the vortex engine if available, though it might not be strictly needed for
+        // pathfinding if embeddings are already present.
+        let vortex = Some(context.chronos.vortex().clone());
+
+        let astrolabe = Astrolabe::new(
+            Arc::clone(&context.gallifrey),
+            vortex,
+        );
+
+        println!("🧭 Navigating the knowledge graph from '{start}' to '{end}'...");
+        match astrolabe.navigate(start, end) {
+             Ok(path) => {
+                 println!("\nPath found ({} steps):", path.len() - 1);
+                 for (i, node) in path.iter().enumerate() {
+                     if i < path.len() - 1 {
+                         print!("{node} -> ");
+                     } else {
+                         println!("{node}");
+                     }
+                 }
+                 println!();
+             }
+             Err(e) => println!("Navigation failed: {e}"),
         }
         Ok(CommandResult::Continue)
     }
