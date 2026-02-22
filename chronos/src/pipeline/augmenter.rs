@@ -101,7 +101,7 @@ pub fn augment(
     // Bolt: Pre-allocate buffer to avoid re-allocations.
     // 4 chars per token + 1KB overhead for system prompts/instructions.
     let capacity = max_context_tokens * 4 + 1024;
-    let mut augmented = String::with_capacity(capacity);
+    let mut formatter = ContextFormatter::new(capacity);
 
     // System context
     #[cfg(feature = "nova")]
@@ -109,23 +109,154 @@ pub fn augment(
     #[cfg(not(feature = "nova"))]
     let persona = None;
 
-    write_system_context(&mut augmented, analysis, persona);
+    formatter.add_system_context(analysis, persona);
 
     // Retrieved context
     if !context.is_empty() {
-        augmented.push_str("\n## Retrieved Context\n\n");
-        write_context(&mut augmented, context, max_context_tokens);
+        formatter.add_retrieved_context(context, max_context_tokens);
     }
 
     // User query
-    augmented.push_str("\n## User Query\n\n");
-    augmented.push_str(prompt);
+    formatter.add_user_query(prompt);
 
     // Instructions
-    augmented.push_str("\n\n## Instructions\n\n");
-    write_instructions(&mut augmented, analysis);
+    formatter.add_instructions(analysis);
 
-    Ok(augmented)
+    Ok(formatter.finish())
+}
+
+/// A helper struct to format the context buffer.
+struct ContextFormatter {
+    buffer: String,
+}
+
+impl ContextFormatter {
+    fn new(capacity: usize) -> Self {
+        Self {
+            buffer: String::with_capacity(capacity),
+        }
+    }
+
+    fn finish(self) -> String {
+        self.buffer
+    }
+
+    /// Write system context header to buffer.
+    fn add_system_context(&mut self, analysis: &AnalyzedQuery, persona: Option<&str>) {
+        if let Some(p) = persona {
+            let _ = writeln!(self.buffer, "# {p}\n");
+        } else {
+            self.buffer.push_str("# Tardis AI Assistant\n\n");
+        }
+        // Bolt: Optimized format string usage
+        let _ = writeln!(
+            self.buffer,
+            "Current time: {}",
+            Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+        );
+
+        if let Some(ref temporal) = analysis.temporal_description {
+            let _ = writeln!(self.buffer, "Query temporal context: {temporal}");
+        }
+    }
+
+    /// Write retrieved context to buffer with truncation logic.
+    fn add_retrieved_context(&mut self, context: &[ContextSource], max_tokens: usize) {
+        self.buffer.push_str("\n## Retrieved Context\n\n");
+
+        let mut token_estimate = 0;
+
+        for (i, source) in context.iter().enumerate() {
+            let source_tokens = estimate_tokens(&source.content);
+
+            if token_estimate + source_tokens > max_tokens {
+                // Calculate remaining budget
+                let remaining_tokens = max_tokens.saturating_sub(token_estimate);
+                let chars_to_take = remaining_tokens * 4;
+
+                // If we have space for at least some content, include it partially
+                if chars_to_take > 0 {
+                    let truncated_content = truncate_string(&source.content, chars_to_take);
+                    let _ = writeln!(
+                        self.buffer,
+                        "### {} {} (relevance: {:.2})\n{}...\n",
+                        source.source_type,
+                        i + 1,
+                        source.relevance,
+                        truncated_content
+                    );
+                }
+
+                // Report how many sources were fully dropped
+                // If we took some content from the current source, we only count subsequent sources.
+                // If we took NO content from the current source, we count it as dropped too.
+                let sources_fully_dropped = if chars_to_take > 0 {
+                    context.len() - (i + 1)
+                } else {
+                    context.len() - i
+                };
+
+                if sources_fully_dropped > 0 {
+                    let _ = writeln!(
+                        self.buffer,
+                        "\n... ({sources_fully_dropped} more sources truncated)"
+                    );
+                }
+                break;
+            }
+
+            let _ = writeln!(
+                self.buffer,
+                "### {} {} (relevance: {:.2})\n{}\n",
+                source.source_type,
+                i + 1,
+                source.relevance,
+                source.content
+            );
+
+            token_estimate += source_tokens;
+        }
+    }
+
+    fn add_user_query(&mut self, prompt: &str) {
+        self.buffer.push_str("\n## User Query\n\n");
+        self.buffer.push_str(prompt);
+    }
+
+    /// Write response instructions to buffer based on query analysis.
+    fn add_instructions(&mut self, analysis: &AnalyzedQuery) {
+        self.buffer.push_str("\n\n## Instructions\n\n");
+        self.buffer
+            .push_str("Respond based on the context provided. ");
+
+        match analysis.intent {
+            super::analyzer::QueryIntent::Recall => {
+                self.buffer
+                    .push_str("Focus on accurately recalling the requested information. ");
+                self.buffer
+                    .push_str("Cite specific sources and times when available. ");
+            }
+            super::analyzer::QueryIntent::TemporalDiff => {
+                self.buffer
+                    .push_str("Compare the states across the referenced time periods. ");
+                self.buffer.push_str("Highlight what changed and when. ");
+            }
+            super::analyzer::QueryIntent::SystemQuery => {
+                self.buffer
+                    .push_str("Provide accurate system state information. ");
+                self.buffer
+                    .push_str("Include relevant timestamps and snapshots. ");
+            }
+            _ => {
+                self.buffer.push_str("Be helpful and concise. ");
+            }
+        }
+
+        self.buffer
+            .push_str("If information comes from a specific time, mention when. ");
+        self.buffer
+            .push_str("If you're uncertain about something, say so.");
+    }
 }
 
 /// Estimate tokens from text (4 chars per token).
@@ -139,107 +270,6 @@ fn truncate_string(s: &str, max_chars: usize) -> &str {
         Some((idx, _)) => &s[..idx],
         None => s,
     }
-}
-
-/// Write system context header to buffer.
-fn write_system_context(buffer: &mut String, analysis: &AnalyzedQuery, persona: Option<&str>) {
-    if let Some(p) = persona {
-        let _ = writeln!(buffer, "# {p}\n");
-    } else {
-        buffer.push_str("# Tardis AI Assistant\n\n");
-    }
-    // Bolt: Optimized format string usage
-    let _ = writeln!(
-        buffer,
-        "Current time: {}",
-        Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-    );
-
-    if let Some(ref temporal) = analysis.temporal_description {
-        let _ = writeln!(buffer, "Query temporal context: {temporal}");
-    }
-}
-
-/// Write retrieved context to buffer.
-fn write_context(buffer: &mut String, context: &[ContextSource], max_tokens: usize) {
-    let mut token_estimate = 0;
-
-    for (i, source) in context.iter().enumerate() {
-        let source_tokens = estimate_tokens(&source.content);
-
-        if token_estimate + source_tokens > max_tokens {
-            // Calculate remaining budget
-            let remaining_tokens = max_tokens.saturating_sub(token_estimate);
-            let chars_to_take = remaining_tokens * 4;
-
-            // If we have space for at least some content, include it partially
-            if chars_to_take > 0 {
-                let truncated_content = truncate_string(&source.content, chars_to_take);
-                let _ = writeln!(
-                    buffer,
-                    "### {} {} (relevance: {:.2})\n{}...\n",
-                    source.source_type,
-                    i + 1,
-                    source.relevance,
-                    truncated_content
-                );
-            }
-
-            // Report how many sources were fully dropped
-            // If we took some content from the current source, we only count subsequent sources.
-            // If we took NO content from the current source, we count it as dropped too.
-            let sources_fully_dropped = if chars_to_take > 0 {
-                context.len() - (i + 1)
-            } else {
-                context.len() - i
-            };
-
-            if sources_fully_dropped > 0 {
-                let _ = writeln!(
-                    buffer,
-                    "\n... ({sources_fully_dropped} more sources truncated)"
-                );
-            }
-            break;
-        }
-
-        let _ = writeln!(
-            buffer,
-            "### {} {} (relevance: {:.2})\n{}\n",
-            source.source_type,
-            i + 1,
-            source.relevance,
-            source.content
-        );
-
-        token_estimate += source_tokens;
-    }
-}
-
-/// Write response instructions to buffer based on query analysis.
-fn write_instructions(buffer: &mut String, analysis: &AnalyzedQuery) {
-    buffer.push_str("Respond based on the context provided. ");
-
-    match analysis.intent {
-        super::analyzer::QueryIntent::Recall => {
-            buffer.push_str("Focus on accurately recalling the requested information. ");
-            buffer.push_str("Cite specific sources and times when available. ");
-        }
-        super::analyzer::QueryIntent::TemporalDiff => {
-            buffer.push_str("Compare the states across the referenced time periods. ");
-            buffer.push_str("Highlight what changed and when. ");
-        }
-        super::analyzer::QueryIntent::SystemQuery => {
-            buffer.push_str("Provide accurate system state information. ");
-            buffer.push_str("Include relevant timestamps and snapshots. ");
-        }
-        _ => {
-            buffer.push_str("Be helpful and concise. ");
-        }
-    }
-
-    buffer.push_str("If information comes from a specific time, mention when. ");
-    buffer.push_str("If you're uncertain about something, say so.");
 }
 
 #[cfg(test)]
