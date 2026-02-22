@@ -7,25 +7,30 @@
 
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use tardis_gallifrey::domain::Entity;
-use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
+use tardis_common::domain::Entity;
+use tardis_common::id::ModelHandle;
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::{KnowledgeService, LlmService};
 
 /// The Weaver engine.
 #[derive(Debug)]
 pub struct Weaver {
-    gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
-    model: ModelHandle,
+    knowledge: Arc<dyn KnowledgeService>,
+    llm: Arc<dyn LlmService>,
+    model: Option<ModelHandle>,
 }
 
 impl Weaver {
     /// Create a new Weaver instance.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(
+        knowledge: Arc<dyn KnowledgeService>,
+        llm: Arc<dyn LlmService>,
+        model: Option<ModelHandle>,
+    ) -> Self {
         Self {
-            gallifrey,
-            vortex,
+            knowledge,
+            llm,
             model,
         }
     }
@@ -36,8 +41,8 @@ impl Weaver {
     ///
     /// Returns an error if entities are not found or inference fails.
     pub async fn weave(&self, entity1_name: &str, entity2_name: &str) -> Result<String> {
-        let e1 = self.find_entity(entity1_name)?;
-        let e2 = self.find_entity(entity2_name)?;
+        let e1 = self.find_entity(entity1_name).await?;
+        let e2 = self.find_entity(entity2_name).await?;
 
         let prompt = format!(
             "<s>[INST] You are The Weaver, a narrative engine for the Tardis OS.
@@ -55,39 +60,29 @@ The connection is: [/INST]",
             e1.name, e1.entity_type, e1.properties, e2.name, e2.entity_type, e2.properties
         );
 
-        let params = InferenceParams::default()
+        let mut params = InferenceParams::default()
             .with_temperature(0.8)
             .with_max_tokens(150);
 
+        if let Some(model) = self.model {
+            params = params.with_model(model);
+        }
+
         let result = self
-            .vortex
-            .infer(self.model, &prompt, params)
+            .llm
+            .infer(&prompt, params)
             .await
             .map_err(|e| anyhow!(e.to_string()))?;
 
         Ok(result)
     }
 
-    fn find_entity(&self, name: &str) -> Result<Entity> {
-        let knowledge = self.gallifrey.knowledge();
-        let mut found = None;
-
-        // Scan all entities to find the one with the matching name (case-insensitive)
-        knowledge.scan_history(|history| {
-            if found.is_some() {
-                return;
-            }
-
-            // Find latest version that matches name
-            if let Some(e) = history
-                .iter()
-                .find(|e| e.name.eq_ignore_ascii_case(name) && e.temporal.is_current())
-            {
-                found = Some(e.clone());
-            }
-        })?;
-
-        found.ok_or_else(|| anyhow!("Entity '{name}' not found in current time"))
+    async fn find_entity(&self, name: &str) -> Result<Entity> {
+        self.knowledge
+            .find_entity_by_name(name)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow!("Entity '{name}' not found in current time"))
     }
 }
 
@@ -97,6 +92,7 @@ mod tests {
     use std::collections::HashMap;
     use tardis_common::id::EntityId;
     use tardis_common::temporal::BiTemporalInterval;
+    use tardis_gallifrey::Gallifrey;
 
     fn create_test_entity(name: &str, entity_type: &str) -> Entity {
         Entity {
@@ -113,22 +109,15 @@ mod tests {
     #[tokio::test]
     async fn test_find_entity_manual() {
         let gallifrey = Arc::new(Gallifrey::new());
+        let knowledge: Arc<dyn KnowledgeService> = gallifrey.knowledge();
         // We can't easily mock Vortex here without loading a model, so we'll just test the entity lookup part.
         // To test the full Weaver we'd need a mock Vortex or a way to bypass inference.
-        // For now, let's just verifying finding entities works.
+        // For now, let's just verifying finding entities works via the trait.
 
         let entity = create_test_entity("TestBot", "Bot");
-        gallifrey.insert(entity).await.unwrap();
+        knowledge.insert_entity(entity).await.unwrap();
 
-        let knowledge = gallifrey.knowledge();
-        let mut found = None;
-        knowledge
-            .scan_history(|history| {
-                if let Some(e) = history.iter().find(|e| e.name == "TestBot") {
-                    found = Some(e.clone());
-                }
-            })
-            .unwrap();
+        let found = knowledge.find_entity_by_name("TestBot").await.unwrap();
 
         assert!(found.is_some());
         assert_eq!(found.unwrap().name, "TestBot");

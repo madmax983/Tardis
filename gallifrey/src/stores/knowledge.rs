@@ -384,7 +384,6 @@ impl KnowledgeStore {
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
-    #[cfg(feature = "nova")]
     pub fn scan_history<F>(&self, mut visitor: F) -> GallifreyResult<()>
     where
         F: FnMut(&[Entity]),
@@ -408,7 +407,6 @@ impl KnowledgeStore {
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
-    #[cfg(feature = "nova")]
     pub fn scan_relationships<F>(&self, mut visitor: F) -> GallifreyResult<()>
     where
         F: FnMut(&[Relationship]),
