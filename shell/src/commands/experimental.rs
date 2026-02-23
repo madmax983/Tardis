@@ -24,6 +24,8 @@ use crate::experimental::{
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::astrolabe::Astrolabe;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
@@ -131,6 +133,48 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Atlas command.
+///
+/// Generates a 2D map of the knowledge embedding space.
+///
+/// # Usage
+///
+/// ```text
+/// atlas [query]
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct AtlasCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for AtlasCommand {
+    fn name(&self) -> &'static str {
+        "atlas"
+    }
+
+    fn description(&self) -> &'static str {
+        "Show knowledge embedding map"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        let query = if args.is_empty() {
+            None
+        } else {
+            Some(args.join(" "))
+        };
+
+        let cartographer = Cartographer::new(Arc::clone(&context.gallifrey));
+
+        println!("🗺️  Unfolding the Atlas...");
+        match cartographer.map(query.as_deref()) {
+            Ok(map) => println!("\n{map}\n"),
+            Err(e) => println!("Failed to draw map: {e}"),
         }
         Ok(CommandResult::Continue)
     }
