@@ -98,9 +98,25 @@ pub fn augment(
 ) -> ChronosResult<String> {
     let max_context_tokens = config.max_context_tokens;
 
+    // Hard limit to prevent DoS via excessive allocation
+    const MAX_TOKENS_LIMIT: usize = 100_000;
+    if max_context_tokens > MAX_TOKENS_LIMIT {
+        return Err(crate::error::ChronosError::ContextAssemblyFailed(format!(
+            "max_context_tokens {} exceeds limit {}",
+            max_context_tokens, MAX_TOKENS_LIMIT
+        )));
+    }
+
     // Bolt: Pre-allocate buffer to avoid re-allocations.
     // 4 chars per token + 1KB overhead for system prompts/instructions.
-    let capacity = max_context_tokens * 4 + 1024;
+    // Use checked arithmetic to prevent overflow panic
+    let capacity = max_context_tokens
+        .checked_mul(4)
+        .and_then(|c| c.checked_add(1024))
+        .ok_or_else(|| {
+            crate::error::ChronosError::ContextAssemblyFailed("Capacity overflow".to_string())
+        })?;
+
     let mut formatter = ContextFormatter::new(capacity);
 
     // System context
