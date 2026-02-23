@@ -95,7 +95,9 @@ impl Astrolabe {
         }) = open_set.pop()
         {
             if current_id == end_entity.id {
-                return Ok(Self::reconstruct_path(current_id, &came_from, &entities, &g_score));
+                return Ok(Self::reconstruct_path(
+                    current_id, &came_from, &entities, &g_score,
+                ));
             }
 
             // If we found a shorter path already, skip
