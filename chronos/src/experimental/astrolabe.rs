@@ -64,9 +64,62 @@ impl Astrolabe {
 
     /// Navigate between two entities.
     ///
+    /// Uses A* search to find the most semantically relevant path between two entities.
+    /// The cost function combines hop count with "semantic drag" (1.0 - cosine similarity),
+    /// favoring paths that stay conceptually close to the target.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::sync::Arc;
+    /// use tardis_chronos::experimental::astrolabe::Astrolabe;
+    /// use tardis_gallifrey::Gallifrey;
+    /// use tardis_gallifrey::domain::Entity;
+    /// use tardis_common::temporal::BiTemporalInterval;
+    /// use tardis_common::id::EntityId;
+    /// use std::collections::HashMap;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let gallifrey = Arc::new(Gallifrey::new());
+    ///
+    /// // ... Assume "Earth" and "Gallifrey" entities exist in the store ...
+    /// # let earth = Entity {
+    /// #     id: EntityId::new(),
+    /// #     entity_type: "Planet".to_string(),
+    /// #     name: "Earth".to_string(),
+    /// #     properties: HashMap::new(),
+    /// #     embedding: None,
+    /// #     temporal: BiTemporalInterval::now(),
+    /// #     source: None,
+    /// # };
+    /// # gallifrey.insert(earth).await?;
+    /// # let gal = Entity {
+    /// #     id: EntityId::new(),
+    /// #     entity_type: "Planet".to_string(),
+    /// #     name: "Gallifrey".to_string(),
+    /// #     properties: HashMap::new(),
+    /// #     embedding: None,
+    /// #     temporal: BiTemporalInterval::now(),
+    /// #     source: None,
+    /// # };
+    /// # gallifrey.insert(gal).await?;
+    ///
+    /// let astrolabe = Astrolabe::new(gallifrey);
+    /// let path = astrolabe.navigate("Earth", "Gallifrey")?;
+    ///
+    /// for segment in path {
+    ///     println!("Visited: {}", segment.entity.name);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
-    /// Returns an error if entities are not found or path cannot be found.
+    /// Returns an error if:
+    /// - The start or end entities cannot be found by name.
+    /// - No path exists between the entities.
+    /// - The knowledge graph cannot be traversed.
     pub fn navigate(&self, start_name: &str, end_name: &str) -> ChronosResult<Vec<PathSegment>> {
         let start_entity = self.find_entity(start_name)?;
         let end_entity = self.find_entity(end_name)?;
@@ -95,7 +148,9 @@ impl Astrolabe {
         }) = open_set.pop()
         {
             if current_id == end_entity.id {
-                return Ok(Self::reconstruct_path(current_id, &came_from, &entities, &g_score));
+                return Ok(Self::reconstruct_path(
+                    current_id, &came_from, &entities, &g_score,
+                ));
             }
 
             // If we found a shorter path already, skip

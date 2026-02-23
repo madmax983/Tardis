@@ -37,9 +37,40 @@ impl Weaver {
 
     /// Weave a narrative connecting two entities.
     ///
+    /// Generates a creative story explaining the relationship between two entities found in the knowledge graph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use std::sync::Arc;
+    /// use tardis_chronos::experimental::weaver::Weaver;
+    /// use tardis_gallifrey::Gallifrey;
+    /// use tardis_vortex::Vortex;
+    /// use tardis_vortex::VortexLlmService;
+    /// use tardis_common::id::ModelHandle;
+    /// use tardis_common::traits::{KnowledgeService, LlmService};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let gallifrey = Arc::new(Gallifrey::new());
+    /// let vortex = Arc::new(Vortex::new()?);
+    /// let handle = ModelHandle::new(1);
+    ///
+    /// let knowledge = gallifrey.knowledge();
+    /// let llm = Arc::new(VortexLlmService::new(vortex, handle));
+    ///
+    /// let weaver = Weaver::new(knowledge, llm, Some(handle));
+    ///
+    /// let story = weaver.weave("The Doctor", "TARDIS").await?;
+    /// println!("Story: {}", story);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
-    /// Returns an error if entities are not found or inference fails.
+    /// Returns an error if:
+    /// - Either entity cannot be found in the knowledge graph.
+    /// - The LLM inference fails.
     pub async fn weave(&self, entity1_name: &str, entity2_name: &str) -> Result<String> {
         let e1 = self.find_entity(entity1_name).await?;
         let e2 = self.find_entity(entity2_name).await?;

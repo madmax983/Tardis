@@ -13,11 +13,22 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+/// Core domain entities (Message, Knowledge, SystemState).
 pub mod domain;
+
+/// Unified error handling types.
 pub mod error;
+
+/// Type-safe identifiers (EntityId, SessionId, etc.).
 pub mod id;
+
+/// LLM inference configuration and parameters.
 pub mod llm;
+
+/// Bi-temporal time primitives (Valid Time vs Transaction Time).
 pub mod temporal;
+
+/// Shared service interfaces (Traits for dependency injection).
 pub mod traits;
 
 // Re-export commonly used items
