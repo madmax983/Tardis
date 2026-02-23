@@ -76,6 +76,7 @@ fn general_help() {
         println!("  EXPERIMENTAL COMMANDS (Nova):");
         println!("    sonic <file>      System diagnosis and repair");
         println!("    biography <name>  Generate entity biography");
+        println!("    atlas [w] [h]     Visualize knowledge graph map");
         println!("    map <name>        Show entity relationship map");
         println!("    heatmap <name>    Show temporal activity");
         println!("    curiosity         Active learning scan");

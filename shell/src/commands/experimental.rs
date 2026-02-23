@@ -30,6 +30,8 @@ use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::prism::Prism;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
@@ -132,6 +134,52 @@ impl ShellCommand for SonicCommand {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
         }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Atlas command.
+///
+/// Visualizes the knowledge graph as a 2D map.
+///
+/// # Usage
+///
+/// ```text
+/// atlas [width] [height]
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct AtlasCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for AtlasCommand {
+    fn name(&self) -> &'static str {
+        "atlas"
+    }
+
+    fn description(&self) -> &'static str {
+        "Visualize knowledge graph map"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        let width = args.get(0).and_then(|s| s.parse().ok()).unwrap_or(80).max(10);
+        let height = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(40).max(5);
+
+        let mut entities = Vec::new();
+        context
+            .gallifrey
+            .knowledge()
+            .scan_history(|history| {
+                if let Some(current) = history.iter().find(|e| e.temporal.is_current()) {
+                    entities.push(current.clone());
+                }
+            })
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+        let cartographer = Cartographer::new();
+        println!("{}", cartographer.render(&entities, width, height));
+
         Ok(CommandResult::Continue)
     }
 }
