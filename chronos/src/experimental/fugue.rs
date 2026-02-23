@@ -6,7 +6,7 @@
 //! in the past and simulating the consequences using Vortex inference.
 
 use crate::error::{ChronosError, ChronosResult};
-use crate::experimental::psychic_paper::{Intent, PsychicPaper};
+use crate::experimental::psychic_paper;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,7 +42,6 @@ pub struct FugueResult {
 pub struct Fugue {
     vortex: Arc<Vortex>,
     gallifrey: Arc<Gallifrey>,
-    paper: PsychicPaper,
 }
 
 impl Fugue {
@@ -52,7 +51,6 @@ impl Fugue {
         Self {
             vortex,
             gallifrey,
-            paper: PsychicPaper::new(),
         }
     }
 
@@ -152,9 +150,7 @@ impl Fugue {
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         // 5. Parse
-        let parsed = self
-            .paper
-            .interpret(&response, Intent::Json)
+        let parsed = psychic_paper::extract_json(&response)
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e)))?;
 
         let narrative = parsed

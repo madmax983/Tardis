@@ -6,7 +6,7 @@
 //! from multiple viewpoints (personas) simultaneously to provide a comprehensive answer.
 
 use crate::error::{ChronosError, ChronosResult};
-use crate::experimental::psychic_paper::{Intent, PsychicPaper};
+use crate::experimental::psychic_paper;
 use crate::{Chronos, RagConfig};
 use std::sync::Arc;
 use tardis_common::id::ModelHandle;
@@ -27,7 +27,6 @@ pub struct PerspectiveResult {
 pub struct Prism {
     chronos: Arc<Chronos>,
     vortex: Arc<Vortex>,
-    paper: PsychicPaper,
 }
 
 impl Prism {
@@ -38,7 +37,6 @@ impl Prism {
         Self {
             chronos,
             vortex,
-            paper: PsychicPaper::new(),
         }
     }
 
@@ -72,9 +70,7 @@ impl Prism {
             .await
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
-        let perspectives_val = self
-            .paper
-            .interpret(&response, Intent::Json)
+        let perspectives_val = psychic_paper::extract_json(&response)
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e)))?;
 
         let mut perspectives: Vec<String> =
