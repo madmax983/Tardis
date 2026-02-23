@@ -112,6 +112,7 @@ impl Repl {
             registry.register(Box::new(commands::experimental::FixCommand));
             registry.register(Box::new(commands::experimental::DashboardCommand));
             registry.register(Box::new(commands::experimental::TimelineCommand));
+            registry.register(Box::new(commands::experimental::AtlasCommand));
             registry.register(Box::new(commands::experimental::MapCommand));
             registry.register(Box::new(commands::experimental::HeatmapCommand));
             registry.register(Box::new(commands::experimental::BiographerCommand));
