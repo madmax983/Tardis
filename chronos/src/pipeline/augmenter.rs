@@ -539,9 +539,7 @@ mod sentry_tests {
 
             assert!(
                 result.contains(expected_phrase),
-                "Instructions for {:?} should contain '{}'",
-                intent,
-                expected_phrase
+                "Instructions for {intent:?} should contain '{expected_phrase}'",
             );
         }
     }

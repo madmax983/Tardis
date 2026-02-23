@@ -30,6 +30,8 @@ use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::prism::Prism;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
@@ -732,6 +734,62 @@ impl ShellCommand for MediumCommand {
             }
         } else {
             println!("The Medium needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Prism command.
+///
+/// Refracts a query through multiple perspectives (personas).
+///
+/// # Usage
+///
+/// ```text
+/// prism <query>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct PrismCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for PrismCommand {
+    fn name(&self) -> &'static str {
+        "prism"
+    }
+
+    fn description(&self) -> &'static str {
+        "Refract query through multiple perspectives"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.is_empty() {
+            println!("Usage: prism <query>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let query = args.join(" ");
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+
+        if let Some((handle, _)) = loaded_models.first() {
+            let prism = Prism::new(context.chronos.clone());
+
+            println!("💎 Refracting query through the Prism...");
+
+            match prism.refract(&query, *handle).await {
+                Ok(results) => {
+                    println!("\nSpectral Analysis Complete:\n");
+                    for result in results {
+                        println!("--[{}]--------------------------------", result.perspective);
+                        println!("{}\n", result.response.trim());
+                    }
+                    println!("-------------------------------------------");
+                }
+                Err(e) => println!("The Prism shattered: {e}"),
+            }
+        } else {
+            println!("Prism needs a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }

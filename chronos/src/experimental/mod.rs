@@ -28,3 +28,6 @@ pub mod medium;
 
 #[cfg(feature = "nova")]
 pub mod astrolabe;
+
+#[cfg(feature = "nova")]
+pub mod prism;

@@ -465,6 +465,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_encode_with_bos_integration() -> VortexResult<()> {
         use std::io::Write;
 
@@ -474,7 +475,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let test_dir = temp_dir.join(format!("vortex_tokenizer_test_{}", timestamp));
+        let test_dir = temp_dir.join(format!("vortex_tokenizer_test_{timestamp}"));
         std::fs::create_dir_all(&test_dir)?;
 
         let tokenizer_path = test_dir.join("tokenizer.json");
