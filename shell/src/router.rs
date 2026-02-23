@@ -118,13 +118,15 @@ impl Router {
         }
 
         // Check for built-in commands
-        let parts: Vec<&str> = input.splitn(2, ' ').collect();
-        let first_word = parts.first().map(|s| s.to_lowercase());
+        // Use tokenize to handle quoted arguments
+        let tokens_with_offsets = Self::tokenize(input);
+        let tokens: Vec<String> = tokens_with_offsets.iter().map(|(t, _)| t.clone()).collect();
+        let first_word = tokens.first().map(|s| s.to_lowercase());
 
         if let Some(ref cmd) = first_word {
             if self.builtins.contains(cmd.as_str()) {
-                let args = if parts.len() > 1 {
-                    parts[1].split_whitespace().map(String::from).collect()
+                let args = if tokens.len() > 1 {
+                    tokens[1..].to_vec()
                 } else {
                     Vec::new()
                 };
@@ -149,12 +151,64 @@ impl Router {
         // e.g., "@yesterday what did we discuss"
         // e.g., "@2024-03-15 show system state"
 
-        let parts: Vec<&str> = input.splitn(2, ' ').collect();
+        let tokens = Self::tokenize(input);
 
-        let timestamp = parts.first().unwrap_or(&"").to_string();
-        let query = parts.get(1).unwrap_or(&"").to_string();
+        if let Some((timestamp, end_offset)) = tokens.first() {
+            let query = input[*end_offset..].trim().to_string();
+            Intent::TimeTravel {
+                timestamp: timestamp.clone(),
+                query,
+            }
+        } else {
+            Intent::TimeTravel {
+                timestamp: String::new(),
+                query: String::new(),
+            }
+        }
+    }
 
-        Intent::TimeTravel { timestamp, query }
+    /// Tokenize input string respecting quotes.
+    /// Returns a vector of (token, end_offset) tuples.
+    fn tokenize(input: &str) -> Vec<(String, usize)> {
+        let mut tokens = Vec::new();
+        let mut current_token = String::new();
+        let mut in_quote = None; // None, Some('"'), Some('\'')
+        let mut escape = false;
+        let mut last_char_end = 0;
+
+        for (i, c) in input.char_indices() {
+            let char_len = c.len_utf8();
+            let current_char_end = i + char_len;
+
+            if escape {
+                current_token.push(c);
+                escape = false;
+            } else if c == '\\' {
+                escape = true;
+            } else if let Some(quote) = in_quote {
+                if c == quote {
+                    in_quote = None;
+                } else {
+                    current_token.push(c);
+                }
+            } else if c == '"' || c == '\'' {
+                in_quote = Some(c);
+            } else if c.is_whitespace() {
+                if !current_token.is_empty() {
+                    tokens.push((current_token.clone(), i));
+                    current_token.clear();
+                }
+            } else {
+                current_token.push(c);
+            }
+            last_char_end = current_char_end;
+        }
+
+        if !current_token.is_empty() {
+            tokens.push((current_token, last_char_end));
+        }
+
+        tokens
     }
 
     /// Detect temporal context in a query.
@@ -276,6 +330,55 @@ mod tests {
         match intent {
             Intent::ShellCommand { command } => assert_eq!(command, "ls"),
             _ => panic!("Expected ShellCommand"),
+        }
+    }
+
+    #[test]
+    fn test_time_travel_quoted_timestamp() {
+        let router = test_router();
+        // The current implementation splits on space, so "last week" becomes timestamp="last" query="week query"
+        // This test documents the DESIRED behavior (which currently fails)
+        let intent = router.route("@ \"last week\" what happened");
+
+        match intent {
+            Intent::TimeTravel { timestamp, query } => {
+                assert_eq!(timestamp, "last week");
+                assert_eq!(query, "what happened");
+            }
+            _ => panic!("Expected TimeTravel"),
+        }
+    }
+
+    #[test]
+    fn test_builtin_quoted_args() {
+        let router = Router::new(vec!["navigate".to_string()]);
+        // The current implementation splits on whitespace, so "The Doctor" becomes two args
+        let intent = router.route("navigate \"The Doctor\" Dalek");
+
+        match intent {
+            Intent::BuiltinCommand { command, args } => {
+                assert_eq!(command, "navigate");
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0], "The Doctor");
+                assert_eq!(args[1], "Dalek");
+            }
+            _ => panic!("Expected BuiltinCommand"),
+        }
+    }
+
+    #[test]
+    fn test_time_travel_preserves_query_formatting() {
+        let router = test_router();
+        // Regression test: ensure query part preserves whitespace and quotes
+        let intent = router.route("@ \"last week\"   println!(\"hello\")  ");
+
+        match intent {
+            Intent::TimeTravel { timestamp, query } => {
+                assert_eq!(timestamp, "last week");
+                // The query should be trimmed of leading/trailing whitespace, but preserve internal spacing and quotes
+                assert_eq!(query, "println!(\"hello\")");
+            }
+            _ => panic!("Expected TimeTravel"),
         }
     }
 }
