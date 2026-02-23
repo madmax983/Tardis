@@ -148,9 +148,10 @@ impl Astrolabe {
                 }
                 // Case-insensitive match, prefer exact match if possible, otherwise first match
                 // Actually, just find the first one that matches case-insensitively and is current.
-                if let Some(e) = history.iter().find(|e| {
-                    e.name.eq_ignore_ascii_case(name) && e.temporal.is_current()
-                }) {
+                if let Some(e) = history
+                    .iter()
+                    .find(|e| e.name.eq_ignore_ascii_case(name) && e.temporal.is_current())
+                {
                     found = Some(e.clone());
                 }
             })
@@ -217,9 +218,7 @@ impl Astrolabe {
         let mut curr = current;
 
         // Add end node
-        let mut via_to_curr = came_from
-            .get(&curr)
-            .and_then(|(_, v)| v.clone());
+        let mut via_to_curr = came_from.get(&curr).and_then(|(_, v)| v.clone());
 
         if let Some(entity) = entities.get(&curr) {
             path.push(PathSegment {
@@ -231,9 +230,7 @@ impl Astrolabe {
 
         while let Some((prev, _)) = came_from.get(&curr) {
             curr = *prev;
-            via_to_curr = came_from
-                .get(&curr)
-                .and_then(|(_, v)| v.clone());
+            via_to_curr = came_from.get(&curr).and_then(|(_, v)| v.clone());
 
             if let Some(entity) = entities.get(&curr) {
                 path.push(PathSegment {
