@@ -11,6 +11,20 @@
 
 use std::collections::HashSet;
 
+const PREFIX_SHELL: char = '!';
+const PREFIX_TIME_TRAVEL: char = '@';
+const PREFIX_DIRECT_QUERY: char = '?';
+const TEMPORAL_PATTERNS: [&str; 8] = [
+    "yesterday",
+    "last week",
+    "last month",
+    "today",
+    "this morning",
+    "earlier",
+    "before",
+    "after",
+];
+
 /// Classified intent of user input.
 #[derive(Debug, Clone)]
 pub enum Intent {
@@ -100,40 +114,20 @@ impl Router {
     pub fn route(&self, input: &str) -> Intent {
         let input = input.trim();
 
-        // Check for prefix commands
-        if let Some(cmd) = input.strip_prefix('!') {
-            return Intent::ShellCommand {
-                command: cmd.trim().to_string(),
-            };
+        if let Some(intent) = Self::try_shell_command(input) {
+            return intent;
         }
 
-        if let Some(rest) = input.strip_prefix('@') {
-            return Self::parse_time_travel(rest.trim());
+        if let Some(intent) = Self::try_time_travel(input) {
+            return intent;
         }
 
-        if let Some(query) = input.strip_prefix('?') {
-            return Intent::DirectQuery {
-                query: query.trim().to_string(),
-            };
+        if let Some(intent) = Self::try_direct_query(input) {
+            return intent;
         }
 
-        // Check for built-in commands
-        let parts: Vec<&str> = input.splitn(2, ' ').collect();
-        let first_word = parts.first().map(|s| s.to_lowercase());
-
-        if let Some(ref cmd) = first_word {
-            if self.builtins.contains(cmd.as_str()) {
-                let args = if parts.len() > 1 {
-                    parts[1].split_whitespace().map(String::from).collect()
-                } else {
-                    Vec::new()
-                };
-
-                return Intent::BuiltinCommand {
-                    command: cmd.clone(),
-                    args,
-                };
-            }
+        if let Some(intent) = self.try_builtin_command(input) {
+            return intent;
         }
 
         // Default: Chronos query
@@ -161,24 +155,53 @@ impl Router {
     fn detect_temporal_context(query: &str) -> Option<String> {
         let lower = query.to_lowercase();
 
-        let temporal_patterns = [
-            "yesterday",
-            "last week",
-            "last month",
-            "today",
-            "this morning",
-            "earlier",
-            "before",
-            "after",
-        ];
-
-        for pattern in temporal_patterns {
+        for pattern in TEMPORAL_PATTERNS {
             if lower.contains(pattern) {
                 return Some(pattern.to_string());
             }
         }
 
         None
+    }
+
+    /// Try to parse as a shell command.
+    fn try_shell_command(input: &str) -> Option<Intent> {
+        input
+            .strip_prefix(PREFIX_SHELL)
+            .map(|cmd| Intent::ShellCommand {
+                command: cmd.trim().to_string(),
+            })
+    }
+
+    /// Try to parse as a time-travel command.
+    fn try_time_travel(input: &str) -> Option<Intent> {
+        input
+            .strip_prefix(PREFIX_TIME_TRAVEL)
+            .map(|rest| Self::parse_time_travel(rest.trim()))
+    }
+
+    /// Try to parse as a direct query.
+    fn try_direct_query(input: &str) -> Option<Intent> {
+        input
+            .strip_prefix(PREFIX_DIRECT_QUERY)
+            .map(|query| Intent::DirectQuery {
+                query: query.trim().to_string(),
+            })
+    }
+
+    /// Try to parse as a built-in command.
+    fn try_builtin_command(&self, input: &str) -> Option<Intent> {
+        let parts: Vec<&str> = input.splitn(2, ' ').collect();
+        // first() returns Option<&&str>, map gives Option<String>
+        let cmd = parts.first().map(|s| s.to_lowercase())?;
+
+        self.builtins.contains(&cmd).then(|| {
+            let args = parts
+                .get(1)
+                .map(|s| s.split_whitespace().map(String::from).collect())
+                .unwrap_or_default();
+            Intent::BuiltinCommand { command: cmd, args }
+        })
     }
 }
 

@@ -47,9 +47,10 @@ impl KnowledgeService for KnowledgeStore {
             if found.is_some() {
                 return;
             }
-            if let Some(e) = history.iter().find(|e| {
-                e.name.eq_ignore_ascii_case(name) && e.temporal.active_at(now, now)
-            }) {
+            if let Some(e) = history
+                .iter()
+                .find(|e| e.name.eq_ignore_ascii_case(name) && e.temporal.active_at(now, now))
+            {
                 found = Some(e.clone());
             }
         })

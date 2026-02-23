@@ -22,11 +22,11 @@ use crate::experimental::{
     biographer::Biographer, chronograph::ChronoGraph, heatmap_cmd, sonic::SonicScrewdriver,
 };
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::astrolabe::Astrolabe;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
@@ -173,7 +173,10 @@ impl ShellCommand for AstrolabeCommand {
 
         match astrolabe.navigate(start_name, end_name) {
             Ok(path) => {
-                println!("\nCourse plotted (Cost: {:.2}):", path.last().map_or(0.0, |p| p.cost));
+                println!(
+                    "\nCourse plotted (Cost: {:.2}):",
+                    path.last().map_or(0.0, |p| p.cost)
+                );
                 for (i, segment) in path.iter().enumerate() {
                     let connector = if i == 0 {
                         "START".to_string()
@@ -184,7 +187,10 @@ impl ShellCommand for AstrolabeCommand {
                     // Indent based on depth
                     let indent = "  ".repeat(i);
                     println!("{indent}↓ [{connector}]");
-                    println!("{indent}★ {} ({})", segment.entity.name, segment.entity.entity_type);
+                    println!(
+                        "{indent}★ {} ({})",
+                        segment.entity.name, segment.entity.entity_type
+                    );
                 }
                 println!();
             }
