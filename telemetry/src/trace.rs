@@ -136,15 +136,13 @@ impl fmt::Display for TraceId {
     ///
     /// This implementation is optimized to avoid memory allocation and formatting overhead,
     /// writing directly to a stack-allocated buffer.
-    #[allow(unsafe_code)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf = [0u8; 32];
         for (i, &byte) in self.0.iter().enumerate() {
             buf[i * 2] = HEX_CHARS[(byte >> 4) as usize];
             buf[i * 2 + 1] = HEX_CHARS[(byte & 0x0f) as usize];
         }
-        // SAFETY: buf is filled only with ASCII hex characters from HEX_CHARS
-        let s = unsafe { core::str::from_utf8_unchecked(&buf) };
+        let s = core::str::from_utf8(&buf).unwrap_or("INVALID_UTF8");
         f.write_str(s)
     }
 }
@@ -216,15 +214,13 @@ impl fmt::Display for SpanId {
     ///
     /// This implementation is optimized to avoid memory allocation and formatting overhead,
     /// writing directly to a stack-allocated buffer.
-    #[allow(unsafe_code)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf = [0u8; 16];
         for (i, &byte) in self.0.iter().enumerate() {
             buf[i * 2] = HEX_CHARS[(byte >> 4) as usize];
             buf[i * 2 + 1] = HEX_CHARS[(byte & 0x0f) as usize];
         }
-        // SAFETY: buf is filled only with ASCII hex characters from HEX_CHARS
-        let s = unsafe { core::str::from_utf8_unchecked(&buf) };
+        let s = core::str::from_utf8(&buf).unwrap_or("INVALID_UTF8");
         f.write_str(s)
     }
 }

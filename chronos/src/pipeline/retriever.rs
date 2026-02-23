@@ -19,10 +19,25 @@ pub async fn retrieve(
     query: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<Vec<ContextSource>> {
+    // Hard limit to prevent DoS via excessive allocation
+    const MAX_ITEMS_LIMIT: usize = 10_000;
+    if config.max_context_items > MAX_ITEMS_LIMIT {
+        return Err(ChronosError::RetrievalFailed(format!(
+            "max_context_items {} exceeds limit {}",
+            config.max_context_items, MAX_ITEMS_LIMIT
+        )));
+    }
+
     // Pre-allocate to avoid resizing.
     // We expect up to max_context_items from each source plus some recent messages.
     // 3 sources * max_context_items + 5 (recent messages padding)
-    let capacity = config.max_context_items * 3 + 5;
+    // Use checked arithmetic to prevent overflow
+    let capacity = config
+        .max_context_items
+        .checked_mul(3)
+        .and_then(|c| c.checked_add(5))
+        .ok_or_else(|| ChronosError::RetrievalFailed("Capacity overflow".to_string()))?;
+
     let mut sources = Vec::with_capacity(capacity);
 
     // Retrieve from each source in parallel (TODO: make truly parallel)
