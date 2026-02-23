@@ -6,7 +6,7 @@
 //! it into the Knowledge Graph (long-term memory) by extracting key entities and facts.
 
 use crate::error::{ChronosError, ChronosResult};
-use crate::experimental::psychic_paper::{Intent, PsychicPaper};
+use crate::experimental::psychic_paper;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -27,7 +27,6 @@ pub struct Dreamer {
     gallifrey: Arc<Gallifrey>,
     vortex: Arc<Vortex>,
     model: ModelHandle,
-    paper: PsychicPaper,
 }
 
 /// A simplified entity structure for LLM generation.
@@ -48,7 +47,6 @@ impl Dreamer {
             gallifrey,
             vortex,
             model,
-            paper: PsychicPaper::new(),
         }
     }
 
@@ -106,9 +104,7 @@ impl Dreamer {
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
         // 4. Parse output
-        let parsed = self
-            .paper
-            .interpret(&response, Intent::Json)
+        let parsed = psychic_paper::extract_json(&response)
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e)))?;
 
         let dream_entities: Vec<DreamEntity> = serde_json::from_value(parsed)

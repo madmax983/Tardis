@@ -13,7 +13,7 @@ use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
-use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
+use tardis_chronos::experimental::psychic_paper;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_vortex::{ModelHandle, Vortex};
@@ -24,7 +24,6 @@ const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 /// The Sonic Screwdriver.
 #[derive(Debug, Default)]
 pub struct SonicScrewdriver {
-    paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
     gallifrey: Option<Arc<Gallifrey>>,
     vortex: Option<Arc<Vortex>>,
@@ -41,7 +40,6 @@ impl SonicScrewdriver {
         model_handle: Option<ModelHandle>,
     ) -> Self {
         Self {
-            paper: PsychicPaper::new(),
             telemetry,
             gallifrey,
             vortex,
@@ -138,29 +136,54 @@ impl SonicScrewdriver {
         );
 
         // Try to interpret as JSON
-        match self.paper.interpret(&content, Intent::Json) {
-            Ok(_) => diagnosis.push_str("Type: Valid JSON\nStatus: Healthy 🟢"),
-            Err(_) => {
-                // Try other formats
-                if self.paper.interpret(&content, Intent::KeyValue).is_ok() {
-                    diagnosis.push_str("Type: Key-Value Pairs\nStatus: Healthy 🟢");
-                } else if self.paper.interpret(&content, Intent::List).is_ok() {
-                    diagnosis.push_str("Type: List\nStatus: Healthy 🟢");
-                } else {
-                    match self.paper.interpret(&content, Intent::Auto) {
-                        Ok(val) => {
-                            if val.is_string() {
-                                diagnosis.push_str("Type: Unknown / Text\nStatus: Ambiguous 🟡");
-                            } else {
-                                diagnosis.push_str(
-                                    "Type: Structured (Auto-detected)\nStatus: Healthy 🟢",
-                                );
-                            }
+        if psychic_paper::extract_json(&content).is_ok() {
+            diagnosis.push_str("Type: Valid JSON\nStatus: Healthy 🟢");
+        } else {
+            // Try other formats
+            let mut matched = false;
+            if let Ok(val) = psychic_paper::parse_kv(&content) {
+                if let Some(obj) = val.as_object() {
+                    if !obj.is_empty() {
+                        diagnosis.push_str("Type: Key-Value Pairs\nStatus: Healthy 🟢");
+                        matched = true;
+                    }
+                }
+            }
+
+            if !matched {
+                if let Ok(val) = psychic_paper::parse_list(&content) {
+                    if let Some(arr) = val.as_array() {
+                        let looks_like_list = if arr.len() > 1 {
+                            true
+                        } else {
+                            // Single element. Check for bullets or commas.
+                            content.contains("- ")
+                                || content.contains("* ")
+                                || content.contains(',')
+                        };
+
+                        if looks_like_list && !arr.is_empty() {
+                            diagnosis.push_str("Type: List\nStatus: Healthy 🟢");
+                            matched = true;
                         }
-                        Err(e) => {
-                            let _ =
-                                write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
+                    }
+                }
+            }
+
+            if !matched {
+                match psychic_paper::repair_structure(&content) {
+                    Ok(val) => {
+                        if val.is_string() {
+                            diagnosis.push_str("Type: Unknown / Text\nStatus: Ambiguous 🟡");
+                        } else {
+                            diagnosis.push_str(
+                                "Type: Structured (Auto-detected)\nStatus: Healthy 🟢",
+                            );
                         }
+                    }
+                    Err(e) => {
+                        let _ =
+                            write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
                     }
                 }
             }
@@ -188,9 +211,7 @@ impl SonicScrewdriver {
 
         // Attempt repair via interpretation
         // We use Auto intent to let PsychicPaper figure it out
-        let interpreted = self
-            .paper
-            .interpret(&content, Intent::Auto)
+        let interpreted = psychic_paper::repair_structure(&content)
             .map_err(|e| anyhow::anyhow!("Failed to interpret file: {e}"))?;
 
         // If it's a string, we probably didn't parse anything structured

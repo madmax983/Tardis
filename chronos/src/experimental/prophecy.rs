@@ -6,7 +6,7 @@
 //! based on current context.
 
 use crate::error::{ChronosError, ChronosResult};
-use crate::experimental::psychic_paper::{Intent, PsychicPaper};
+use crate::experimental::psychic_paper;
 use std::sync::Arc;
 use std::time::Duration;
 use tardis_common::id::{EntityId, ModelHandle};
@@ -20,7 +20,6 @@ use tracing::{info, instrument};
 #[derive(Debug)]
 pub struct Prophet {
     vortex: Arc<Vortex>,
-    paper: PsychicPaper,
 }
 
 impl Prophet {
@@ -29,7 +28,6 @@ impl Prophet {
     pub const fn new(vortex: Arc<Vortex>) -> Self {
         Self {
             vortex,
-            paper: PsychicPaper::new(),
         }
     }
 
@@ -69,9 +67,7 @@ impl Prophet {
             .await
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
-        let parsed = self
-            .paper
-            .interpret(&response, Intent::Json)
+        let parsed = psychic_paper::extract_json(&response)
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e)))?;
 
         let mut predictions = Vec::new();
