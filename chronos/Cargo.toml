@@ -11,7 +11,7 @@ rust-version.workspace = true
 workspace = true
 
 [features]
-nova = ["telemetry", "tardis-gallifrey/nova", "dep:tardis-vortex"]
+nova = ["telemetry", "tardis-gallifrey/nova"]
 telemetry = ["dep:tardis-telemetry"]
 
 [dependencies]
@@ -20,7 +20,6 @@ tardis-common = { path = "../common" }
 tardis-telemetry = { path = "../telemetry", optional = true }
 # Optional dependency for experimental features
 tardis-gallifrey = { path = "../gallifrey", optional = true }
-tardis-vortex = { path = "../vortex", optional = true }
 
 # Async runtime
 tokio = { workspace = true }

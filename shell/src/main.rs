@@ -34,10 +34,11 @@ async fn main() -> Result<()> {
     // Create adapter for Chronos
     // Use a placeholder handle for now - in a real system this would be the system model
     let model_handle = ModelHandle::new(0);
-    let llm_service = Arc::new(VortexLlmService::new(vortex.clone(), model_handle));
+    let llm_service: Arc<dyn tardis_common::traits::LlmService> =
+        Arc::new(VortexLlmService::new(vortex.clone(), model_handle));
 
     let chronos = Arc::new(Chronos::new(
-        llm_service,
+        llm_service.clone(),
         gallifrey.knowledge(),
         gallifrey.conversation(),
         gallifrey.system_state(),
@@ -47,11 +48,17 @@ async fn main() -> Result<()> {
     print_banner();
 
     #[cfg(feature = "nova")]
-    let prophet = Arc::new(Prophet::new(vortex.clone()));
+    let prophet = Arc::new(Prophet::new(llm_service));
 
     // Create and run REPL
     #[cfg(feature = "nova")]
-    let mut repl = Repl::new(chronos, gallifrey, telemetry_store, Some(prophet))?;
+    let mut repl = Repl::new(
+        chronos,
+        gallifrey,
+        telemetry_store,
+        Some(prophet),
+        Some(vortex),
+    )?;
 
     #[cfg(not(feature = "nova"))]
     let mut repl = Repl::new(chronos, gallifrey, telemetry_store)?;

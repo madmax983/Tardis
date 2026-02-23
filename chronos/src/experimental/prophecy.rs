@@ -10,25 +10,25 @@ use crate::experimental::psychic_paper::{Intent, PsychicPaper};
 use std::sync::Arc;
 use std::time::Duration;
 use tardis_common::id::{EntityId, ModelHandle};
+use tardis_common::llm::InferenceParams;
 use tardis_common::temporal::{BiTemporalInterval, TimeRange};
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::domain::Entity;
-use tardis_vortex::InferenceParams;
-use tardis_vortex::Vortex;
 use tracing::{info, instrument};
 
 /// The Prophet engine.
 #[derive(Debug)]
 pub struct Prophet {
-    vortex: Arc<Vortex>,
+    llm: Arc<dyn LlmService>,
     paper: PsychicPaper,
 }
 
 impl Prophet {
     /// Create a new Prophet.
     #[must_use]
-    pub const fn new(vortex: Arc<Vortex>) -> Self {
+    pub fn new(llm: Arc<dyn LlmService>) -> Self {
         Self {
-            vortex,
+            llm,
             paper: PsychicPaper::new(),
         }
     }
@@ -56,18 +56,18 @@ impl Prophet {
         );
 
         let response = self
-            .vortex
+            .llm
             .infer(
-                model,
                 &prompt,
                 InferenceParams {
                     max_tokens: 512,
                     temperature: 0.7,
                     ..Default::default()
-                },
+                }
+                .with_model(model),
             )
             .await
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(ChronosError::Common)?;
 
         let parsed = self
             .paper
@@ -135,6 +135,7 @@ impl Prophet {
 mod tests {
     use super::*;
     use serde_json::json;
+    use tardis_vortex::{Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_foresee() {
@@ -155,8 +156,10 @@ mod tests {
             Ok(response.to_string())
         }));
 
-        let prophet = Prophet::new(vortex);
         let model = ModelHandle::new(1);
+        let llm = Arc::new(VortexLlmService::new(vortex, model));
+
+        let prophet = Prophet::new(llm);
 
         let predictions = prophet
             .foresee(

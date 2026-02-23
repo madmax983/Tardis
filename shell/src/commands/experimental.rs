@@ -100,13 +100,17 @@ impl ShellCommand for SonicCommand {
             return Ok(CommandResult::Continue);
         }
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex().clone()),
+            Some(context.chronos.llm()),
             model_handle,
         );
 
@@ -220,11 +224,15 @@ impl ShellCommand for DreamCommand {
     }
 
     async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let dreamer = Dreamer::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex().clone(),
+                context.chronos.llm(),
                 *handle,
             );
 
@@ -279,13 +287,17 @@ impl ShellCommand for FixCommand {
             return Ok(CommandResult::Continue);
         }
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let screwdriver = SonicScrewdriver::new(
             context.telemetry.clone(),
             Some(Arc::clone(&context.gallifrey)),
-            Some(context.chronos.vortex().clone()),
+            Some(context.chronos.llm()),
             model_handle,
         );
 
@@ -490,12 +502,16 @@ impl ShellCommand for BiographerCommand {
         }
         let entity_name = args.join(" ");
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         let model_handle = loaded_models.first().map(|(h, _)| *h);
 
         let biographer = Biographer::new(
             Arc::clone(&context.gallifrey),
-            context.chronos.vortex().clone(),
+            context.chronos.llm(),
             model_handle,
         );
 
@@ -536,11 +552,15 @@ impl ShellCommand for CuriosityCommand {
     }
 
     async fn execute(&self, _args: &[String], context: &CommandContext) -> Result<CommandResult> {
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let curiosity = Curiosity::new(
                 Arc::clone(&context.gallifrey),
-                context.chronos.vortex().clone(),
+                context.chronos.llm(),
                 *handle,
             );
 
@@ -657,7 +677,11 @@ impl ShellCommand for WeaveCommand {
         let entity1 = &args[0];
         let entity2 = &args[1];
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let weaver = Weaver::new(
                 context.gallifrey.knowledge(),
@@ -719,7 +743,11 @@ impl ShellCommand for MediumCommand {
             }
         };
 
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
         if let Some((handle, _)) = loaded_models.first() {
             let medium = Medium::new(
                 context.gallifrey.knowledge(),
@@ -770,7 +798,11 @@ impl ShellCommand for PrismCommand {
         }
 
         let query = args.join(" ");
-        let loaded_models = context.chronos.vortex().list_loaded_models();
+        let loaded_models = context
+            .vortex
+            .as_ref()
+            .expect("Vortex required")
+            .list_loaded_models();
 
         if let Some((handle, _)) = loaded_models.first() {
             let prism = Prism::new(context.chronos.clone());

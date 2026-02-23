@@ -5,27 +5,29 @@
 
 use std::fmt::Write;
 use std::sync::Arc;
+use tardis_common::id::ModelHandle;
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
 
 /// The Biographer engine.
 #[derive(Debug)]
 pub struct Biographer {
     gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
+    llm: Arc<dyn LlmService>,
     model: Option<ModelHandle>,
 }
 
 impl Biographer {
     /// Create a new Biographer.
-    pub const fn new(
+    pub fn new(
         gallifrey: Arc<Gallifrey>,
-        vortex: Arc<Vortex>,
+        llm: Arc<dyn LlmService>,
         model: Option<ModelHandle>,
     ) -> Self {
         Self {
             gallifrey,
-            vortex,
+            llm,
             model,
         }
     }
@@ -97,9 +99,14 @@ impl Biographer {
                 max_tokens: 500,
                 temperature: 0.7,
                 ..Default::default()
-            };
+            }
+            .with_model(handle);
 
-            let bio = self.vortex.infer(handle, &prompt, params).await?;
+            let bio = self
+                .llm
+                .infer(&prompt, params)
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
             Ok(bio)
         } else {
             // Fallback if no model is loaded
@@ -116,6 +123,7 @@ mod tests {
     use tardis_common::id::EntityId;
     use tardis_common::temporal::BiTemporalInterval;
     use tardis_gallifrey::domain::Entity;
+    use tardis_vortex::{Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_biography_generation() {
@@ -151,7 +159,10 @@ mod tests {
         gallifrey.insert(entity).await.unwrap();
 
         // Test fallback (no model)
-        let bio = Biographer::new(gallifrey.clone(), vortex.clone(), None);
+        let model = ModelHandle::new(0); // dummy
+        let llm = Arc::new(VortexLlmService::new(vortex, model));
+
+        let bio = Biographer::new(gallifrey.clone(), llm, None);
         let result = bio.biography("The Doctor").await.unwrap();
 
         assert!(result.contains("The Doctor"));

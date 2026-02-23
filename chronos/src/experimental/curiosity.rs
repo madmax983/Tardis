@@ -7,27 +7,28 @@
 
 use crate::error::ChronosResult;
 use std::sync::Arc;
+use tardis_common::id::ModelHandle;
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::config::InferenceParams;
-use tardis_vortex::{ModelHandle, Vortex};
 use tracing::{info, instrument};
 
 /// The Curiosity engine.
 #[derive(Debug)]
 pub struct Curiosity {
     gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
+    llm: Arc<dyn LlmService>,
     model: ModelHandle,
 }
 
 impl Curiosity {
     /// Create a new Curiosity engine.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(gallifrey: Arc<Gallifrey>, llm: Arc<dyn LlmService>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
-            vortex,
+            llm,
             model,
         }
     }
@@ -88,15 +89,14 @@ impl Curiosity {
         // Ask Vortex
         let params = InferenceParams::default()
             .with_temperature(0.8) // Be creative
-            .with_max_tokens(64);
+            .with_max_tokens(64)
+            .with_model(self.model);
 
         let question = self
-            .vortex
-            .infer(self.model, &prompt, params)
+            .llm
+            .infer(&prompt, params)
             .await
-            .map_err(|e| {
-                crate::error::ChronosError::Common(tardis_common::Error::Internal(e.to_string()))
-            })?;
+            .map_err(crate::error::ChronosError::Common)?;
 
         Ok(format!(
             "🤔 Regarding '{}': {}",
@@ -113,7 +113,7 @@ mod tests {
     use std::collections::HashMap;
     use tardis_common::id::EntityId;
     use tardis_common::temporal::BiTemporalInterval;
-    use tardis_vortex::ModelLoadConfig;
+    use tardis_vortex::{ModelLoadConfig, Vortex, VortexLlmService};
 
     fn create_sparse_entity(name: &str) -> Entity {
         Entity {
@@ -151,7 +151,8 @@ mod tests {
             .await
             .unwrap();
 
-        let curiosity = Curiosity::new(gallifrey, vortex, handle);
+        let llm = Arc::new(VortexLlmService::new(vortex, handle));
+        let curiosity = Curiosity::new(gallifrey, llm, handle);
 
         let question = curiosity.ask().await.unwrap();
 
@@ -173,7 +174,8 @@ mod tests {
             .await
             .unwrap();
 
-        let curiosity = Curiosity::new(gallifrey, vortex, handle);
+        let llm = Arc::new(VortexLlmService::new(vortex, handle));
+        let curiosity = Curiosity::new(gallifrey, llm, handle);
 
         let response = curiosity.ask().await.unwrap();
         assert!(response.contains("I am content"));

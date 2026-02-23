@@ -16,6 +16,8 @@ use tracing::{error, info};
 
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
+#[cfg(feature = "nova")]
+use tardis_vortex::Vortex;
 
 /// The main REPL for Tardis shell.
 #[derive(Debug)]
@@ -36,6 +38,9 @@ pub struct Repl {
     /// Prophet engine (optional, Nova only).
     #[cfg(feature = "nova")]
     prophet: Option<Arc<Prophet>>,
+    /// Vortex engine (optional, Nova only).
+    #[cfg(feature = "nova")]
+    vortex: Option<Arc<Vortex>>,
     /// Current session ID.
     session_id: SessionId,
     /// Whether to continue running.
@@ -56,6 +61,7 @@ impl Repl {
         gallifrey: Arc<Gallifrey>,
         telemetry_store: Option<Arc<TelemetryStore>>,
         #[cfg(feature = "nova")] prophet: Option<Arc<Prophet>>,
+        #[cfg(feature = "nova")] vortex: Option<Arc<Vortex>>,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
 
@@ -82,6 +88,8 @@ impl Repl {
             telemetry_store,
             #[cfg(feature = "nova")]
             prophet,
+            #[cfg(feature = "nova")]
+            vortex,
             session_id,
             running: true,
             #[cfg(feature = "nova")]
@@ -199,6 +207,8 @@ impl Repl {
                 telemetry: self.telemetry_store.clone(),
                 #[cfg(feature = "nova")]
                 prophet: self.prophet.clone(),
+                #[cfg(feature = "nova")]
+                vortex: self.vortex.clone(),
                 session_id: self.session_id,
             };
 

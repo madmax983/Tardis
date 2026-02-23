@@ -9,6 +9,8 @@ use tardis_telemetry::gallifrey::TelemetryStore;
 
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prophecy::Prophet;
+#[cfg(feature = "nova")]
+use tardis_vortex::Vortex;
 
 /// Context provided to every shell command.
 pub struct CommandContext {
@@ -21,6 +23,9 @@ pub struct CommandContext {
     /// Access to the Prophet Engine (optional, Nova only).
     #[cfg(feature = "nova")]
     pub prophet: Option<Arc<Prophet>>,
+    /// Access to the Vortex Engine (optional, Nova only).
+    #[cfg(feature = "nova")]
+    pub vortex: Option<Arc<Vortex>>,
     /// The current session ID.
     pub session_id: SessionId,
 }
@@ -34,6 +39,8 @@ impl fmt::Debug for CommandContext {
 
         #[cfg(feature = "nova")]
         d.field("prophet", &self.prophet.is_some());
+        #[cfg(feature = "nova")]
+        d.field("vortex", &self.vortex.is_some());
 
         d.field("session_id", &self.session_id).finish()
     }

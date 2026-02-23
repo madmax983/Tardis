@@ -47,8 +47,6 @@ use tardis_common::llm::InferenceParams;
 use tardis_common::traits::{
     ConversationService, KnowledgeService, LlmService, SystemStateService,
 };
-#[cfg(feature = "nova")]
-use tardis_vortex::{Vortex, VortexLlmService};
 use tracing::{info, instrument};
 
 /// Configuration for a RAG query.
@@ -171,24 +169,6 @@ impl Chronos {
             conversation,
             system_state,
         }
-    }
-
-    /// Get the underlying Vortex engine (Nova only).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the LLM service is not a `VortexLlmService`.
-    #[cfg(feature = "nova")]
-    #[must_use]
-    #[allow(clippy::panic)]
-    pub fn vortex(&self) -> &Arc<Vortex> {
-        self.llm
-            .as_any()
-            .downcast_ref::<VortexLlmService>()
-            .map_or_else(
-                || panic!("LlmService is not VortexLlmService"),
-                VortexLlmService::engine,
-            )
     }
 
     /// Get the LLM service.

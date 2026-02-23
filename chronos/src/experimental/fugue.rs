@@ -13,10 +13,10 @@ use serde_json::Value;
 use std::cmp::Ordering;
 use std::fmt::Write;
 use std::sync::Arc;
-use tardis_common::id::ModelHandle;
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::{InferenceParams, Vortex};
 use tracing::{info, instrument};
 
 /// An event in the alternative timeline.
@@ -40,7 +40,7 @@ pub struct FugueResult {
 /// The Fugue engine.
 #[derive(Debug)]
 pub struct Fugue {
-    vortex: Arc<Vortex>,
+    llm: Arc<dyn LlmService>,
     gallifrey: Arc<Gallifrey>,
     paper: PsychicPaper,
 }
@@ -48,9 +48,9 @@ pub struct Fugue {
 impl Fugue {
     /// Create a new Fugue engine.
     #[must_use]
-    pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
+    pub fn new(llm: Arc<dyn LlmService>, gallifrey: Arc<Gallifrey>) -> Self {
         Self {
-            vortex,
+            llm,
             gallifrey,
             paper: PsychicPaper::new(),
         }
@@ -67,16 +67,15 @@ impl Fugue {
         divergence_time: DateTime<Utc>,
         counterfactual: &str,
         horizon: Duration,
-        model: ModelHandle,
     ) -> ChronosResult<FugueResult> {
         info!("Initiating Temporal Fugue at {}", divergence_time);
 
         // 1. Embed the counterfactual to find relevant context
         let embedding = self
-            .vortex
-            .embed(model, counterfactual)
+            .llm
+            .embed(counterfactual)
             .await
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(ChronosError::Common)?;
 
         // 2. Scan history for relevant entities active at the divergence time
         let candidates_cell = std::sync::Mutex::new(Vec::new());
@@ -138,9 +137,8 @@ impl Fugue {
 
         // 4. Inference
         let response = self
-            .vortex
+            .llm
             .infer(
-                model,
                 &prompt,
                 InferenceParams {
                     max_tokens: 1024,
@@ -149,7 +147,7 @@ impl Fugue {
                 },
             )
             .await
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(ChronosError::Common)?;
 
         // 5. Parse
         let parsed = self
@@ -205,6 +203,7 @@ mod tests {
     use std::collections::HashMap;
     use tardis_common::id::EntityId;
     use tardis_common::temporal::BiTemporalInterval;
+    use tardis_vortex::{Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_fugue_simulation() {
@@ -247,12 +246,14 @@ mod tests {
         };
         gallifrey.knowledge().insert_entity(entity).unwrap();
 
-        let fugue = Fugue::new(vortex, gallifrey);
         let model = ModelHandle::new(1);
+        let llm = Arc::new(VortexLlmService::new(vortex, model));
+
+        let fugue = Fugue::new(llm, gallifrey);
         let divergence_time = Utc::now();
 
         let result = fugue
-            .simulate(divergence_time, "Database crash", Duration::hours(1), model)
+            .simulate(divergence_time, "Database crash", Duration::hours(1))
             .await
             .unwrap();
 

@@ -12,20 +12,20 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
-use tardis_common::id::EntityId;
+use tardis_common::id::{EntityId, ModelHandle};
+use tardis_common::llm::InferenceParams;
 use tardis_common::temporal::BiTemporalInterval;
+use tardis_common::traits::LlmService;
 use tardis_common::SessionId;
 use tardis_gallifrey::domain::Entity;
 use tardis_gallifrey::Gallifrey;
-use tardis_vortex::config::InferenceParams;
-use tardis_vortex::{ModelHandle, Vortex};
 use tracing::{info, instrument};
 
 /// The Dreamer engine.
 #[derive(Debug)]
 pub struct Dreamer {
     gallifrey: Arc<Gallifrey>,
-    vortex: Arc<Vortex>,
+    llm: Arc<dyn LlmService>,
     model: ModelHandle,
     paper: PsychicPaper,
 }
@@ -43,10 +43,10 @@ struct DreamEntity {
 impl Dreamer {
     /// Create a new Dreamer engine.
     #[must_use]
-    pub const fn new(gallifrey: Arc<Gallifrey>, vortex: Arc<Vortex>, model: ModelHandle) -> Self {
+    pub fn new(gallifrey: Arc<Gallifrey>, llm: Arc<dyn LlmService>, model: ModelHandle) -> Self {
         Self {
             gallifrey,
-            vortex,
+            llm,
             model,
             paper: PsychicPaper::new(),
         }
@@ -97,11 +97,12 @@ impl Dreamer {
         // 3. Inference
         let params = InferenceParams::default()
             .with_temperature(0.3) // Be factual
-            .with_max_tokens(1024);
+            .with_max_tokens(1024)
+            .with_model(self.model);
 
         let response = self
-            .vortex
-            .infer(self.model, &prompt, params)
+            .llm
+            .infer(&prompt, params)
             .await
             .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
 
@@ -159,7 +160,7 @@ mod tests {
     use chrono::Utc;
     use serde_json::json;
     use tardis_gallifrey::domain::{Message, Role};
-    use tardis_vortex::ModelLoadConfig;
+    use tardis_vortex::{ModelLoadConfig, Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_dreamer_consolidates_memory() {
@@ -202,7 +203,8 @@ mod tests {
             .await
             .unwrap();
 
-        let dreamer = Dreamer::new(gallifrey.clone(), vortex, handle);
+        let llm = Arc::new(VortexLlmService::new(vortex, handle));
+        let dreamer = Dreamer::new(gallifrey.clone(), llm, handle);
 
         let ids = dreamer.dream(session_id).await.unwrap();
 

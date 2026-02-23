@@ -6,10 +6,12 @@
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tardis_common::id::ModelHandle;
+use tardis_common::llm::InferenceParams;
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
 use tardis_telemetry::types::Level;
-use tardis_vortex::{InferenceParams, ModelHandle, Vortex};
 
 /// Vital signs of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +62,7 @@ pub struct Prescription {
 pub struct SystemDoctor {
     telemetry: Arc<TelemetryStore>,
     gallifrey: Arc<Gallifrey>,
-    vortex: Option<Arc<Vortex>>,
+    llm: Option<Arc<dyn LlmService>>,
     model_handle: Option<ModelHandle>,
 }
 
@@ -71,15 +73,15 @@ impl SystemDoctor {
         Self {
             telemetry,
             gallifrey,
-            vortex: None,
+            llm: None,
             model_handle: None,
         }
     }
 
-    /// Attach Vortex AI engine.
+    /// Attach LLM service.
     #[must_use]
-    pub fn with_vortex(mut self, vortex: Arc<Vortex>) -> Self {
-        self.vortex = Some(vortex);
+    pub fn with_llm(mut self, llm: Arc<dyn LlmService>) -> Self {
+        self.llm = Some(llm);
         self
     }
 
@@ -186,7 +188,7 @@ impl SystemDoctor {
         // Correlate with system changes (Heuristic or AI)
         let mut root_causes = Vec::new();
 
-        if let (Some(vortex), Some(handle)) = (&self.vortex, self.model_handle) {
+        if let (Some(llm), Some(handle)) = (&self.llm, self.model_handle) {
             // AI-Enhanced Diagnosis
             if status != HealthStatus::Healthy {
                 let changes_str = if changes_desc.is_empty() {
@@ -211,14 +213,15 @@ impl SystemDoctor {
                     max_tokens: 200,
                     temperature: 0.7,
                     ..InferenceParams::default()
-                };
+                }
+                .with_model(handle);
 
-                match vortex.infer(handle, &prompt, params).await {
+                match llm.infer(&prompt, params).await {
                     Ok(response) => {
                         root_causes.push(format!("[AI] {}", response.trim()));
                     }
                     Err(e) => {
-                        root_causes.push(format!("[AI Error] Failed to consult Vortex: {e}"));
+                        root_causes.push(format!("[AI Error] Failed to consult LLM: {e}"));
                     }
                 }
             }
@@ -264,6 +267,7 @@ mod tests {
     use std::time::Instant;
     use tardis_telemetry::types::{SpanId, Subsystem, TraceId};
     use tardis_telemetry::userspace::layer::{EventData, SpanData};
+    use tardis_vortex::{Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_doctor_diagnosis() {
@@ -327,9 +331,10 @@ mod tests {
         }));
 
         let handle = ModelHandle::new(1); // Dummy handle
+        let llm = Arc::new(VortexLlmService::new(vortex, handle));
 
         let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey)
-            .with_vortex(vortex)
+            .with_llm(llm)
             .with_model(handle);
 
         // Inject an error to trigger diagnosis

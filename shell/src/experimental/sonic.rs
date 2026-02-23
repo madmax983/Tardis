@@ -14,9 +14,10 @@ use std::path::Path;
 use std::sync::Arc;
 use tardis_chronos::experimental::doctor::{HealthStatus, SystemDoctor};
 use tardis_chronos::experimental::psychic_paper::{Intent, PsychicPaper};
+use tardis_common::id::ModelHandle;
+use tardis_common::traits::LlmService;
 use tardis_gallifrey::Gallifrey;
 use tardis_telemetry::gallifrey::TelemetryStore;
-use tardis_vortex::{ModelHandle, Vortex};
 
 /// Maximum file size for inspection/repair (10 MB).
 const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
@@ -27,24 +28,24 @@ pub struct SonicScrewdriver {
     paper: PsychicPaper,
     telemetry: Option<Arc<TelemetryStore>>,
     gallifrey: Option<Arc<Gallifrey>>,
-    vortex: Option<Arc<Vortex>>,
+    llm: Option<Arc<dyn LlmService>>,
     model_handle: Option<ModelHandle>,
 }
 
 impl SonicScrewdriver {
     /// Create a new Sonic Screwdriver.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         telemetry: Option<Arc<TelemetryStore>>,
         gallifrey: Option<Arc<Gallifrey>>,
-        vortex: Option<Arc<Vortex>>,
+        llm: Option<Arc<dyn LlmService>>,
         model_handle: Option<ModelHandle>,
     ) -> Self {
         Self {
             paper: PsychicPaper::new(),
             telemetry,
             gallifrey,
-            vortex,
+            llm,
             model_handle,
         }
     }
@@ -61,8 +62,8 @@ impl SonicScrewdriver {
 
         let mut doctor = SystemDoctor::new(telemetry.clone(), gallifrey.clone());
 
-        if let Some(vortex) = &self.vortex {
-            doctor = doctor.with_vortex(vortex.clone());
+        if let Some(llm) = &self.llm {
+            doctor = doctor.with_llm(llm.clone());
         }
 
         if let Some(handle) = self.model_handle {
@@ -321,6 +322,7 @@ mod tests {
         use std::collections::HashMap;
         use tardis_telemetry::types::{Level, Subsystem, TraceId};
         use tardis_telemetry::userspace::layer::EventData;
+        use tardis_vortex::{Vortex, VortexLlmService};
 
         // Setup dependencies
         let telemetry = Arc::new(TelemetryStore::new());
@@ -343,6 +345,8 @@ mod tests {
             Ok(expected_diagnosis.to_string())
         }));
 
+        let llm = Arc::new(VortexLlmService::new(vortex, handle));
+
         // Inject an error to trigger diagnosis
         let error_event = EventData {
             span_id: None,
@@ -357,7 +361,7 @@ mod tests {
 
         // Run Sonic Screwdriver
         let sonic =
-            SonicScrewdriver::new(Some(telemetry), Some(gallifrey), Some(vortex), Some(handle));
+            SonicScrewdriver::new(Some(telemetry), Some(gallifrey), Some(llm), Some(handle));
 
         let report = sonic.diagnose().await.unwrap();
 

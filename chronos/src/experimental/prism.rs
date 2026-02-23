@@ -10,7 +10,7 @@ use crate::experimental::psychic_paper::{Intent, PsychicPaper};
 use crate::{Chronos, RagConfig};
 use std::sync::Arc;
 use tardis_common::id::ModelHandle;
-use tardis_vortex::{InferenceParams, Vortex};
+use tardis_common::llm::InferenceParams;
 use tracing::{info, instrument, warn};
 
 /// A result from a single perspective.
@@ -26,7 +26,6 @@ pub struct PerspectiveResult {
 #[derive(Debug)]
 pub struct Prism {
     chronos: Arc<Chronos>,
-    vortex: Arc<Vortex>,
     paper: PsychicPaper,
 }
 
@@ -34,10 +33,8 @@ impl Prism {
     /// Create a new Prism engine.
     #[must_use]
     pub fn new(chronos: Arc<Chronos>) -> Self {
-        let vortex = chronos.vortex().clone();
         Self {
             chronos,
-            vortex,
             paper: PsychicPaper::new(),
         }
     }
@@ -64,13 +61,15 @@ impl Prism {
 
         let params = InferenceParams::default()
             .with_temperature(0.7)
-            .with_max_tokens(100);
+            .with_max_tokens(100)
+            .with_model(model);
 
         let response = self
-            .vortex
-            .infer(model, &prompt, params)
+            .chronos
+            .llm()
+            .infer(&prompt, params)
             .await
-            .map_err(|e| ChronosError::Common(tardis_common::Error::Internal(e.to_string())))?;
+            .map_err(ChronosError::Common)?;
 
         let perspectives_val = self
             .paper
@@ -140,8 +139,7 @@ mod tests {
     use tardis_common::traits::{
         ConversationService, KnowledgeService, LlmService, SystemStateService,
     };
-    use tardis_vortex::ModelLoadConfig;
-    use tardis_vortex::VortexLlmService;
+    use tardis_vortex::{ModelLoadConfig, Vortex, VortexLlmService};
 
     #[tokio::test]
     async fn test_refract_flow() {
