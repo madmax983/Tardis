@@ -168,7 +168,7 @@ impl Router {
     }
 
     /// Tokenize input string respecting quotes.
-    /// Returns a vector of (token, end_offset) tuples.
+    /// Returns a vector of (token, `end_offset`) tuples.
     fn tokenize(input: &str) -> Vec<(String, usize)> {
         let mut tokens = Vec::new();
         let mut current_token = String::new();
