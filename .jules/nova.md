@@ -38,3 +38,8 @@
 **Concept:** A copy-on-write overlay that allows "What-If" scenarios on the Knowledge Graph without corrupting the main timeline.
 **Fate:** Merged (Experimental)
 **Lesson:** Bi-temporal data is great for history, but for hypothetical futures, we need a lightweight branching mechanism that doesn't persist until committed.
+
+## Cartographer (Atlas)
+**Concept:** A 2D ASCII map of the Knowledge Graph that uses a deterministic LCG to project high-dimensional embeddings onto a terminal grid.
+**Fate:** Merged (Experimental)
+**Lesson:** Deterministic random projection is a cheap and effective way to visualize semantic clusters in a "no-std" friendly way without heavy ML dependencies.
