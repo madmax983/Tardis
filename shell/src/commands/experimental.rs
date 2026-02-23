@@ -24,6 +24,8 @@ use crate::experimental::{
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::astrolabe::Astrolabe;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
@@ -132,6 +134,62 @@ impl ShellCommand for SonicCommand {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
         }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Atlas command.
+///
+/// Visualizes the knowledge graph as a 2D ASCII map.
+///
+/// # Usage
+///
+/// ```text
+/// atlas [width] [height]
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct AtlasCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for AtlasCommand {
+    fn name(&self) -> &'static str {
+        "atlas"
+    }
+
+    fn description(&self) -> &'static str {
+        "Show knowledge graph map"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        let mut width = 60;
+        let mut height = 30;
+
+        if let Some(w) = args.first() {
+             if let Ok(val) = w.parse() {
+                 width = val;
+             }
+        }
+
+        if let Some(h) = args.get(1) {
+             if let Ok(val) = h.parse() {
+                 height = val;
+             }
+        }
+
+        // Enforce minimum size to avoid panics
+        if width < 10 { width = 10; }
+        if height < 5 { height = 5; }
+
+        let cartographer = Cartographer::new(Arc::clone(&context.gallifrey));
+
+        println!("🗺️ Unrolling the charts...");
+        match cartographer.map(width, height) {
+            Ok(map) => println!("\n{map}\n"),
+            Err(e) => println!("Failed to draw map: {e}"),
+        }
+
         Ok(CommandResult::Continue)
     }
 }
