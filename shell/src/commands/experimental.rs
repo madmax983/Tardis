@@ -22,13 +22,15 @@ use crate::experimental::{
     biographer::Biographer, chronograph::ChronoGraph, heatmap_cmd, sonic::SonicScrewdriver,
 };
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::astrolabe::Astrolabe;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::astrolabe::Astrolabe;
-#[cfg(feature = "nova")]
 use tardis_chronos::experimental::medium::Medium;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::prism::Prism;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
@@ -173,7 +175,10 @@ impl ShellCommand for AstrolabeCommand {
 
         match astrolabe.navigate(start_name, end_name) {
             Ok(path) => {
-                println!("\nCourse plotted (Cost: {:.2}):", path.last().map_or(0.0, |p| p.cost));
+                println!(
+                    "\nCourse plotted (Cost: {:.2}):",
+                    path.last().map_or(0.0, |p| p.cost)
+                );
                 for (i, segment) in path.iter().enumerate() {
                     let connector = if i == 0 {
                         "START".to_string()
@@ -184,7 +189,10 @@ impl ShellCommand for AstrolabeCommand {
                     // Indent based on depth
                     let indent = "  ".repeat(i);
                     println!("{indent}↓ [{connector}]");
-                    println!("{indent}★ {} ({})", segment.entity.name, segment.entity.entity_type);
+                    println!(
+                        "{indent}★ {} ({})",
+                        segment.entity.name, segment.entity.entity_type
+                    );
                 }
                 println!();
             }
@@ -726,6 +734,62 @@ impl ShellCommand for MediumCommand {
             }
         } else {
             println!("The Medium needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Prism command.
+///
+/// Refracts a query through multiple perspectives (personas).
+///
+/// # Usage
+///
+/// ```text
+/// prism <query>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct PrismCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for PrismCommand {
+    fn name(&self) -> &'static str {
+        "prism"
+    }
+
+    fn description(&self) -> &'static str {
+        "Refract query through multiple perspectives"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.is_empty() {
+            println!("Usage: prism <query>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let query = args.join(" ");
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+
+        if let Some((handle, _)) = loaded_models.first() {
+            let prism = Prism::new(context.chronos.clone());
+
+            println!("💎 Refracting query through the Prism...");
+
+            match prism.refract(&query, *handle).await {
+                Ok(results) => {
+                    println!("\nSpectral Analysis Complete:\n");
+                    for result in results {
+                        println!("--[{}]--------------------------------", result.perspective);
+                        println!("{}\n", result.response.trim());
+                    }
+                    println!("-------------------------------------------");
+                }
+                Err(e) => println!("The Prism shattered: {e}"),
+            }
+        } else {
+            println!("Prism needs a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }

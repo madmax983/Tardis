@@ -14,7 +14,7 @@
 //! *   [`ConversationService`]: The short-term memory. Manages chat history.
 //! *   [`SystemStateService`]: The nervous system. Tracks OS state changes.
 //!
-//! # async_trait
+//! # `async_trait`
 //!
 //! You'll notice all traits are annotated with `#[async_trait]`. This is because Rust
 //! currently does not support async functions in traits natively (without boxing).

@@ -81,7 +81,7 @@ impl Astrolabe {
         open_set.push(State {
             id: start_entity.id,
             cost: 0.0,
-            priority: self.heuristic(&start_entity, &end_entity),
+            priority: Self::heuristic(&start_entity, &end_entity),
         });
 
         // Pre-fetch graph structure (optimization: scan once)
@@ -95,7 +95,7 @@ impl Astrolabe {
         }) = open_set.pop()
         {
             if current_id == end_entity.id {
-                return self.reconstruct_path(current_id, &came_from, &entities, &g_score);
+                return Ok(Self::reconstruct_path(current_id, &came_from, &entities, &g_score));
             }
 
             // If we found a shorter path already, skip
@@ -111,7 +111,7 @@ impl Astrolabe {
                         // Cost = 1.0 (hop) + Semantic Drag
                         // Semantic Drag = (1.0 - Similarity) * 2.0 (To weight semantics heavily)
                         let semantic_drag =
-                            (1.0 - self.similarity(neighbor_entity, &end_entity)) * 2.0;
+                            (1.0 - Self::similarity(neighbor_entity, &end_entity)) * 2.0;
                         let tentative_g = current_g + 1.0 + semantic_drag;
 
                         if tentative_g < *g_score.get(neighbor_id).unwrap_or(&f32::INFINITY) {
@@ -120,7 +120,7 @@ impl Astrolabe {
                             g_score.insert(*neighbor_id, tentative_g);
 
                             let f_score =
-                                tentative_g + self.heuristic(neighbor_entity, &end_entity);
+                                tentative_g + Self::heuristic(neighbor_entity, &end_entity);
                             open_set.push(State {
                                 id: *neighbor_id,
                                 cost: tentative_g,
@@ -148,9 +148,10 @@ impl Astrolabe {
                 }
                 // Case-insensitive match, prefer exact match if possible, otherwise first match
                 // Actually, just find the first one that matches case-insensitively and is current.
-                if let Some(e) = history.iter().find(|e| {
-                    e.name.eq_ignore_ascii_case(name) && e.temporal.is_current()
-                }) {
+                if let Some(e) = history
+                    .iter()
+                    .find(|e| e.name.eq_ignore_ascii_case(name) && e.temporal.is_current())
+                {
                     found = Some(e.clone());
                 }
             })
@@ -194,11 +195,11 @@ impl Astrolabe {
         Ok(map)
     }
 
-    fn heuristic(&self, a: &Entity, b: &Entity) -> f32 {
-        (1.0 - self.similarity(a, b)) * 2.0
+    fn heuristic(a: &Entity, b: &Entity) -> f32 {
+        (1.0 - Self::similarity(a, b)) * 2.0
     }
 
-    fn similarity(&self, a: &Entity, b: &Entity) -> f32 {
+    fn similarity(a: &Entity, b: &Entity) -> f32 {
         if let (Some(va), Some(vb)) = (&a.embedding, &b.embedding) {
             cosine_similarity(va, vb)
         } else {
@@ -207,19 +208,16 @@ impl Astrolabe {
     }
 
     fn reconstruct_path(
-        &self,
         current: EntityId,
         came_from: &HashMap<EntityId, (EntityId, Option<String>)>,
         entities: &HashMap<EntityId, Entity>,
         g_score: &HashMap<EntityId, f32>,
-    ) -> ChronosResult<Vec<PathSegment>> {
+    ) -> Vec<PathSegment> {
         let mut path = Vec::new();
         let mut curr = current;
 
         // Add end node
-        let mut via_to_curr = came_from
-            .get(&curr)
-            .and_then(|(_, v)| v.clone());
+        let mut via_to_curr = came_from.get(&curr).and_then(|(_, v)| v.clone());
 
         if let Some(entity) = entities.get(&curr) {
             path.push(PathSegment {
@@ -231,9 +229,7 @@ impl Astrolabe {
 
         while let Some((prev, _)) = came_from.get(&curr) {
             curr = *prev;
-            via_to_curr = came_from
-                .get(&curr)
-                .and_then(|(_, v)| v.clone());
+            via_to_curr = came_from.get(&curr).and_then(|(_, v)| v.clone());
 
             if let Some(entity) = entities.get(&curr) {
                 path.push(PathSegment {
@@ -245,7 +241,7 @@ impl Astrolabe {
         }
 
         path.reverse();
-        Ok(path)
+        path
     }
 }
 
