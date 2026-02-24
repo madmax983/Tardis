@@ -130,9 +130,7 @@ impl Prism {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tardis_common::traits::{
-        ConversationService, KnowledgeService, LlmService, SystemStateService,
-    };
+    use tardis_common::traits::LlmService;
     use tardis_vortex::ModelLoadConfig;
     use tardis_vortex::VortexLlmService;
 
@@ -164,12 +162,9 @@ mod tests {
         let llm_service =
             Arc::new(VortexLlmService::new(vortex.clone(), handle)) as Arc<dyn LlmService>;
 
-        let knowledge =
-            Arc::new(tardis_gallifrey::stores::KnowledgeStore::new()) as Arc<dyn KnowledgeService>;
-        let conversation = Arc::new(tardis_gallifrey::stores::ConversationStore::new())
-            as Arc<dyn ConversationService>;
-        let system_state = Arc::new(tardis_gallifrey::stores::SystemStateStore::new())
-            as Arc<dyn SystemStateService>;
+        let knowledge = Arc::new(tardis_gallifrey::stores::KnowledgeStore::new());
+        let conversation = Arc::new(tardis_gallifrey::stores::ConversationStore::new());
+        let system_state = Arc::new(tardis_gallifrey::stores::SystemStateStore::new());
 
         let chronos = Arc::new(Chronos::new(
             llm_service,

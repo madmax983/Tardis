@@ -8,13 +8,14 @@
 //! ```rust,no_run
 //! use std::sync::Arc;
 //! use tardis_chronos::{Chronos, RagConfig};
-//! use tardis_common::traits::{LlmService, KnowledgeService, ConversationService, SystemStateService};
+//! use tardis_common::traits::LlmService;
+//! use tardis_gallifrey::stores::{KnowledgeStore, ConversationStore, SystemStateStore};
 //!
 //! # async fn example(
 //! #     llm: Arc<dyn LlmService>,
-//! #     knowledge: Arc<dyn KnowledgeService>,
-//! #     conversation: Arc<dyn ConversationService>,
-//! #     system_state: Arc<dyn SystemStateService>
+//! #     knowledge: Arc<KnowledgeStore>,
+//! #     conversation: Arc<ConversationStore>,
+//! #     system_state: Arc<SystemStateStore>
 //! # ) -> anyhow::Result<()> {
 //! // 2. Create Chronos engine
 //! let chronos = Chronos::new(llm, knowledge, conversation, system_state);
@@ -44,9 +45,9 @@ use std::sync::Arc;
 use tardis_common::domain::Entity;
 use tardis_common::id::{EntityId, SessionId};
 use tardis_common::llm::InferenceParams;
-use tardis_common::traits::{
-    ConversationService, KnowledgeService, LlmService, SystemStateService,
-};
+use tardis_common::traits::LlmService;
+use tardis_gallifrey::stores::{ConversationStore, KnowledgeStore, SystemStateStore};
+
 #[cfg(feature = "nova")]
 use tardis_vortex::{Vortex, VortexLlmService};
 use tracing::{info, instrument};
@@ -151,9 +152,9 @@ pub struct RagResponse {
 #[derive(Debug)]
 pub struct Chronos {
     llm: Arc<dyn LlmService>,
-    knowledge: Arc<dyn KnowledgeService>,
-    conversation: Arc<dyn ConversationService>,
-    system_state: Arc<dyn SystemStateService>,
+    knowledge: Arc<KnowledgeStore>,
+    conversation: Arc<ConversationStore>,
+    system_state: Arc<SystemStateStore>,
 }
 
 impl Chronos {
@@ -161,9 +162,9 @@ impl Chronos {
     #[must_use]
     pub fn new(
         llm: Arc<dyn LlmService>,
-        knowledge: Arc<dyn KnowledgeService>,
-        conversation: Arc<dyn ConversationService>,
-        system_state: Arc<dyn SystemStateService>,
+        knowledge: Arc<KnowledgeStore>,
+        conversation: Arc<ConversationStore>,
+        system_state: Arc<SystemStateStore>,
     ) -> Self {
         Self {
             llm,
@@ -199,7 +200,7 @@ impl Chronos {
 
     /// Get the knowledge service.
     #[must_use]
-    pub fn knowledge(&self) -> Arc<dyn KnowledgeService> {
+    pub fn knowledge(&self) -> Arc<KnowledgeStore> {
         self.knowledge.clone()
     }
 
@@ -227,8 +228,7 @@ impl Chronos {
             &self.system_state,
             &analysis,
             &config,
-        )
-        .await?;
+        )?;
         info!("Retrieved {} context items", context.len());
 
         // 3. Augment the prompt
@@ -283,8 +283,7 @@ impl Chronos {
         let id = self
             .knowledge
             .insert_entity(entity)
-            .await
-            .map_err(ChronosError::Common)?;
+            .map_err(|e| ChronosError::Common(e.into()))?;
 
         Ok(id)
     }
@@ -302,8 +301,7 @@ impl Chronos {
         let results = self
             .knowledge
             .semantic_search(&[], limit)
-            .await
-            .map_err(ChronosError::Common)?;
+            .map_err(|e| ChronosError::Common(e.into()))?;
 
         Ok(results
             .into_iter()
