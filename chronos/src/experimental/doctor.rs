@@ -463,8 +463,8 @@ mod tests {
 
         let vitals = doctor.check_vitals();
         assert_eq!(vitals.active_spans, 0); // They are completed
-        // 10 spans of ~100ms = 1000ms total. 1000ms / 10 = 100ms average.
-        // Allowing some variance due to execution time.
+                                            // 10 spans of ~100ms = 1000ms total. 1000ms / 10 = 100ms average.
+                                            // Allowing some variance due to execution time.
         assert!(
             vitals.average_latency_ms >= 90 && vitals.average_latency_ms <= 200,
             "Average latency {} should be around 100ms",
