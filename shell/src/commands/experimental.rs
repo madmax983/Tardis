@@ -11,6 +11,7 @@
 //! - **Curiosity**: Active learning.
 //! - **Time Capsule**: Backup and restore entity subgraphs.
 //! - **Medium**: Seance with past system states.
+//! - **Saga**: Narrative journey between entities.
 
 use crate::commands::traits::{CommandContext, CommandResult, ShellCommand};
 use anyhow::Result;
@@ -31,6 +32,8 @@ use tardis_chronos::experimental::dreamer::Dreamer;
 use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prism::Prism;
+#[cfg(feature = "nova")]
+use tardis_chronos::experimental::saga::Saga;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
@@ -836,6 +839,59 @@ impl ShellCommand for PrismCommand {
             }
         } else {
             println!("Prism needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Saga command.
+///
+/// Tells the saga of the journey between two entities.
+///
+/// # Usage
+///
+/// ```text
+/// saga <start> <end>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct SagaCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for SagaCommand {
+    fn name(&self) -> &'static str {
+        "saga"
+    }
+
+    fn description(&self) -> &'static str {
+        "Tell the saga of the journey between entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: saga <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start_name = &args[0];
+        let end_name = &args[1];
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let saga = Saga::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.llm(),
+                Some(*handle),
+            );
+
+            println!("📜 The Bard is clearing their throat...");
+            match saga.tell(start_name, end_name).await {
+                Ok(story) => println!("\n{story}\n"),
+                Err(e) => println!("The saga is lost: {e}"),
+            }
+        } else {
+            println!("The Bard needs a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }
