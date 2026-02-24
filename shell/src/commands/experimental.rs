@@ -24,6 +24,8 @@ use crate::experimental::{
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::astrolabe::Astrolabe;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
@@ -32,9 +34,9 @@ use tardis_chronos::experimental::medium::Medium;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::prism::Prism;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::weaver::Weaver;
+use tardis_chronos::experimental::saga::Saga;
 #[cfg(feature = "nova")]
-use tardis_chronos::experimental::cartographer::Cartographer;
+use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
@@ -836,6 +838,59 @@ impl ShellCommand for PrismCommand {
             }
         } else {
             println!("Prism needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Saga command.
+///
+/// Generates a narrative journey between two entities.
+///
+/// # Usage
+///
+/// ```text
+/// saga <start> <end>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct SagaCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for SagaCommand {
+    fn name(&self) -> &'static str {
+        "saga"
+    }
+
+    fn description(&self) -> &'static str {
+        "Generate a narrative journey between two entities"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: saga <start> <end>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let start = &args[0];
+        let end = &args[1];
+
+        let loaded_models = context.chronos.vortex().list_loaded_models();
+        if let Some((handle, _)) = loaded_models.first() {
+            let saga = Saga::new(
+                Arc::clone(&context.gallifrey),
+                context.chronos.llm(),
+                Some(*handle),
+            );
+
+            println!("📜 The Saga begins...");
+            match saga.tell_tale(start, end).await {
+                Ok(tale) => println!("\n{tale}\n"),
+                Err(e) => println!("The tale was lost in time: {e}"),
+            }
+        } else {
+            println!("The Saga needs a loaded model. Use 'models load <path>'.");
         }
         Ok(CommandResult::Continue)
     }
