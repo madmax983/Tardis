@@ -49,7 +49,7 @@
 //! ```
 
 use crate::domain::{Change, Entity, Message, Session, Snapshot};
-use crate::id::{EntityId, SessionId};
+use crate::id::{EntityId, MessageId, SessionId};
 use crate::llm::InferenceParams;
 use crate::Result;
 use async_trait::async_trait;
@@ -147,7 +147,7 @@ pub trait ConversationService: Send + Sync + Debug {
     async fn end_session(&self, id: SessionId) -> Result<()>;
 
     /// Add a message to the store.
-    async fn add_message(&self, message: Message) -> Result<EntityId>;
+    async fn add_message(&self, message: Message) -> Result<MessageId>;
 
     /// Get recent messages from a session.
     ///

@@ -1,6 +1,6 @@
 //! Conversation entities.
 
-use crate::id::{EntityId, SessionId};
+use crate::id::{EntityId, MessageId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,11 +24,11 @@ pub enum Role {
 ///
 /// ```
 /// use tardis_common::domain::{Message, Role};
-/// use tardis_common::id::{EntityId, SessionId};
+/// use tardis_common::id::{EntityId, MessageId, SessionId};
 /// use chrono::Utc;
 ///
 /// let message = Message {
-///     id: EntityId::new(),
+///     id: MessageId::new(),
 ///     session_id: SessionId::new(),
 ///     role: Role::User,
 ///     content: "Explain the bootstrap paradox.".to_string(),
@@ -40,7 +40,7 @@ pub enum Role {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     /// Unique identifier for this message.
-    pub id: EntityId,
+    pub id: MessageId,
     /// The session this message belongs to.
     ///
     /// Messages are grouped by session to maintain conversation context.

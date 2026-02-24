@@ -6,7 +6,7 @@ mod tests {
     use std::sync::Arc;
     use tardis_chronos::pipeline::{retrieve, AnalyzedQuery, QueryIntent, RagConfig};
     use tardis_common::domain::{Change, Entity, Message, Session, Snapshot};
-    use tardis_common::id::{EntityId, SessionId};
+    use tardis_common::id::{EntityId, MessageId, SessionId};
     use tardis_common::traits::{ConversationService, KnowledgeService, SystemStateService};
     use tardis_common::Result;
 
@@ -59,8 +59,8 @@ mod tests {
         async fn end_session(&self, _id: SessionId) -> Result<()> {
             Ok(())
         }
-        async fn add_message(&self, _message: Message) -> Result<EntityId> {
-            Ok(EntityId::new())
+        async fn add_message(&self, _message: Message) -> Result<MessageId> {
+            Ok(MessageId::new())
         }
         async fn get_recent_messages(
             &self,

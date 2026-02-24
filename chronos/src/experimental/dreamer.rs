@@ -154,6 +154,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use serde_json::json;
+    use tardis_common::id::MessageId;
     use tardis_gallifrey::domain::{Message, Role};
     use tardis_vortex::ModelLoadConfig;
 
@@ -166,7 +167,7 @@ mod tests {
         let session_id = gallifrey.conversation().create_session().unwrap();
 
         let msg1 = Message {
-            id: EntityId::new(),
+            id: MessageId::new(),
             session_id,
             role: Role::User,
             content: "My name is Nova and I like Rust.".to_string(),
