@@ -31,3 +31,6 @@ pub mod astrolabe;
 
 #[cfg(feature = "nova")]
 pub mod prism;
+
+#[cfg(feature = "nova")]
+pub mod cartographer;

@@ -34,6 +34,8 @@ use tardis_chronos::experimental::prism::Prism;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Chameleon command (System Persona).
@@ -131,6 +133,50 @@ impl ShellCommand for SonicCommand {
         match result {
             Ok(report) => println!("{report}"),
             Err(e) => println!("Sonic Screwdriver error: {e}"),
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Atlas command.
+///
+/// Generates a semantic map of the knowledge graph.
+///
+/// # Usage
+///
+/// ```text
+/// atlas [width] [height]
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct AtlasCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for AtlasCommand {
+    fn name(&self) -> &'static str {
+        "atlas"
+    }
+
+    fn description(&self) -> &'static str {
+        "Show semantic map of knowledge"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        let width = args.first().and_then(|s| s.parse().ok()).unwrap_or(60);
+        let height = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(30);
+
+        // Enforce minimum dimensions to prevent panic
+        let width = width.max(10);
+        let height = height.max(5);
+
+        let cartographer = Cartographer::new(Arc::clone(&context.gallifrey));
+
+        println!("🗺️  Projecting knowledge graph onto 2D plane...");
+
+        match cartographer.map(width, height) {
+            Ok(map) => println!("\n{map}\n"),
+            Err(e) => println!("The map is torn: {e}"),
         }
         Ok(CommandResult::Continue)
     }
