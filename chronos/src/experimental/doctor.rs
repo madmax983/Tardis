@@ -121,7 +121,9 @@ impl SystemDoctor {
         let (total_latency, count) = completed_spans
             .iter()
             .filter_map(|s| s.data.duration_ns())
-            .fold((0, 0u64), |(sum, count), dur| (sum + dur, count + 1));
+            .fold((0u64, 0u64), |(sum, count), dur| {
+                (sum.saturating_add(dur), count + 1)
+            });
 
         let average_latency_ms = if count > 0 {
             (total_latency / count) / 1_000_000
@@ -335,7 +337,7 @@ impl SystemDoctor {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::unchecked_time_subtraction)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
@@ -373,7 +375,9 @@ mod tests {
             parent_id: None,
             name: "slow_op".to_string(),
             subsystem: Subsystem::Vortex,
-            start_instant: Instant::now() - std::time::Duration::from_millis(1000), // Started 1s ago
+            start_instant: Instant::now()
+                .checked_sub(std::time::Duration::from_millis(1000))
+                .unwrap_or_else(Instant::now), // Started 1s ago
             start_time: Utc::now() - Duration::milliseconds(1000),
             end_time: Some(Utc::now()), // Just finished, duration 1s
             attributes: HashMap::new(),
@@ -430,5 +434,41 @@ mod tests {
         assert!(!diagnosis.root_causes.is_empty());
         assert!(diagnosis.root_causes[0].contains("[AI]"));
         assert!(diagnosis.root_causes[0].contains("kernel explosion"));
+    }
+
+    #[tokio::test]
+    async fn test_check_vitals_safe() {
+        let telemetry = Arc::new(TelemetryStore::new());
+        let gallifrey = Arc::new(Gallifrey::new());
+        let doctor = SystemDoctor::new(Arc::clone(&telemetry), gallifrey);
+
+        // Add multiple spans to verify summation logic
+        for _ in 0..10 {
+            let span = SpanData {
+                trace_id: TraceId::generate(),
+                span_id: SpanId::generate(),
+                parent_id: None,
+                name: "op".to_string(),
+                subsystem: Subsystem::Vortex,
+                start_instant: Instant::now()
+                    .checked_sub(std::time::Duration::from_millis(100))
+                    .unwrap_or_else(Instant::now),
+                start_time: Utc::now() - Duration::milliseconds(100),
+                end_time: Some(Utc::now()),
+                attributes: HashMap::new(),
+                level: Level::Info,
+            };
+            telemetry.record_span(span).await.unwrap();
+        }
+
+        let vitals = doctor.check_vitals();
+        assert_eq!(vitals.active_spans, 0); // They are completed
+        // 10 spans of ~100ms = 1000ms total. 1000ms / 10 = 100ms average.
+        // Allowing some variance due to execution time.
+        assert!(
+            vitals.average_latency_ms >= 90 && vitals.average_latency_ms <= 200,
+            "Average latency {} should be around 100ms",
+            vitals.average_latency_ms
+        );
     }
 }
