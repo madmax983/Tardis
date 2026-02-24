@@ -4,6 +4,36 @@
 //!
 //! The Weaver takes two entities from the Knowledge Graph and uses the LLM to generate
 //! a plausible (or fanciful) causal chain or thematic connection between them.
+//!
+//! # Dependencies
+//!
+//! - **Knowledge Graph**: Requires `find_entity_by_name` to locate the source and target entities.
+//!   Note that this may involve an O(N) scan if the underlying store is not indexed by name.
+//! - **LLM**: Requires a generative model (via `LlmService`) to fabricate the story.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use std::sync::Arc;
+//! use tardis_chronos::experimental::weaver::Weaver;
+//! use tardis_common::traits::{KnowledgeService, LlmService};
+//! use tardis_common::id::ModelHandle;
+//!
+//! # async fn example(
+//! #     knowledge: Arc<dyn KnowledgeService>,
+//! #     llm: Arc<dyn LlmService>,
+//! #     model: Option<ModelHandle>
+//! # ) -> anyhow::Result<()> {
+//! // 1. Create the Weaver
+//! let weaver = Weaver::new(knowledge, llm, model);
+//!
+//! // 2. Connect two concepts
+//! let story = weaver.weave("Quantum Mechanics", "Pizza").await?;
+//!
+//! println!("Connection: {}", story);
+//! # Ok(())
+//! # }
+//! ```
 
 use anyhow::{anyhow, Result};
 use std::sync::Arc;

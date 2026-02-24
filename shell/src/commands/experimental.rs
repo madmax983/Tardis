@@ -24,6 +24,8 @@ use crate::experimental::{
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::astrolabe::Astrolabe;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::cartographer::Cartographer;
+#[cfg(feature = "nova")]
 use tardis_chronos::experimental::curiosity::Curiosity;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::dreamer::Dreamer;
@@ -33,8 +35,6 @@ use tardis_chronos::experimental::medium::Medium;
 use tardis_chronos::experimental::prism::Prism;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::weaver::Weaver;
-#[cfg(feature = "nova")]
-use tardis_chronos::experimental::cartographer::Cartographer;
 #[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 

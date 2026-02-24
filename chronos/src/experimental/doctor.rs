@@ -176,6 +176,10 @@ impl SystemDoctor {
         }
     }
 
+    /// Check for error spikes.
+    ///
+    /// - **Critical**: > 10 errors.
+    /// - **Degraded**: > 0 errors.
     fn check_error_symptoms(
         vitals: &Vitals,
         symptoms: &mut Vec<String>,
@@ -194,6 +198,9 @@ impl SystemDoctor {
         }
     }
 
+    /// Check for high concurrency (potential saturation).
+    ///
+    /// - **Degraded**: > 100 active spans.
     fn check_concurrency_symptoms(
         vitals: &Vitals,
         symptoms: &mut Vec<String>,
@@ -210,6 +217,9 @@ impl SystemDoctor {
         }
     }
 
+    /// Check for high latency (slowness).
+    ///
+    /// - **Degraded**: > 500ms average latency.
     fn check_latency_symptoms(
         vitals: &Vitals,
         symptoms: &mut Vec<String>,
@@ -463,8 +473,8 @@ mod tests {
 
         let vitals = doctor.check_vitals();
         assert_eq!(vitals.active_spans, 0); // They are completed
-        // 10 spans of ~100ms = 1000ms total. 1000ms / 10 = 100ms average.
-        // Allowing some variance due to execution time.
+                                            // 10 spans of ~100ms = 1000ms total. 1000ms / 10 = 100ms average.
+                                            // Allowing some variance due to execution time.
         assert!(
             vitals.average_latency_ms >= 90 && vitals.average_latency_ms <= 200,
             "Average latency {} should be around 100ms",

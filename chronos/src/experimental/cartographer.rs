@@ -70,16 +70,14 @@ impl Cartographer {
             .collect();
 
         // Normalize coordinates to grid
-        let (min_x, max_x) = points
-            .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), (_, x, _)| {
-                (min.min(*x), max.max(*x))
-            });
-        let (min_y, max_y) = points
-            .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), (_, _, y)| {
-                (min.min(*y), max.max(*y))
-            });
+        let (min_x, max_x) = points.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), (_, x, _)| (min.min(*x), max.max(*x)),
+        );
+        let (min_y, max_y) = points.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), (_, _, y)| (min.min(*y), max.max(*y)),
+        );
 
         let range_x = (max_x - min_x).max(1e-6);
         let range_y = (max_y - min_y).max(1e-6);
@@ -94,15 +92,19 @@ impl Cartographer {
 
             if grid_x < width && grid_y < height {
                 grid[grid_y][grid_x] = '*';
-                labels.entry((grid_x, grid_y)).or_default().push(entity.name);
+                labels
+                    .entry((grid_x, grid_y))
+                    .or_default()
+                    .push(entity.name);
             }
         }
 
         // Build the string
         let mut output = String::new();
         let border_line = "─".repeat(width);
-        writeln!(output, "┌{border_line}┐")
-            .map_err(|_| crate::error::ChronosError::Common(tardis_common::Error::Internal("Fmt error".into())))?;
+        writeln!(output, "┌{border_line}┐").map_err(|_| {
+            crate::error::ChronosError::Common(tardis_common::Error::Internal("Fmt error".into()))
+        })?;
 
         for (y, row) in grid.iter().enumerate() {
             output.push('│');
@@ -120,8 +122,9 @@ impl Cartographer {
             }
             output.push_str("│\n");
         }
-        writeln!(output, "└{border_line}┘")
-             .map_err(|_| crate::error::ChronosError::Common(tardis_common::Error::Internal("Fmt error".into())))?;
+        writeln!(output, "└{border_line}┘").map_err(|_| {
+            crate::error::ChronosError::Common(tardis_common::Error::Internal("Fmt error".into()))
+        })?;
 
         // Legend for clusters/points
         output.push_str("\nLegend:\n");
@@ -137,10 +140,19 @@ impl Cartographer {
             }
             if let Some(names) = labels.get(key) {
                 if !names.is_empty() {
-                    let symbol = if names.len() > 1 { "+" } else { &names[0][0..1] };
+                    let symbol = if names.len() > 1 {
+                        "+"
+                    } else {
+                        &names[0][0..1]
+                    };
                     let (x, y) = key;
-                    writeln!(output, "{symbol} ({x}, {y}): {}", names.join(", "))
-                        .map_err(|_| crate::error::ChronosError::Common(tardis_common::Error::Internal("Fmt error".into())))?;
+                    writeln!(output, "{symbol} ({x}, {y}): {}", names.join(", ")).map_err(
+                        |_| {
+                            crate::error::ChronosError::Common(tardis_common::Error::Internal(
+                                "Fmt error".into(),
+                            ))
+                        },
+                    )?;
                     count += 1;
                 }
             }
@@ -184,7 +196,10 @@ impl Lcg {
 
     const fn next(&mut self) -> u64 {
         // Knuth's constants
-        self.state = self.state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.state = self
+            .state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         self.state
     }
 
@@ -203,8 +218,8 @@ impl Lcg {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use tardis_common::temporal::BiTemporalInterval;
     use tardis_common::id::EntityId;
+    use tardis_common::temporal::BiTemporalInterval;
 
     fn create_test_entity(name: &str, embedding: Option<Vec<f32>>) -> Entity {
         Entity {

@@ -118,6 +118,11 @@ pub trait KnowledgeService: Send + Sync + Debug {
     async fn semantic_search(&self, embedding: &[f32], limit: usize) -> Result<Vec<Entity>>;
 
     /// Find an entity by name.
+    ///
+    /// # Performance Warning
+    ///
+    /// Depending on the implementation, this may perform a full linear scan (O(N))
+    /// if the underlying store does not index names (e.g., `Gallifrey`).
     async fn find_entity_by_name(&self, name: &str) -> Result<Option<Entity>>;
 
     /// Search entity history.
