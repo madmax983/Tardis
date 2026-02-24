@@ -48,10 +48,7 @@ impl Fugue {
     /// Create a new Fugue engine.
     #[must_use]
     pub const fn new(vortex: Arc<Vortex>, gallifrey: Arc<Gallifrey>) -> Self {
-        Self {
-            vortex,
-            gallifrey,
-        }
+        Self { vortex, gallifrey }
     }
 
     /// Simulate an alternative timeline starting from a divergence point.

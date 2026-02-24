@@ -34,10 +34,7 @@ impl Prism {
     #[must_use]
     pub fn new(chronos: Arc<Chronos>) -> Self {
         let vortex = chronos.vortex().clone();
-        Self {
-            chronos,
-            vortex,
-        }
+        Self { chronos, vortex }
     }
 
     /// Refract a query through multiple perspectives.

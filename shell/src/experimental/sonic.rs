@@ -176,14 +176,12 @@ impl SonicScrewdriver {
                         if val.is_string() {
                             diagnosis.push_str("Type: Unknown / Text\nStatus: Ambiguous 🟡");
                         } else {
-                            diagnosis.push_str(
-                                "Type: Structured (Auto-detected)\nStatus: Healthy 🟢",
-                            );
+                            diagnosis
+                                .push_str("Type: Structured (Auto-detected)\nStatus: Healthy 🟢");
                         }
                     }
                     Err(e) => {
-                        let _ =
-                            write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
+                        let _ = write!(diagnosis, "Type: Unknown\nStatus: Broken 🔴\nError: {e}");
                     }
                 }
             }

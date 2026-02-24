@@ -96,14 +96,14 @@ pub fn augment(
     analysis: &AnalyzedQuery,
     config: &RagConfig,
 ) -> ChronosResult<String> {
-    let max_context_tokens = config.max_context_tokens;
-
     // Hard limit to prevent DoS via excessive allocation
     const MAX_TOKENS_LIMIT: usize = 100_000;
+
+    let max_context_tokens = config.max_context_tokens;
+
     if max_context_tokens > MAX_TOKENS_LIMIT {
         return Err(crate::error::ChronosError::ContextAssemblyFailed(format!(
-            "max_context_tokens {} exceeds limit {}",
-            max_context_tokens, MAX_TOKENS_LIMIT
+            "max_context_tokens {max_context_tokens} exceeds limit {MAX_TOKENS_LIMIT}"
         )));
     }
 
