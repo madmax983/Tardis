@@ -36,6 +36,8 @@ use tardis_chronos::experimental::weaver::Weaver;
 #[cfg(feature = "nova")]
 use tardis_chronos::experimental::cartographer::Cartographer;
 #[cfg(feature = "nova")]
+use tardis_chronos::experimental::codex::Codex;
+#[cfg(feature = "nova")]
 use tardis_gallifrey::experimental::time_capsule::TimeCapsule;
 
 /// Chameleon command (System Persona).
@@ -836,6 +838,56 @@ impl ShellCommand for PrismCommand {
             }
         } else {
             println!("Prism needs a loaded model. Use 'models load <path>'.");
+        }
+        Ok(CommandResult::Continue)
+    }
+}
+
+/// Codex command.
+///
+/// Exports the knowledge graph to Markdown files.
+///
+/// # Usage
+///
+/// ```text
+/// codex export <path>
+/// ```
+#[cfg(feature = "nova")]
+#[derive(Debug)]
+pub struct CodexCommand;
+
+#[cfg(feature = "nova")]
+#[async_trait]
+impl ShellCommand for CodexCommand {
+    fn name(&self) -> &'static str {
+        "codex"
+    }
+
+    fn description(&self) -> &'static str {
+        "Export knowledge graph to Markdown"
+    }
+
+    async fn execute(&self, args: &[String], context: &CommandContext) -> Result<CommandResult> {
+        if args.len() < 2 {
+            println!("Usage: codex export <path>");
+            return Ok(CommandResult::Continue);
+        }
+
+        let subcommand = &args[0];
+        match subcommand.as_str() {
+            "export" => {
+                let path_str = &args[1];
+                let path = std::path::Path::new(path_str);
+
+                let codex = Codex::new(Arc::clone(&context.gallifrey));
+
+                println!("📜 Codex is transcribing knowledge to {}...", path.display());
+                match codex.export(path) {
+                    Ok(summary) => println!("{summary}"),
+                    Err(e) => println!("Ink spilled: {e}"),
+                }
+            }
+            _ => println!("Unknown codex command: {subcommand}"),
         }
         Ok(CommandResult::Continue)
     }

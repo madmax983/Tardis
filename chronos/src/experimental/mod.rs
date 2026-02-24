@@ -34,3 +34,6 @@ pub mod prism;
 
 #[cfg(feature = "nova")]
 pub mod cartographer;
+
+#[cfg(feature = "nova")]
+pub mod codex;
