@@ -90,6 +90,8 @@ use std::fmt::Write;
 /// # Errors
 ///
 /// Returns an error if augmentation fails (e.g., formatting errors).
+#[allow(clippy::items_after_statements)]
+#[allow(clippy::uninlined_format_args)]
 pub fn augment(
     prompt: &str,
     context: &[ContextSource],
