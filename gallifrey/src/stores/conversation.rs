@@ -10,7 +10,7 @@ use crate::error::{GallifreyError, GallifreyResult};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::RwLock;
-use tardis_common::{EntityId, SessionId};
+use tardis_common::{MessageId, SessionId};
 
 /// The conversation store.
 #[derive(Debug)]
@@ -96,7 +96,7 @@ impl ConversationStore {
     /// # Errors
     ///
     /// Returns an error if the lock is poisoned.
-    pub fn add_message(&self, message: Message) -> GallifreyResult<EntityId> {
+    pub fn add_message(&self, message: Message) -> GallifreyResult<MessageId> {
         let id = message.id;
         let session_id = message.session_id;
 

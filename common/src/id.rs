@@ -208,6 +208,12 @@ impl MessageId {
         Self(Uuid::new_v4())
     }
 
+    /// Create a message ID from a UUID.
+    #[must_use]
+    pub const fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
+
     /// Get the underlying UUID.
     #[must_use]
     pub const fn as_uuid(&self) -> Uuid {

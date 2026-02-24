@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use tardis_common::domain::{Change, Entity, Message, Session, Snapshot};
-use tardis_common::id::{EntityId, SessionId};
+use tardis_common::id::{EntityId, MessageId, SessionId};
 use tardis_common::traits::{ConversationService, KnowledgeService, SystemStateService};
 use tardis_common::Result;
 
@@ -120,7 +120,7 @@ impl ConversationService for ConversationStore {
         self.end_session(id).map_err(tardis_common::Error::from)
     }
 
-    async fn add_message(&self, message: Message) -> Result<EntityId> {
+    async fn add_message(&self, message: Message) -> Result<MessageId> {
         self.add_message(message)
             .map_err(tardis_common::Error::from)
     }
