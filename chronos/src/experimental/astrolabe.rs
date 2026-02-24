@@ -2,8 +2,50 @@
 //!
 //! "Second star to the right, and straight on 'til morning."
 //!
-//! This module implements A* search over the knowledge graph to find
-//! semantic paths between entities, using embedding similarity as a heuristic.
+//! This module implements **A\* Search** over the knowledge graph to find semantic paths
+//! between entities. It uses **embedding cosine similarity** as a heuristic to guide
+//! the search toward conceptually related nodes, rather than just the shortest graph distance.
+//!
+//! # How it Works
+//!
+//! 1.  **Start & End**: The user provides two entity names.
+//! 2.  **Graph Construction**: The Astrolabe **scans the entire knowledge graph** to build an in-memory
+//!     adjacency map of current relationships.
+//! 3.  **A\* Algorithm**:
+//!     -   **Cost (g)**: Each hop costs `1.0`.
+//!     -   **Heuristic (h)**: `(1.0 - similarity(neighbor, goal)) * 2.0`.
+//!         Nodes semantically closer to the goal have a lower estimated cost.
+//! 4.  **Result**: A path of entities and relationships connecting the start to the end.
+//!
+//! # Performance Warning
+//!
+//! ⚠️ **O(N) Initialization**: To navigate, Astrolabe currently performs a full linear scan
+//! of all entities and relationships (`scan_history`, `scan_relationships`) to build the graph.
+//! This is expensive for large datasets.
+//!
+//! # Example
+//!
+//! ```rust
+//! use std::sync::Arc;
+//! use tardis_gallifrey::Gallifrey;
+//! use tardis_chronos::experimental::astrolabe::Astrolabe;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> anyhow::Result<()> {
+//! // 1. Initialize Gallifrey (empty for this example)
+//! let gallifrey = Arc::new(Gallifrey::new());
+//!
+//! // 2. Create the Astrolabe
+//! let astrolabe = Astrolabe::new(gallifrey);
+//!
+//! // 3. Navigate (will fail as graph is empty, but shows usage)
+//! match astrolabe.navigate("Earth", "Gallifrey") {
+//!     Ok(path) => println!("Path found with {} steps", path.len()),
+//!     Err(e) => println!("Navigation failed: {}", e),
+//! }
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::error::{ChronosError, ChronosResult};
 use std::cmp::Ordering;

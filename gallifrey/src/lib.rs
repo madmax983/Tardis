@@ -27,6 +27,18 @@
 //! This preserves the audit trail, allowing you to "time travel" back to see what the system
 //! knew at any point in the past.
 //!
+//! ## Performance Considerations
+//!
+//! ⚠️ **The "Linear Scan Trap"**
+//!
+//! The `KnowledgeStore` is optimized for ID-based lookups and bi-temporal queries. It does **not**
+//! maintain an index for entity names or properties.
+//!
+//! - **Fast (O(1))**: `get_entity(id)`, `find_by_type(type)` (uses auxiliary index).
+//! - **Slow (O(N))**: `find_entity_by_name(name)` (via trait), `search_knowledge` (without vector index).
+//!
+//! When writing performant code, always prefer `EntityId` lookups or type-based filtering.
+//!
 //! ## Getting Started
 //!
 //! ```rust

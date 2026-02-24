@@ -1,4 +1,6 @@
+#![allow(missing_docs)]
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};

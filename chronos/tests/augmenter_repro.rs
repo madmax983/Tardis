@@ -1,4 +1,6 @@
+#![allow(missing_docs)]
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use tardis_chronos::pipeline::{augment, AnalyzedQuery, QueryIntent, RagConfig};
 
