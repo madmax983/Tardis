@@ -9,13 +9,14 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tardis_common::id::ModelHandle;
 use tardis_common::llm::InferenceParams;
-use tardis_common::traits::{KnowledgeService, LlmService};
+use tardis_common::traits::LlmService;
+use tardis_gallifrey::stores::KnowledgeStore;
 use tracing::{info, instrument};
 
 /// The Medium engine.
 #[derive(Debug)]
 pub struct Medium {
-    knowledge: Arc<dyn KnowledgeService>,
+    knowledge: Arc<KnowledgeStore>,
     llm: Arc<dyn LlmService>,
     model: Option<ModelHandle>,
 }
@@ -24,7 +25,7 @@ impl Medium {
     /// Create a new Medium engine.
     #[must_use]
     pub fn new(
-        knowledge: Arc<dyn KnowledgeService>,
+        knowledge: Arc<KnowledgeStore>,
         llm: Arc<dyn LlmService>,
         model: Option<ModelHandle>,
     ) -> Self {
@@ -45,7 +46,7 @@ impl Medium {
         info!("Medium: Summoning past state at {}", time);
 
         // 1. Gather context from the past
-        let context = self.gather_context(query, time).await?;
+        let context = self.gather_context(query, time)?;
 
         if context.trim().is_empty() {
             return Ok(
@@ -81,14 +82,13 @@ impl Medium {
     }
 
     #[allow(clippy::format_push_string)]
-    async fn gather_context(&self, query: &str, time: DateTime<Utc>) -> ChronosResult<String> {
+    fn gather_context(&self, query: &str, time: DateTime<Utc>) -> ChronosResult<String> {
         let mut context = String::new();
 
         let entities = self
             .knowledge
             .search_history(query, Some(time), 50)
-            .await
-            .map_err(ChronosError::Common)?;
+            .map_err(|e| ChronosError::Common(e.into()))?;
 
         for entity in entities {
             context.push_str(&format!(

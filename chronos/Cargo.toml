@@ -18,8 +18,8 @@ telemetry = ["dep:tardis-telemetry"]
 # Internal
 tardis-common = { path = "../common" }
 tardis-telemetry = { path = "../telemetry", optional = true }
+tardis-gallifrey = { path = "../gallifrey" }
 # Optional dependency for experimental features
-tardis-gallifrey = { path = "../gallifrey", optional = true }
 tardis-vortex = { path = "../vortex", optional = true }
 
 # Async runtime
@@ -45,7 +45,6 @@ anyhow = { workspace = true }
 
 [dev-dependencies]
 tardis-vortex = { path = "../vortex" }
-tardis-gallifrey = { path = "../gallifrey" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 criterion = { workspace = true }
 
