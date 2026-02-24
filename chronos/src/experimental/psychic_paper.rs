@@ -152,10 +152,7 @@ mod tests {
 
     #[test]
     fn test_extract_json() {
-        assert_eq!(
-            extract_json(r#"{"a":1}"#).unwrap(),
-            json!({"a": 1})
-        );
+        assert_eq!(extract_json(r#"{"a":1}"#).unwrap(), json!({"a": 1}));
         assert_eq!(
             extract_json(r#"Prefix {"a":1} Suffix"#).unwrap(),
             json!({"a": 1})
@@ -169,18 +166,9 @@ mod tests {
 
     #[test]
     fn test_parse_list() {
-        assert_eq!(
-            parse_list("- A\n- B").unwrap(),
-            json!(["A", "B"])
-        );
-        assert_eq!(
-            parse_list("1. A\n2. B").unwrap(),
-            json!(["A", "B"])
-        );
-        assert_eq!(
-            parse_list("A, B, C").unwrap(),
-            json!(["A", "B", "C"])
-        );
+        assert_eq!(parse_list("- A\n- B").unwrap(), json!(["A", "B"]));
+        assert_eq!(parse_list("1. A\n2. B").unwrap(), json!(["A", "B"]));
+        assert_eq!(parse_list("A, B, C").unwrap(), json!(["A", "B", "C"]));
     }
 
     #[test]

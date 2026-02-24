@@ -26,9 +26,7 @@ impl Prophet {
     /// Create a new Prophet.
     #[must_use]
     pub const fn new(vortex: Arc<Vortex>) -> Self {
-        Self {
-            vortex,
-        }
+        Self { vortex }
     }
 
     /// Predict future events based on context.

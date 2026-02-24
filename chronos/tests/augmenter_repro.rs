@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use tardis_chronos::pipeline::{augment, RagConfig, AnalyzedQuery, QueryIntent};
+    use tardis_chronos::pipeline::{augment, AnalyzedQuery, QueryIntent, RagConfig};
 
     #[test]
     fn test_augment_capacity_overflow() {
