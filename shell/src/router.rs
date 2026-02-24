@@ -11,6 +11,12 @@
 
 use std::collections::HashSet;
 
+/// Maximum input length to prevent `DoS` (64KB).
+const MAX_INPUT_LENGTH: usize = 65536;
+
+/// Maximum number of tokens to process (prevent excessive allocation).
+const MAX_TOKENS: usize = 256;
+
 /// Classified intent of user input.
 #[derive(Debug, Clone)]
 pub enum Intent {
@@ -100,6 +106,13 @@ impl Router {
     pub fn route(&self, input: &str) -> Intent {
         let input = input.trim();
 
+        if input.len() > MAX_INPUT_LENGTH {
+            return Intent::ChronosQuery {
+                query: format!("System Error: Input exceeds maximum length of {MAX_INPUT_LENGTH} bytes."),
+                temporal_context: None,
+            };
+        }
+
         // Check for prefix commands
         if let Some(cmd) = input.strip_prefix('!') {
             return Intent::ShellCommand {
@@ -119,7 +132,12 @@ impl Router {
 
         // Check for built-in commands
         // Use tokenize to handle quoted arguments
-        let tokens_with_offsets = Self::tokenize(input);
+        let Ok(tokens_with_offsets) = Self::tokenize(input) else {
+            return Intent::ChronosQuery {
+                query: format!("System Error: Input contains too many tokens (limit {MAX_TOKENS})."),
+                temporal_context: None,
+            };
+        };
         let tokens: Vec<String> = tokens_with_offsets.iter().map(|(t, _)| t.clone()).collect();
         let first_word = tokens.first().map(|s| s.to_lowercase());
 
@@ -151,7 +169,12 @@ impl Router {
         // e.g., "@yesterday what did we discuss"
         // e.g., "@2024-03-15 show system state"
 
-        let tokens = Self::tokenize(input);
+        let Ok(tokens) = Self::tokenize(input) else {
+            return Intent::ChronosQuery {
+                query: format!("System Error: Input contains too many tokens (limit {MAX_TOKENS})."),
+                temporal_context: None,
+            };
+        };
 
         if let Some((timestamp, end_offset)) = tokens.first() {
             let query = input[*end_offset..].trim().to_string();
@@ -169,7 +192,7 @@ impl Router {
 
     /// Tokenize input string respecting quotes.
     /// Returns a vector of (token, `end_offset`) tuples.
-    fn tokenize(input: &str) -> Vec<(String, usize)> {
+    fn tokenize(input: &str) -> Result<Vec<(String, usize)>, ()> {
         let mut tokens = Vec::new();
         let mut current_token = String::new();
         let mut in_quote = None; // None, Some('"'), Some('\'')
@@ -195,6 +218,9 @@ impl Router {
                 in_quote = Some(c);
             } else if c.is_whitespace() {
                 if !current_token.is_empty() {
+                    if tokens.len() >= MAX_TOKENS {
+                        return Err(());
+                    }
                     tokens.push((current_token.clone(), i));
                     current_token.clear();
                 }
@@ -205,10 +231,15 @@ impl Router {
         }
 
         if !current_token.is_empty() {
+            // Check limit before adding last token if we were already at limit (shouldn't happen here due to loop check)
+            // But if MAX_TOKENS was hit inside the loop, we return Err.
+            if tokens.len() >= MAX_TOKENS {
+                return Err(());
+            }
             tokens.push((current_token, last_char_end));
         }
 
-        tokens
+        Ok(tokens)
     }
 
     /// Detect temporal context in a query.
@@ -379,6 +410,37 @@ mod tests {
                 assert_eq!(query, "println!(\"hello\")");
             }
             _ => panic!("Expected TimeTravel"),
+        }
+    }
+
+    #[test]
+    fn test_router_dos_large_input() {
+        let router = Router::new(vec!["echo".to_string()]);
+        // 1MB string
+        let large_input = "a".repeat(1024 * 1024);
+        let intent = router.route(&large_input);
+
+        match intent {
+            Intent::ChronosQuery { query, .. } => {
+                assert!(query.contains("System Error: Input exceeds maximum length"));
+            }
+            _ => panic!("Expected ChronosQuery"),
+        }
+    }
+
+    #[test]
+    fn test_router_max_tokens() {
+        let router = Router::new(vec!["echo".to_string()]);
+        // "echo " + 300 "a " tokens. Total 301 potential tokens.
+        let input = "echo ".to_string() + &"a ".repeat(300);
+
+        let intent = router.route(&input);
+
+        match intent {
+            Intent::ChronosQuery { query, .. } => {
+                assert!(query.contains("System Error: Input contains too many tokens"));
+            }
+            _ => panic!("Expected ChronosQuery (Error)"),
         }
     }
 }
