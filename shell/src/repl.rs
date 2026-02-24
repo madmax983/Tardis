@@ -123,6 +123,7 @@ impl Repl {
             registry.register(Box::new(commands::experimental::MediumCommand));
             registry.register(Box::new(commands::experimental::AstrolabeCommand));
             registry.register(Box::new(commands::experimental::PrismCommand));
+            registry.register(Box::new(commands::experimental::CodexCommand));
         }
     }
 
