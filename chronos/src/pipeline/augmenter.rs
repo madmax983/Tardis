@@ -248,6 +248,7 @@ impl Default for ContextAugmenter {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::uninlined_format_args, clippy::panic)]
 mod tests {
     use super::*;
     use crate::pipeline::analyzer::{AnalyzedQuery, QueryIntent};

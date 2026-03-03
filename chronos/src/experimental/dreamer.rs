@@ -123,6 +123,7 @@ impl DreamCatcher for MockDreamCatcher {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::default_constructed_unit_structs)]
 mod tests {
     use super::*;
     use std::sync::Arc;

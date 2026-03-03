@@ -152,6 +152,7 @@ impl Historian {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic, clippy::unused_async)]
 mod tests {
     use super::*;
     use tardis_common::id::{EntityId, ModelHandle};

@@ -299,7 +299,7 @@ impl Default for QueryAnalyzer {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::panic, clippy::uninlined_format_args)]
 mod tests {
     use super::*;
 
