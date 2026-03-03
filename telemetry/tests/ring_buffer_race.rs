@@ -1,3 +1,5 @@
+//! Tests for ring buffer race conditions.
+
 #![cfg(feature = "kernel")]
 #![allow(clippy::all, clippy::pedantic)]
 #![allow(clippy::unwrap_used, clippy::panic)]
@@ -10,7 +12,7 @@
 use std::sync::{Arc, Barrier};
 use std::thread;
 use tardis_telemetry::kernel::RingBuffer;
-use tardis_telemetry::types::{TelemetryEntry, Level, Subsystem, EventType, SpanId, TraceId};
+use tardis_telemetry::types::{EventType, Level, SpanId, Subsystem, TelemetryEntry, TraceId};
 
 #[test]
 fn race_condition_repro() {
@@ -74,12 +76,16 @@ fn race_condition_repro() {
         let payload_vec: Vec<u8> = payload;
         // Check strict equality.
         if payload_vec != expected {
-             // CORRUPTION DETECTED
-             panic!("Corruption detected! Entry: t_id={}, i={}. Expected len={}, Got len={}. Payload prefix: {:?}",
+            // CORRUPTION DETECTED
+            panic!("Corruption detected! Entry: t_id={}, i={}. Expected len={}, Got len={}. Payload prefix: {:?}",
                  t_id, i, expected.len(), payload_vec.len(), String::from_utf8_lossy(&payload_vec.iter().take(20).cloned().collect::<Vec<u8>>()));
         }
         valid_count += 1;
     }
 
-    println!("Read {} valid entries out of {} writes", valid_count, THREADS * WRITES_PER_THREAD);
+    println!(
+        "Read {} valid entries out of {} writes",
+        valid_count,
+        THREADS * WRITES_PER_THREAD
+    );
 }

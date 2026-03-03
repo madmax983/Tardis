@@ -262,7 +262,7 @@ impl Default for QueryAnalyzer {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -320,23 +320,26 @@ mod tests {
         let refs = analyzer.extract_temporal_refs(&"What happened yesterday?".to_lowercase(), now);
         assert_eq!(refs.len(), 1);
 
-        match &refs[0] {
-            TemporalReference::Relative { text, .. } => assert_eq!(text, "yesterday"),
-            _ => panic!("Expected relative"),
+        if let TemporalReference::Relative { text, .. } = &refs[0] {
+            assert_eq!(text, "yesterday");
+        } else {
+            panic!("Expected relative");
         }
 
         let refs = analyzer.extract_temporal_refs(&"Check last week logs".to_lowercase(), now);
         assert_eq!(refs.len(), 1);
-        match &refs[0] {
-            TemporalReference::Relative { text, .. } => assert_eq!(text, "last week"),
-            _ => panic!("Expected relative"),
+        if let TemporalReference::Relative { text, .. } = &refs[0] {
+            assert_eq!(text, "last week");
+        } else {
+            panic!("Expected relative");
         }
 
         let refs = analyzer.extract_temporal_refs(&"Do it today".to_lowercase(), now);
         assert_eq!(refs.len(), 1);
-        match &refs[0] {
-            TemporalReference::Relative { text, .. } => assert_eq!(text, "today"),
-            _ => panic!("Expected relative"),
+        if let TemporalReference::Relative { text, .. } = &refs[0] {
+            assert_eq!(text, "today");
+        } else {
+            panic!("Expected relative");
         }
 
         let refs = analyzer.extract_temporal_refs(&"Yesterday and today".to_lowercase(), now);
@@ -355,12 +358,18 @@ mod tests {
         // "yesterday" should be 2024-03-14 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("yesterday", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-14T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-14T12:00:00+00:00"
+        );
 
         // "last week" should be 2024-03-08 12:00:00 UTC
         let refs = analyzer.extract_temporal_refs("last week", now);
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].resolved().unwrap().to_rfc3339(), "2024-03-08T12:00:00+00:00");
+        assert_eq!(
+            refs[0].resolved().unwrap().to_rfc3339(),
+            "2024-03-08T12:00:00+00:00"
+        );
     }
 
     #[test]
