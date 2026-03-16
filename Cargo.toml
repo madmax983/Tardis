@@ -50,7 +50,7 @@ cudarc = "0.12"
 tokenizers = "0.22"
 safetensors = "0.7"
 half = "2.4"
-hf-hub = "0.4"
+hf-hub = "0.5"
 
 # Database (Gallifrey)
 # gallifreydb = { git = "https://github.com/madmax983/GallifreyDB" }
@@ -58,7 +58,7 @@ hf-hub = "0.4"
 # Common
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "=1.0.128" # Pin to known safe version
+serde_json = "=1.0.149" # Pin to known safe version
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
