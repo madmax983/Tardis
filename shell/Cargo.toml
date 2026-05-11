@@ -49,7 +49,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # CLI
-rustyline = "17"
+rustyline = "18"
 
 [dev-dependencies]
 criterion = { workspace = true }
