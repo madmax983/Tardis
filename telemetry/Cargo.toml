@@ -51,7 +51,7 @@ tracing = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 parking_lot = { version = "0.12", optional = true }
-once_cell = { version = "1.19", optional = true }
+once_cell = { version = "1.21", optional = true }
 tardis-gallifrey = { path = "../gallifrey", optional = true }
 
 # Time handling
@@ -68,9 +68,9 @@ serde_json = { workspace = true, default-features = false, features = ["alloc"] 
 thiserror = { workspace = true }
 
 # OpenTelemetry (behind "otlp" feature)
-opentelemetry = { version = "0.31", optional = true }
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"], optional = true }
+opentelemetry = { version = "0.32", optional = true }
+opentelemetry_sdk = { version = "0.32", features = ["rt-tokio"], optional = true }
+opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic"], optional = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 # Disable default features to avoid 'nightly' feature which breaks stable builds
